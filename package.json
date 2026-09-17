@@ -1,0 +1,42 @@
+{
+  "name": "gamify-ai",
+  "displayName": "Gamify AI",
+  "description": "Control VS Code and Copilot Chat with a gamepad. Modular architecture for extensible gamepad integration.",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "category": "Other",
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "gamifyAI.showDebugInfo",
+        "title": "Show Gamepad Debug Info",
+        "description": "Outputs current gamepad state and active mappings to the output channel."
+      }
+    ],
+    "configuration": {
+      "title": "Gamify AI",
+      "properties": {}
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./tsconfig.json",
+    "watch": "tsc -watch -p ./tsconfig.json",
+    "pretest": "npm run compile",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.95.0",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^20.0.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.7.0",
+    "gamepad-node": "^1.5.0"
+  },
+  "type": "module"
+}
