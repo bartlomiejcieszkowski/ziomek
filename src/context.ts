@@ -1,4 +1,5 @@
 import type * as vscode from 'vscode';
+import type { Logger } from './logger.js';
 
 export interface ContextState {
   chatFocused: boolean;
@@ -25,12 +26,15 @@ export class ContextTracker {
     sidebarFocused: false,
     streaming: false,
   };
+  private _logger?: Logger;
 
   /**
    * @param api - vscode API instance (injected for testability).
    *                Pass `undefined` to use the global vscode module.
+   * @param logger - Optional logger for debug output.
    */
-  constructor(api?: typeof import('vscode')) {
+  constructor(api?: typeof import('vscode'), logger?: Logger) {
+    this._logger = logger;
     this._observeVsCodeEvents(api);
   }
 
@@ -58,7 +62,10 @@ export class ContextTracker {
     // In production, api will be the vscode module.
     // In tests, it's injected (or undefined, meaning the module
     // won't be accessible and we gracefully skip VS Code wiring).
-    if (!api) return;
+    if (!api) {
+      this._logger?.debug('ContextTracker', 'No vscode API provided, skipping event observation');
+      return;
+    }
 
     const vscode = api as typeof import('vscode');
 

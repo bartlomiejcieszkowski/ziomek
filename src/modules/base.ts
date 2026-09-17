@@ -1,3 +1,5 @@
+import type { Logger } from '../logger.js';
+
 export interface GamepadModule {
   name: string;
   displayName: string;
@@ -9,8 +11,18 @@ export interface GamepadModule {
 export class ModuleRegistry {
   private _modules = new Map<string, GamepadModule>();
   private _actionMap = new Map<string, string>(); // action → moduleId
+  private _logger?: Logger;
+
+  constructor(logger?: Logger) {
+    this._logger = logger;
+  }
 
   register(module: GamepadModule): void {
+    this._logger?.info('ModuleRegistry', `Registering module: ${module.name}`);
+
+    if (module.actions.length === 0) {
+      this._logger?.warn('ModuleRegistry', `Module '${module.name}' has no actions`);
+    }
     this._modules.set(module.name, module);
     for (const action of module.actions) {
       this._actionMap.set(action, module.name);
@@ -22,6 +34,7 @@ export class ModuleRegistry {
     action: string,
     context: { context: string },
   ): Promise<void> {
+    this._logger?.debug('ModuleRegistry', `Resolving action '${action}' for module '${moduleId}'`);
     const module = this._modules.get(moduleId);
     if (!module) {
       throw new Error(`No module found with name '${moduleId}'`);
@@ -41,6 +54,7 @@ export class ModuleRegistry {
     action: string,
     context: { context: string },
   ): Promise<void> {
+    this._logger?.debug('ModuleRegistry', `Executing action '${action}' on module '${moduleId}'`);
     const module = this._modules.get(moduleId);
     if (!module) {
       throw new Error(`No module found with name '${moduleId}'`);

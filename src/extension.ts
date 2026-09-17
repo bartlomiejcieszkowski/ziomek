@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { Logger } from './logger.js';
 import { GamepadService } from './gamepad/service.js';
 import { ContextTracker } from './context.js';
 import { ModuleRegistry } from './modules/base.js';
@@ -8,12 +9,19 @@ import { CopilotChatModule } from './modules/copilot-chat.js';
 
 let gamepadService: GamepadService | null = null;
 let contextTracker: ContextTracker | null = null;
+let logger: Logger | null = null;
 
 export function activate(context: vscode.ExtensionContext) {
+  logger = new Logger('debug');
+  logger.info('extension', 'Activating Gamify AI extension');
+
   const configManager = new ConfigManager();
-  const moduleRegistry = new ModuleRegistry();
-  const mappingResolver = new MappingResolver(configManager.loadMapping('copilotChat'));
-  contextTracker = new ContextTracker();
+  const moduleRegistry = new ModuleRegistry(logger);
+  const mappingResolver = new MappingResolver(
+    configManager.loadMapping('copilotChat'),
+    { logger },
+  );
+  contextTracker = new ContextTracker(undefined, logger);
 
   // Register the Copilot Chat module
   const copilotChatModule = new CopilotChatModule();
@@ -59,15 +67,39 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // Register debug command
+  // Register debug command with log level toggle
   const debugDisposable = vscode.commands.registerCommand(
     'gamifyAI.showDebugInfo',
     () => {
-      showDebugInfo(moduleRegistry, gamepadService);
+      showDebugInfo(moduleRegistry, gamepadService, logger!);
     },
   );
 
-  context.subscriptions.push(configDisposable, debugDisposable);
+  const logLevelDisposable = vscode.commands.registerCommand(
+    'gamifyAI.cycleLogLevel',
+    () => {
+      if (!logger) return;
+      const levels: Array<'debug' | 'info' | 'warn' | 'error'> = [
+        'debug',
+        'info',
+        'warn',
+        'error',
+      ];
+      const currentIdx = levels.indexOf(logger.getLevel());
+      const nextLevel = levels[(currentIdx + 1) % levels.length];
+      logger.setLevel(nextLevel);
+      logger.info('extension', `Log level changed to ${nextLevel}`);
+      vscode.window.showInformationMessage(
+        `Gamify AI debug log level: ${nextLevel}`,
+      );
+    },
+  );
+
+  context.subscriptions.push(
+    configDisposable,
+    debugDisposable,
+    logLevelDisposable,
+  );
 }
 
 function detectContext(
@@ -91,9 +123,12 @@ function refreshConfiguration(
 function showDebugInfo(
   moduleRegistry: ModuleRegistry,
   gamepadService: GamepadService | null,
+  loggerRef: Logger,
 ): void {
   const output = vscode.window.createOutputChannel('Gamify AI Debug');
+  output.clear();
   output.appendLine('=== Gamify AI Debug Info ===');
+  output.appendLine(`Log level: ${loggerRef.getLevel()}`);
   output.appendLine(
     `Registered modules: ${moduleRegistry.getRegisteredModuleNames().join(', ')}`,
   );

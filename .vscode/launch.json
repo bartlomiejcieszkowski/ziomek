@@ -1,78 +1,21 @@
+// A launch configuration that compiles the extension and then opens it inside a new window
+// Use IntelliSense to learn about possible attributes.
+// Hover to view descriptions of existing attributes.
+// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
 {
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "name": "Run Extension",
-      "type": "extensionHost",
-      "request": "launch",
-      "args": [
-        "--extensionDevelopmentPath=${workspaceFolder}"
-      ],
-      "outFiles": [
-        "${workspaceFolder}/out/**/*.js"
-      ],
-      "preLaunchTask": {
-        "type": "shell",
-        "identifier": "npm: watch",
-        "label": "npm: watch",
-        "command": "npm",
-        "args": ["run", "watch"],
-        "options": {
-          "cwd": "${workspaceFolder}"
-        },
-        "presentation": {
-          "hidden": false,
-          "group": "build",
-          "reveal": "always"
-        },
-        "problemMatcher": "$tsc-watch"
-      }
-    },
-    {
-      "name": "Run Extension (compile first)",
-      "type": "extensionHost",
-      "request": "launch",
-      "args": [
-        "--extensionDevelopmentPath=${workspaceFolder}"
-      ],
-      "outFiles": [
-        "${workspaceFolder}/out/**/*.js"
-      ],
-      "preLaunchTask": {
-        "type": "shell",
-        "identifier": "npm: compile",
-        "label": "npm: compile",
-        "command": "npm",
-        "args": ["run", "compile"],
-        "options": {
-          "cwd": "${workspaceFolder}"
-        },
-        "presentation": {
-          "hidden": false,
-          "group": "build"
-        },
-        "problemMatcher": "$tsc"
-      }
-    }
-  ],
-  "compounds": [
-    {
-      "name": "Run & Test Extension",
-      "configurations": ["Run Extension"],
-      "preLaunchTask": {
-        "type": "shell",
-        "identifier": "npm: test",
-        "label": "npm: test",
-        "command": "npm",
-        "args": ["run", "test"],
-        "options": {
-          "cwd": "${workspaceFolder}"
-        },
-        "presentation": {
-          "hidden": false,
-          "group": "test"
-        }
-      }
-    }
-  ]
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Run Extension",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}"
+			],
+			"outFiles": [
+				"${workspaceFolder}/out/**/*.js"
+			],
+			"preLaunchTask": "${defaultBuildTask}"
+		}
+	]
 }

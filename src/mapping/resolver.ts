@@ -1,10 +1,12 @@
 import type { MappingConfig } from './config.js';
+import { Logger } from '../logger.js';
 
 export type ActionCallback = (action: string) => void;
 
 export class MappingResolver {
   private _config: MappingConfig;
   private _callback: ActionCallback | null = null;
+  private _logger: Logger | null = null;
   private _pressedButtons = new Set<number>();
   private _debounceMs = 80;
   private _lastActionTime = 0;
@@ -18,9 +20,11 @@ export class MappingResolver {
       debounceMs?: number;
       axisThreshold?: number;
       axisDeadZone?: number;
+      logger?: Logger;
     } = {},
   ) {
     this._config = config;
+    this._logger = options.logger || null;
     this._debounceMs = options.debounceMs ?? 80;
     this._axisThreshold = options.axisThreshold ?? 0.5;
     this._axisDeadZone = options.axisDeadZone ?? 0.3;
@@ -34,7 +38,7 @@ export class MappingResolver {
     this._config = config;
   }
 
-  handleButton(buttonIndex: number, pressed: boolean, value: number): void {
+  handleButton(buttonIndex: number, pressed: boolean, _value: number): void {
     if (!this._callback) return;
 
     if (pressed) {
