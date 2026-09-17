@@ -1,3 +1,5 @@
+import * as vscode from 'vscode';
+
 export interface MappingConfig {
   buttons: Record<number, string>;
   dpad: Record<0 | 1 | 2 | 3, string>;
@@ -86,6 +88,8 @@ export class ConfigManager {
   }
 
   refreshSettings(): void {
-    // Stub for VS Code settings integration — Task 8 will implement
+    const config = vscode.workspace.getConfiguration('gamifyAI');
+    const copilotEnabled = config.get('modules.copilotChat.enabled', true);
+    this.setEnabled('copilotChat', copilotEnabled);
   }
 }

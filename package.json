@@ -19,7 +19,30 @@
     ],
     "configuration": {
       "title": "Gamify AI",
-      "properties": {}
+      "properties": {
+        "gamifyAI.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable gamepad input for Gamify AI"
+        },
+        "gamifyAI.pollingIntervalMs": {
+          "type": "number",
+          "default": 16,
+          "description": "Gamepad polling interval in milliseconds (lower = more responsive, higher CPU usage)",
+          "minimum": 4,
+          "maximum": 250
+        },
+        "gamifyAI.debounceMs": {
+          "type": "number",
+          "default": 80,
+          "description": "Minimum time between repeated actions in milliseconds (prevents rapid duplicates)"
+        },
+        "gamifyAI.modules.copilotChat.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Copilot Chat gamepad controls"
+        }
+      }
     }
   },
   "scripts": {
