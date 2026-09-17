@@ -30,6 +30,7 @@
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --forceExit"
   },
   "devDependencies": {
+    "@jest/globals": "^29.7.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.95.0",
