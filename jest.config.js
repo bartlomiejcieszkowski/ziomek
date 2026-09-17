@@ -10,9 +10,11 @@ export default {
       'ts-jest',
       {
         useESM: true,
+        tsconfig: { module: 'NodeNext', 'moduleResolution': 'NodeNext' },
       },
     ],
   },
   testMatch: ['**/tests/**/*.test.ts'],
   coverageDirectory: 'coverage',
+  injectGlobals: true,
 };
