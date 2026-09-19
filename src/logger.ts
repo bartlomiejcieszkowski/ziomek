@@ -12,6 +12,7 @@ const LEVELS: Record<LogLevel, number> = {
 export class Logger {
   private readonly _channels = new Map<string, vscode.OutputChannel>();
   private _minLevel: LogLevel = 'info';
+  private _fallbackChannel?: vscode.OutputChannel;
 
   constructor(minLevel: LogLevel = 'info') {
     this._minLevel = minLevel;
@@ -69,6 +70,20 @@ export class Logger {
       this._channels.set(module, channel);
     }
     channel.appendLine(message);
+
+    // Also route to fallback channel (e.g., the aggregated debug channel)
+    if (this._fallbackChannel) {
+      try {
+        this._fallbackChannel.appendLine(message);
+      } catch {
+        // Fallback channel may have been disposed
+        this._fallbackChannel = undefined;
+      }
+    }
+  }
+
+  setFallbackChannel(channel?: vscode.OutputChannel): void {
+    this._fallbackChannel = channel;
   }
 
   getOutputChannels(): vscode.OutputChannel[] {
@@ -76,8 +91,9 @@ export class Logger {
   }
 
   clear(): void {
-    for (const channel of this._channels.values()) {
-      channel.clear();
+    for (const [module, channel] of this._channels) {
+      channel.dispose();
+      this._channels.set(module, vscode.window.createOutputChannel(`Gamify AI - ${module}`));
     }
   }
 }

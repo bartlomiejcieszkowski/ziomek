@@ -129,4 +129,57 @@ export class GamepadService {
       }
     }
   }
+
+  isStarted(): boolean {
+    return this._pollingInterval !== null;
+  }
+
+  isManagerReady(): boolean {
+    return this._manager !== null;
+  }
+
+  getGamepadCount(): number {
+    try {
+      const gamepads = navigator.getGamepads();
+      let count = 0;
+      for (const gp of gamepads) {
+        if (gp) count++;
+      }
+      return count;
+    } catch {
+      return 0;
+    }
+  }
+
+  getGamepadIndex(index: number): GamepadState | undefined {
+    try {
+      const gamepad = navigator.getGamepads()[index];
+      if (!gamepad) return undefined;
+      return this._toEventState(gamepad);
+    } catch {
+      return undefined;
+    }
+  }
+
+  getGamepadDetail(index: number): {
+    connected: boolean;
+    id: string;
+    mapping: string;
+    buttons: number;
+    axes: number;
+  } | undefined {
+    try {
+      const gamepad = navigator.getGamepads()[index];
+      if (!gamepad) return undefined;
+      return {
+        connected: gamepad.connected,
+        id: gamepad.id,
+        mapping: gamepad.mapping,
+        buttons: gamepad.buttons.length,
+        axes: gamepad.axes.length,
+      };
+    } catch {
+      return undefined;
+    }
+  }
 }

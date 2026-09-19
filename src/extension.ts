@@ -10,6 +10,7 @@ import { CopilotChatModule } from './modules/copilot-chat.js';
 let gamepadService: GamepadService | null = null;
 let contextTracker: ContextTracker | null = null;
 let logger: Logger | null = null;
+let debugChannel: vscode.OutputChannel | null = null;
 
 export function activate(context: vscode.ExtensionContext) {
   logger = new Logger('debug');
@@ -125,18 +126,52 @@ function showDebugInfo(
   gamepadService: GamepadService | null,
   loggerRef: Logger,
 ): void {
-  const output = vscode.window.createOutputChannel('Gamify AI Debug');
-  output.clear();
-  output.appendLine('=== Gamify AI Debug Info ===');
-  output.appendLine(`Log level: ${loggerRef.getLevel()}`);
-  output.appendLine(
+  if (!debugChannel) {
+    debugChannel = vscode.window.createOutputChannel('Gamify AI Debug');
+    loggerRef.setFallbackChannel(debugChannel);
+  }
+  debugChannel.clear();
+  const now = new Date();
+  const timestamp = now.toLocaleTimeString();
+  debugChannel.appendLine(`=== Gamify AI Debug Info [${timestamp}] ===`);
+  debugChannel.appendLine(`Current time: ${now.toISOString()}`);
+  debugChannel.appendLine(`Log level: ${loggerRef.getLevel()}`);
+  debugChannel.appendLine(
     `Registered modules: ${moduleRegistry.getRegisteredModuleNames().join(', ')}`,
   );
-  output.appendLine(`Gamepad service started: ${gamepadService !== null}`);
-  output.show();
+  debugChannel.appendLine('');
+  debugChannel.appendLine('=== Gamepad Service ===');
+  if (gamepadService) {
+    debugChannel.appendLine(`Started: ${gamepadService.isStarted()}`);
+    debugChannel.appendLine(`Manager ready: ${gamepadService.isManagerReady()}`);
+    debugChannel.appendLine(`Connected gamepads: ${gamepadService.getGamepadCount()}`);
+
+    if (gamepadService.getGamepadCount() > 0) {
+      debugChannel.appendLine('');
+      for (let i = 0; i < 4; i++) {
+        const detail = gamepadService.getGamepadDetail(i);
+        if (detail) {
+          debugChannel.appendLine(`Gamepad ${i}: ${detail.id}`);
+          debugChannel.appendLine(`  Mapping: ${detail.mapping}`);
+          debugChannel.appendLine(`  Buttons: ${detail.buttons}, Axes: ${detail.axes}`);
+        }
+      }
+    } else {
+      debugChannel.appendLine('No gamepads detected.');
+      debugChannel.appendLine('Make sure:');
+      debugChannel.appendLine('  1. Gamepad is plugged in before starting VS Code');
+      debugChannel.appendLine('  2. No other app is using the gamepad');
+      debugChannel.appendLine('  3. Windows Game Controller settings show it as connected');
+    }
+  } else {
+    debugChannel.appendLine('Gamepad service not initialized (extension not activated?)');
+  }
+  debugChannel.show();
 }
 
 export function deactivate(): void {
+  debugChannel?.dispose();
+  debugChannel = null;
   if (gamepadService) {
     gamepadService.stop();
   }
