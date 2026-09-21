@@ -113,6 +113,10 @@ export class GamepadAvatarPanel implements vscode.Disposable {
   show(): void {
     if (this._panel) {
       this._panel.reveal();
+      // Start polling if already visible (panel already created)
+      if (this._panel.visible && !this._pollTimer) {
+        this._startPolling();
+      }
       return;
     }
 
@@ -137,9 +141,6 @@ export class GamepadAvatarPanel implements vscode.Disposable {
         this._startPolling();
       }
     });
-
-    // Initial draw
-    this._updatePanel();
   }
 
   /** Hide the panel */
@@ -464,6 +465,7 @@ export class GamepadAvatarPanel implements vscode.Disposable {
       window.addEventListener('message', function(event) {
         const message = event.data;
         if (message.type === 'update') {
+          console.log('[Webview] Received update:', message.expression, '/', message.cycleIndex);
           frameData = message;
 
           if (message.spriteData && message.spriteData !== spriteSrc) {
