@@ -64,21 +64,25 @@ export class Logger {
   }
 
   private _appendLine(module: string, message: string): void {
-    let channel = this._channels.get(module);
-    if (!channel) {
-      channel = vscode.window.createOutputChannel(`Gamify AI - ${module}`);
-      this._channels.set(module, channel);
-    }
-    channel.appendLine(message);
-
-    // Also route to fallback channel (e.g., the aggregated debug channel)
-    if (this._fallbackChannel) {
-      try {
-        this._fallbackChannel.appendLine(message);
-      } catch {
-        // Fallback channel may have been disposed
-        this._fallbackChannel = undefined;
+    try {
+      let channel = this._channels.get(module);
+      if (!channel) {
+        channel = vscode.window.createOutputChannel(`Gamify AI - ${module}`);
+        this._channels.set(module, channel);
       }
+      channel.appendLine(message);
+
+      // Also route to fallback channel (e.g., the aggregated debug channel)
+      if (this._fallbackChannel) {
+        try {
+          this._fallbackChannel.appendLine(message);
+        } catch {
+          // Fallback channel may have been disposed
+          this._fallbackChannel = undefined;
+        }
+      }
+    } catch {
+      // vscode API not available (e.g., in tests) — silently ignore
     }
   }
 

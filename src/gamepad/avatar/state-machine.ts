@@ -5,6 +5,9 @@
  * Uses expression preemption by intensity: higher-intensity expressions
  * always interrupt lower-intensity ones.
  */
+import { Logger } from '../../logger.js';
+
+const _logger = new Logger('debug');
 
 export interface GamepadAvatarInput {
   buttons: ReadonlyArray<{ pressed: boolean; value: number }>;
@@ -77,28 +80,40 @@ export class AvatarStateMachine {
   private _currentExpressionType: 'idle' | 'button' | 'axis' | 'vscode' | null = null;
 
   update(input: GamepadAvatarInput): void {
+    const pressedButtons: number[] = [];
     for (let i = 0; i < input.buttons.length; i++) {
       const pressed = input.buttons[i]?.pressed ?? false;
+      if (pressed) pressedButtons.push(i);
       if (pressed && !this._prevButtons.has(i)) {
+        _logger.debug('StateMachine', `Button press: btn[${i}], current=${this._current?.name ?? 'null'}, type=${this._currentExpressionType}`);
         this._prevButtons.add(i);
         this._tryStartButtonExpression(input, i);
+        _logger.debug('StateMachine', `After button expr: _current=${this._current?.name ?? 'null'}`);
       }
       if (!pressed) {
         this._prevButtons.delete(i);
       }
     }
+    if (pressedButtons.length > 0) {
+      _logger.debug('StateMachine', `Pressed buttons: [${pressedButtons.join(', ')}]`);
+    }
     this._updateLevelTriggers(input);
     if (!this._current) {
+      _logger.debug('StateMachine', 'No current expression, starting idle');
       this._startExpression(this._findIdleExpression());
     }
+    _logger.debug('StateMachine', `update() done: _current=${this._current?.name ?? 'null'}, type=${this._currentExpressionType}`);
   }
 
   tick(dtMs: number): ExpressionState {
+    _logger.debug('StateMachine', `tick(dtMs=${dtMs}), _current=${this._current?.name ?? 'null'}, type=${this._currentExpressionType}`);
     if (!this._current) {
+      _logger.debug('StateMachine', 'tick: no current, auto-starting idle');
       this._startExpression(this._findIdleExpression());
     }
 
     if (!this._current) {
+      _logger.debug('StateMachine', 'tick: _current still null, returning static idle');
       return { expressionName: 'idle', cycleIndex: 0 };
     }
 
@@ -110,19 +125,23 @@ export class AvatarStateMachine {
       : this._current.def.durationMs;
 
     while (this._current.timer >= frameDuration) {
+      _logger.debug('StateMachine', `tick: frame complete for ${this._current.name}, frameDuration=${frameDuration}, cycleIndex=${this._current.cycleIndex}/${this._current.cycleCount}`);
       this._current.timer -= frameDuration;
       if (this._current.cycleCount > 1) {
         this._current.cycleIndex++;
         if (this._current.cycleIndex >= this._current.def.cycleCount) {
           // Cycle complete — transition
           const leftover = this._current.timer;
+          _logger.debug('StateMachine', `tick: cycle complete for ${this._current.name}, type=${this._currentExpressionType}`);
           this._current = null;
           // Only level-triggered expressions keep their expression type
           if (this._currentExpressionType === 'button') {
             this._currentExpressionType = null;
+            _logger.debug('StateMachine', 'tick: cleared button type (edge-triggered)');
           }
           if (!this._currentExpressionType) {
             // Only idle can naturally transition to idle
+            _logger.debug('StateMachine', 'tick: no type, transitioning to idle');
             this._startExpression(this._findIdleExpression());
             return this.tick(dtMs - leftover);
           }
@@ -131,12 +150,15 @@ export class AvatarStateMachine {
       } else {
         // Single-cycle expression has ended
         const leftover = this._current.timer;
+        _logger.debug('StateMachine', `tick: single-cycle expression ended for ${this._current.name}, type=${this._currentExpressionType}`);
         this._current = null;
         // Only level-triggered expressions keep their expression type
         if (this._currentExpressionType === 'button') {
           this._currentExpressionType = null;
+          _logger.debug('StateMachine', 'tick: cleared button type (edge-triggered)');
         }
         if (!this._currentExpressionType) {
+          _logger.debug('StateMachine', 'tick: no type, transitioning to idle');
           this._startExpression(this._findIdleExpression());
           return this.tick(dtMs - leftover);
         }
@@ -148,6 +170,7 @@ export class AvatarStateMachine {
     if (this._current.def.durationMs >= 999999999) {
       // Infinite — check if trigger is still active
       if (!this._isTriggerActive(this._current.def)) {
+        _logger.debug('StateMachine', `tick: infinite expression ${this._current.name} no longer active`);
         this._current = null;
         this._currentExpressionType = null;
         return this.tick(dtMs);
@@ -187,30 +210,39 @@ export class AvatarStateMachine {
 
   // ── Private helpers ──────────────────────────────────────────────────
 
-  private _tryStartButtonExpression(input: GamepadAvatarInput, _btnIndex: number): void {
+  private _tryStartButtonExpression(input: GamepadAvatarInput, btnIndex: number): void {
     for (const expr of EXPRESSIONS) {
       for (const trigger of expr.triggers) {
         if (trigger.type === 'button' && trigger.condition(input)) {
           if (this._canStartExpression(expr)) {
+            _logger.debug('StateMachine', `Button trigger matched: ${expr.name} (btn[${btnIndex}])`);
             this._startExpression(expr);
             this._currentExpressionType = 'button';
+            _logger.debug('StateMachine', `Started expression: ${expr.name}`);
             return;
+          } else {
+            _logger.debug('StateMachine', `Button trigger rejected: ${expr.name} (intensity=${expr.intensity} vs current=${this._current?.def?.intensity ?? 'none'})`);
           }
         }
       }
     }
+    _logger.debug('StateMachine', `No button expression matched for btn[${btnIndex}]`);
   }
 
   private _updateLevelTriggers(input: GamepadAvatarInput): void {
     const axisActive = Math.abs(input.axes[0]) > AXIS_THRESHOLD || Math.abs(input.axes[2]) > AXIS_THRESHOLD;
+
+    _logger.debug('StateMachine', `_updateLevelTriggers: axisActive=${axisActive}, streaming=${input.streaming}, errorState=${input.errorState}`);
 
     if (axisActive !== this._prevAxisActive) {
       this._prevAxisActive = axisActive;
       if (axisActive) {
         if (this._tryStartExpressionByType('focused', input)) {
           this._currentExpressionType = 'axis';
+          _logger.debug('StateMachine', 'Axis trigger: started focused');
         }
       } else if (this._currentExpressionType === 'axis') {
+        _logger.debug('StateMachine', 'Axis trigger: cleared focused');
         this._current = null;
         this._currentExpressionType = null;
       }
@@ -222,8 +254,10 @@ export class AvatarStateMachine {
       if (input.streaming) {
         if (this._tryStartExpressionByType('thinking', input)) {
           this._currentExpressionType = 'vscode';
+          _logger.debug('StateMachine', 'Streaming trigger: started thinking');
         }
       } else if (this._currentExpressionType === 'vscode' && this._current?.def.name === 'thinking') {
+        _logger.debug('StateMachine', 'Streaming trigger: cleared thinking');
         this._current = null;
         this._currentExpressionType = null;
       }
@@ -235,8 +269,10 @@ export class AvatarStateMachine {
       if (input.errorState) {
         if (this._tryStartExpressionByType('dying', input)) {
           this._currentExpressionType = 'vscode';
+          _logger.debug('StateMachine', 'Error trigger: started dying');
         }
       } else if (this._currentExpressionType === 'vscode' && this._current?.def.name === 'dying') {
+        _logger.debug('StateMachine', 'Error trigger: cleared dying');
         this._current = null;
         this._currentExpressionType = null;
       }
@@ -245,12 +281,26 @@ export class AvatarStateMachine {
 
   private _tryStartExpressionByType(name: string, _input: GamepadAvatarInput): boolean {
     const expr = EXPRESSIONS.find(e => e.name === name);
-    if (!expr) return false;
-    if (this._canStartExpression(expr)) {
-      this._startExpression(expr);
-      return true;
+    if (!expr) {
+      _logger.debug('StateMachine', `_tryStartExpressionByType: expression '${name}' not found`);
+      return false;
     }
-    return false;
+    if (!this._canStartExpression(expr)) {
+      _logger.debug('StateMachine', `_tryStartExpressionByType: rejected '${name}' - ${this._debugCanStartReason(expr)}`);
+      return false;
+    }
+    _logger.debug('StateMachine', `_tryStartExpressionByType: starting '${name}'`);
+    this._startExpression(expr);
+    return true;
+  }
+
+  private _debugCanStartReason(expr: ExpressionDef): string {
+    if (!this._current) return 'no current expression';
+    if (expr.intensity > this._current.def.intensity) return `intensity ${expr.intensity} > ${this._current.def.intensity}`;
+    const currentType = this._currentExpressionType;
+    const newType = this._getTriggerType(expr);
+    if (currentType === newType) return `same type (${currentType})`;
+    return `intensity ${expr.intensity} <= ${this._current.def.intensity}`;
   }
 
   private _findIdleExpression(): string {
@@ -301,6 +351,7 @@ export class AvatarStateMachine {
       def = EXPRESSIONS.find(e => e.name === name) ?? EXPRESSIONS[0];
     }
 
+    const prevName = this._current?.name ?? 'null';
     this._current = {
       def,
       name,
@@ -308,5 +359,6 @@ export class AvatarStateMachine {
       cycleCount: def.cycleCount,
       timer: 0,
     };
+    _logger.debug('StateMachine', `_startExpression: ${prevName} → ${name} (intensity=${def.intensity}, duration=${def.durationMs})`);
   }
 }

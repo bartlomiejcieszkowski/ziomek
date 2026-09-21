@@ -8,8 +8,11 @@
 import * as vscode from 'vscode';
 import { join } from 'path';
 import { readFileSync } from 'node:fs';
+import { Logger } from '../logger.js';
 import { SkinRegistry } from './avatar/skin-registry.js';
 import { GamepadAvatarInput, ExpressionState } from './avatar/state-machine.js';
+
+const _logger = new Logger('debug');
 
 /** State sent from extension to panel */
 interface UpdateMessage {
@@ -44,6 +47,7 @@ export class GamepadAvatarPanel implements vscode.Disposable {
 
   private _panel?: vscode.WebviewPanel;
   private _pollTimer: ReturnType<typeof setInterval> | null = null;
+  private _lastPollTime = 0;
   private _lastExpression = '';
   private _lastCycleIndex = -1;
   private _disposables: vscode.Disposable[] = [];
@@ -200,6 +204,7 @@ export class GamepadAvatarPanel implements vscode.Disposable {
 
   /** Start polling loop */
   private _startPolling(): void {
+    this._lastPollTime = Date.now();
     this._pollTimer = setInterval(() => {
       this._updatePanel();
     }, 100); // 10 FPS
@@ -221,10 +226,15 @@ export class GamepadAvatarPanel implements vscode.Disposable {
   private _updatePanel(): void {
     if (!this._panel) return;
 
+    const now = Date.now();
+    const delta = this._lastPollTime > 0 ? now - this._lastPollTime : 100;
+    this._lastPollTime = now;
+
     const input = this._getInput();
     this._stateMachine.update(input);
-    const state = this._stateMachine.tick(16);
+    const state = this._stateMachine.tick(delta);
 
+    _logger.debug('AvatarPanel', `_updatePanel: delta=${delta}ms, spriteBuffer=${Boolean(this._spriteBuffer)}, state=${state.expressionName}/${state.cycleIndex}`);
     this._sendToPanel(state);
   }
 
@@ -246,6 +256,8 @@ export class GamepadAvatarPanel implements vscode.Disposable {
       focused: 3, bored: 3, dying: 4, neutral: 1,
     };
     const row = rowMap[state.expressionName] ?? 1;
+
+    _logger.debug('AvatarPanel', `_sendToPanel: expression=${state.expressionName}, row=${row}, spriteBuffer=${Boolean(this._spriteBuffer)}`);
 
     // Build sprite base64 from cached buffer
     const spriteData = this._spriteBuffer
