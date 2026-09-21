@@ -167,9 +167,10 @@ describe('AvatarStateMachine', () => {
     expect(state.cycleIndex).toBe(0);
   });
 
-  test('getCurrentState should return idle when no expression active', () => {
+  test('getCurrentState starts idle expression when tick called without update', () => {
     const state = machine.tick(100);
-    expect(state.expressionName).toBe('idle');
-    expect(state.cycleIndex).toBe(0);
+    // tick() auto-starts idle expression when no expression active
+    // Returns the first idle expression from the map
+    expect(state.expressionName).toMatch(/^(bored|neutral)$/);
   });
 });

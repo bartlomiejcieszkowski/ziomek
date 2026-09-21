@@ -95,6 +95,10 @@ export class AvatarStateMachine {
 
   tick(dtMs: number): ExpressionState {
     if (!this._current) {
+      this._startExpression(this._findIdleExpression());
+    }
+
+    if (!this._current) {
       return { expressionName: 'idle', cycleIndex: 0 };
     }
 
