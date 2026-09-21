@@ -1,13 +1,25 @@
 import * as vscode from 'vscode';
+import { spawn } from 'child_process';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { Logger } from './logger.js';
 import { GamepadService } from './gamepad/service.js';
+import { GamepadAvatarPanel } from './gamepad/avatar-panel.js';
+import { SkinRegistry } from './gamepad/avatar/skin-registry.js';
+import { AvatarStateMachine, type GamepadAvatarInput } from './gamepad/avatar/state-machine.js';
 import { ContextTracker } from './context.js';
 import { ModuleRegistry } from './modules/base.js';
 import { MappingResolver } from './mapping/resolver.js';
 import { ConfigManager } from './mapping/config.js';
 import { CopilotChatModule } from './modules/copilot-chat.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 let gamepadService: GamepadService | null = null;
+let avatarPanel: GamepadAvatarPanel | null = null;
+let stateMachine: AvatarStateMachine | null = null;
+let avatarPollTimer: ReturnType<typeof setInterval> | null = null;
 let contextTracker: ContextTracker | null = null;
 let logger: Logger | null = null;
 let debugChannel: vscode.OutputChannel | null = null;
@@ -59,7 +71,9 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  gamepadService.start();
+  gamepadService.start().catch((error) => {
+    vscode.window.showErrorMessage(`Gamify AI: Failed to initialize gamepad service — ${error.message}`);
+  });
 
   // Set up settings change watcher
   const configDisposable = vscode.workspace.onDidChangeConfiguration((event) => {
@@ -96,11 +110,60 @@ export function activate(context: vscode.ExtensionContext) {
     },
   );
 
+  // Register gamepad debug window command
+  const gamepadWindowDisposable = vscode.commands.registerCommand(
+    'gamifyAI.showGamepadWindow',
+    () => {
+      showGamepadWindow();
+    },
+  );
+
+  // Avatar panel — created after gamepadService so it can receive state
+  const skinRegistry = SkinRegistry.getInstance();
+  stateMachine = new AvatarStateMachine();
+  avatarPanel = new GamepadAvatarPanel(context, skinRegistry, stateMachine);
+
+  // Register avatar panel command
+  const showAvatarDisposable = vscode.commands.registerCommand(
+    'gamifyAI.showAvatar',
+    () => {
+      avatarPanel?.show();
+    },
+  );
+
   context.subscriptions.push(
     configDisposable,
     debugDisposable,
     logLevelDisposable,
+    gamepadWindowDisposable,
+    showAvatarDisposable,
   );
+
+  // Gamepad polling loop for avatar panel (10 FPS)
+  let lastAvatarUpdate = 0;
+  avatarPollTimer = setInterval(() => {
+    const now = Date.now();
+    if (!avatarPanel || !stateMachine) return;
+    if (now - lastAvatarUpdate < 100) return;
+    lastAvatarUpdate = now;
+
+    const gamepads = gamepadService?.getGamepads() || [];
+    avatarPanel.updateFromGamepad(gamepads);
+
+    // Feed state to state machine
+    const input: GamepadAvatarInput = {
+      buttons: gamepads.length > 0 ? gamepads[0].buttons : [],
+      axes: gamepads.length > 0 ? gamepads[0].axes : [],
+      connected: gamepads.length > 0,
+      streaming: false,
+      chatFocused: false,
+      errorState: false,
+    };
+
+    stateMachine.update(input);
+    const state = stateMachine.tick(16);
+    avatarPanel.updateState(state);
+  }, 100);
 }
 
 function detectContext(
@@ -169,10 +232,38 @@ function showDebugInfo(
   debugChannel.show();
 }
 
+/** Launch the SDL-based gamepad debug window in a separate process. */
+function showGamepadWindow(): void {
+  const scriptPath = join(__dirname, '..', 'debug_tools', 'gamepad-window.js');
+
+  try {
+    const child = spawn('node', [scriptPath], {
+      stdio: ['ignore', 'ignore', 'inherit'],
+      detached: true,
+    });
+
+    child.unref();
+    vscode.window.showInformationMessage(
+      `Gamify AI: Gamepad debug window launched.`,
+    );
+    logger?.info('extension', `Launched gamepad debug window (pid ${child.pid})`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    vscode.window.showErrorMessage(
+      `Gamify AI: Failed to launch gamepad debug window — ${msg}`,
+    );
+    logger?.error('extension', `Failed to launch gamepad debug window: ${msg}`);
+  }
+}
+
 export function deactivate(): void {
   debugChannel?.dispose();
   debugChannel = null;
   if (gamepadService) {
     gamepadService.stop();
+  }
+  if (avatarPollTimer) {
+    clearInterval(avatarPollTimer);
+    avatarPollTimer = null;
   }
 }

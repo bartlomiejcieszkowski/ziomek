@@ -15,6 +15,17 @@
         "command": "gamifyAI.showDebugInfo",
         "title": "Show Gamepad Debug Info",
         "description": "Outputs current gamepad state and active mappings to the output channel."
+      },
+      {
+        "command": "gamifyAI.showGamepadWindow",
+        "title": "Show Gamepad Debug Window",
+        "description": "Opens an SDL window visualizing gamepad state in real-time."
+      },
+      {
+        "command": "gamifyAI.showAvatar",
+        "title": "Show Gamify AI - Avatar",
+        "description": "Shows the Gamify AI avatar panel with animated single-frame portrait.",
+        "icon": "$(gamepad)"
       }
     ],
     "configuration": {

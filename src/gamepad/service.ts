@@ -1,54 +1,86 @@
-import { installNavigatorShim as _installNavigatorShim } from 'gamepad-node';
+import type { GamepadEvent, GamepadEventListener, GamepadState } from './events.js';
 
-// Type declaration for gamepad-node (no @types package available)
-declare function installNavigatorShim(options?: {
-  sdl?: any;
-}): {
-  on(event: string, listener: (...args: any[]) => void): void;
-  startPolling(fps: number): void;
+// Type definition for gamepad-node (no @types package available)
+type Manager = {
+  on(event: string, listener: (data: any) => void): void;
   poll(): void;
-  getGamepads(): Array<any>;
+  getGamepads(): GamepadState[];
   _destroyed?: boolean;
 };
 
-import type { GamepadEvent, GamepadEventListener, GamepadState } from './events.js';
+type GamepadModule = {
+  GamepadManager: { new (): Manager };
+  installNavigatorShim?: (options?: any) => Manager;
+};
+
+let cachedModule: GamepadModule | null = null;
+
+async function getGamepadModule(): Promise<GamepadModule> {
+  if (!cachedModule) {
+    try {
+      // SAFETY: gamepad-node has no TypeScript types; dynamic import returns
+      // { GamepadManager, installNavigatorShim, ... } as named exports
+      // We cast via unknown to avoid type mismatch between module structure
+      const mod = await import('gamepad-node');
+      // SAFETY: gamepad-node exports GamepadManager as a named export
+      // The module structure has GamepadManager directly on the import object
+      const gm = (mod as unknown as { GamepadManager?: { new (): Manager } }).GamepadManager;
+      if (!gm) {
+        // Try default export as fallback
+        // SAFETY: gamepad-node may export via default in some bundlers
+        const def = (mod as unknown as { default?: { GamepadManager?: { new (): Manager } } }).default;
+        if (!def || !def.GamepadManager) {
+          throw new Error('GamepadManager not found in gamepad-node module');
+        }
+        cachedModule = { GamepadManager: def.GamepadManager } as GamepadModule;
+      } else {
+        cachedModule = { GamepadManager: gm } as GamepadModule;
+      }
+    } catch {
+      throw new Error('Failed to load gamepad-node module');
+    }
+  }
+  return cachedModule;
+}
 
 export class GamepadService {
   private readonly _listeners = new Set<GamepadEventListener>();
   private _pollingInterval: ReturnType<typeof setInterval> | null = null;
   private readonly _pollingIntervalMs: number;
   private readonly _previousStates = new Map<number, ReadonlyArray<{ pressed: boolean; value: number }>>();
-  private _manager: ReturnType<typeof installNavigatorShim> | null = null;
+  private _manager: Manager | null = null;
+  private _module: GamepadModule | null = null;
 
   constructor(pollingIntervalMs: number = 16) {
     this._pollingIntervalMs = pollingIntervalMs;
   }
 
-  start(): void {
+  async start(): Promise<void> {
     try {
-      this._manager = _installNavigatorShim() as ReturnType<typeof installNavigatorShim>;
+      this._module = await getGamepadModule();
 
-      // Forward connect/disconnect events from gamepad-node
+      // Create GamepadManager directly (bypass installNavigatorShim which tries
+      // to patch navigator.getGamepads — navigator doesn't exist in VS Code's
+      // extension host environment)
+      this._manager = new this._module!.GamepadManager();
       this._manager.on('gamepadconnected', (event: { gamepad: any }) => {
         this._emit({
           type: 'gamepadconnected',
           gamepad: this._toEventState(event.gamepad),
         } as GamepadEvent);
       });
-
       this._manager.on('gamepaddisconnected', (event: { gamepad: any }) => {
         this._emit({
           type: 'gamepaddisconnected',
           gamepad: this._toEventState(event.gamepad),
         } as GamepadEvent);
       });
-
-      // Start polling loop
+      // Start polling loop — we call manager methods directly instead of
+      // relying on navigator.getGamepads() which doesn't exist in VS Code
       this._previousStates.clear();
       this._pollingInterval = globalThis.setInterval(() => this._poll(), this._pollingIntervalMs);
     } catch (error) {
       console.error('GamepadService: failed to initialize gamepad-node:', error);
-      // Graceful degradation - service can still be stopped without crashing
     }
   }
 
@@ -68,17 +100,19 @@ export class GamepadService {
   }
 
   private _poll(): void {
+    if (!this._manager) return;
     try {
-      const gamepads = navigator.getGamepads();
+      // Call GamepadManager's methods directly instead of navigator.getGamepads()
+      const gamepads = this._manager.getGamepads();
 
       for (const gamepad of gamepads) {
         if (!gamepad) continue;
 
         const previousButtons = this._previousStates.get(gamepad.index);
-        const currentButtons = gamepad.buttons.map(b => ({ pressed: b.pressed, value: b.value }));
+        const currentButtons = gamepad.buttons.map((b: any) => ({ pressed: b.pressed, value: b.value }));
 
         // Detect button transitions
-        gamepad.buttons.forEach((btn, i) => {
+        gamepad.buttons.forEach((btn: any, i: number) => {
           if (previousButtons && previousButtons[i]) {
             if (btn.pressed !== previousButtons[i].pressed) {
               this._emit({
@@ -93,7 +127,7 @@ export class GamepadService {
         });
 
         // Detect axis changes
-        gamepad.axes.forEach((axis, i) => {
+        gamepad.axes.forEach((axis: number, i: number) => {
           this._emit({
             type: 'gamepadaxis',
             index: gamepad.index,
@@ -139,8 +173,9 @@ export class GamepadService {
   }
 
   getGamepadCount(): number {
+    if (!this._manager) return 0;
     try {
-      const gamepads = navigator.getGamepads();
+      const gamepads = this._manager.getGamepads();
       let count = 0;
       for (const gp of gamepads) {
         if (gp) count++;
@@ -152,8 +187,9 @@ export class GamepadService {
   }
 
   getGamepadIndex(index: number): GamepadState | undefined {
+    if (!this._manager) return undefined;
     try {
-      const gamepad = navigator.getGamepads()[index];
+      const gamepad = this._manager.getGamepads()[index];
       if (!gamepad) return undefined;
       return this._toEventState(gamepad);
     } catch {
@@ -168,8 +204,9 @@ export class GamepadService {
     buttons: number;
     axes: number;
   } | undefined {
+    if (!this._manager) return undefined;
     try {
-      const gamepad = navigator.getGamepads()[index];
+      const gamepad = this._manager.getGamepads()[index];
       if (!gamepad) return undefined;
       return {
         connected: gamepad.connected,
@@ -180,6 +217,16 @@ export class GamepadService {
       };
     } catch {
       return undefined;
+    }
+  }
+
+  /** Get raw gamepad states from the manager for external consumers (avatar panel). */
+  getGamepads(): GamepadState[] {
+    if (!this._manager) return [];
+    try {
+      return this._manager.getGamepads();
+    } catch {
+      return [];
     }
   }
 }
