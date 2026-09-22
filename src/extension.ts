@@ -145,6 +145,20 @@ export function activate(context: vscode.ExtensionContext) {
     logLevelDisposable,
     gamepadWindowDisposable,
     showAvatarDisposable,
+    // Emotion setter (callable by other extensions)
+    vscode.commands.registerCommand(
+      'gamifyAI.setEmotion',
+      (expressionName: string) => {
+        if (!stateMachine) return;
+        const success = stateMachine.setExpression(expressionName);
+        const exprNames = stateMachine.getExpressionNames().join(', ');
+        if (success) {
+          vscode.window.showInformationMessage(`Avatar emotion set to: ${expressionName}`);
+        } else {
+          vscode.window.showErrorMessage(`Unknown expression '${expressionName}'. Valid: ${exprNames}`);
+        }
+      },
+    ),
   );
 
   // Gamepad polling loop for avatar panel (10 FPS)

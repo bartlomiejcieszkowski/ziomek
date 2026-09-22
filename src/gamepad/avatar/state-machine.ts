@@ -77,7 +77,7 @@ export class AvatarStateMachine {
   private _prevAxisActive = false;
   private _prevStreaming = false;
   private _prevErrorState = false;
-  private _currentExpressionType: 'idle' | 'button' | 'axis' | 'vscode' | null = null;
+  private _currentExpressionType: 'idle' | 'button' | 'axis' | 'vscode' | 'external' | null = null;
 
   update(input: GamepadAvatarInput): void {
     const pressedButtons: number[] = [];
@@ -135,7 +135,7 @@ export class AvatarStateMachine {
           _logger.debug('StateMachine', `tick: cycle complete for ${this._current.name}, type=${this._currentExpressionType}`);
           this._current = null;
           // Only level-triggered expressions keep their expression type
-          if (this._currentExpressionType === 'button') {
+          if (this._currentExpressionType === 'button' || this._currentExpressionType === 'external') {
             this._currentExpressionType = null;
             _logger.debug('StateMachine', 'tick: cleared button type (edge-triggered)');
           }
@@ -153,7 +153,7 @@ export class AvatarStateMachine {
         _logger.debug('StateMachine', `tick: single-cycle expression ended for ${this._current.name}, type=${this._currentExpressionType}`);
         this._current = null;
         // Only level-triggered expressions keep their expression type
-        if (this._currentExpressionType === 'button') {
+        if (this._currentExpressionType === 'button' || this._currentExpressionType === 'external') {
           this._currentExpressionType = null;
           _logger.debug('StateMachine', 'tick: cleared button type (edge-triggered)');
         }
@@ -206,6 +206,19 @@ export class AvatarStateMachine {
 
   getDefaultExpression(): string {
     return 'idle';
+  }
+
+  /** Force-set the current expression (for external commands) */
+  setExpression(expressionName: string): boolean {
+    const expr = EXPRESSIONS.find(e => e.name === expressionName);
+    if (!expr) {
+      _logger.debug('StateMachine', `setExpression: expression '${expressionName}' not found`);
+      return false;
+    }
+    this._startExpression(expr);
+    this._currentExpressionType = 'external';
+    _logger.debug('StateMachine', `setExpression: forced '${expressionName}'`);
+    return true;
   }
 
   // ── Private helpers ──────────────────────────────────────────────────

@@ -173,4 +173,30 @@ describe('AvatarStateMachine', () => {
     // Returns the first idle expression from the map
     expect(state.expressionName).toMatch(/^(bored|neutral)$/);
   });
+
+  test('setExpression should set happy expression', () => {
+    const result = machine.setExpression('happy');
+    expect(result).toBe(true);
+    expect(machine.tick(100).expressionName).toBe('happy');
+  });
+
+  test('setExpression should set dying expression', () => {
+    const result = machine.setExpression('dying');
+    expect(result).toBe(true);
+    expect(machine.tick(200).expressionName).toBe('dying');
+  });
+
+  test('setExpression should return false for unknown expression', () => {
+    const result = machine.setExpression('nonexistent');
+    expect(result).toBe(false);
+  });
+
+  test('setExpression expression should clear after end, allowing gamepad triggers', () => {
+    machine.setExpression('happy');
+    machine.tick(500); // Happy ends (500ms duration)
+    // Now gamepad should be able to trigger new expressions
+    machine.update(createInput({ buttons: [{ pressed: true, value: 1 }] }));
+    const state = machine.tick(100);
+    expect(state.expressionName).toBe('happy'); // New happy from button press
+  });
 });
