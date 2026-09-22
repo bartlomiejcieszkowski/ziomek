@@ -1,27 +1,19 @@
-import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { GamepadAvatarPanel } from '../../src/gamepad/avatar-panel';
 import { SkinRegistry } from '../../src/gamepad/avatar/skin-registry';
 import { AvatarStateMachine } from '../../src/gamepad/avatar/state-machine';
 
 // Simple mock for VS Code that satisfies the panel's constructor
-const mockVscode = {
-  window: {
-    createWebviewPanel: () => ({
-      html: '',
-      onDidDispose: () => {},
-      onDidChangeViewState: () => ({ dispose: () => {} }),
-      postMessage: () => Promise.resolve(),
-    }),
+const mockPanel = {
+  webview: {
+    html: '',
+    onDidDispose: () => ({ dispose: () => {} }),
+    postMessage: jest.fn().mockResolvedValue(undefined),
+    onDidReceiveMessage: jest.fn().mockReturnValue({ dispose: () => {} }),
   },
-  ViewColumn: { Two: 2 },
-  Disposable: { from: () => ({ dispose: () => {} }) },
-  workspace: {
-    getConfiguration: () => ({ get: () => 16 }),
-  },
+  visible: true,
+  onDidChangeVisibility: jest.fn().mockReturnValue({ dispose: () => {} }),
 };
-
-// Temporarily override global vscode
-const originalVscode = (globalThis as any).vscode;
 
 describe('GamepadAvatarPanel', () => {
   let panel: GamepadAvatarPanel;
@@ -29,8 +21,6 @@ describe('GamepadAvatarPanel', () => {
   let stateMachine: AvatarStateMachine;
 
   beforeEach(() => {
-    (globalThis as any).vscode = mockVscode;
-
     skinRegistry = SkinRegistry.getInstance();
     stateMachine = new AvatarStateMachine();
     panel = new GamepadAvatarPanel(
@@ -38,10 +28,12 @@ describe('GamepadAvatarPanel', () => {
       skinRegistry,
       stateMachine,
     );
+
+    // Simulate VS Code calling resolveWebviewView
+    panel.resolveWebviewView(mockPanel as any, {} as any, {} as any);
   });
 
   afterEach(() => {
-    (globalThis as any).vscode = originalVscode;
     panel?.dispose();
   });
 
@@ -97,9 +89,12 @@ describe('GamepadAvatarPanel', () => {
     panel.dispose();
   });
 
-  test('should return current state from state machine', () => {
+  test('should send update message via postMessage (integration)', () => {
+    // Update state machine and panel
     const state = panel.getCurrentState();
-    expect(state).toHaveProperty('expressionName');
-    expect(state).toHaveProperty('cycleIndex');
+    panel.updateState(state);
+
+    // Verify postMessage was called on the mock view
+    expect(mockPanel.webview.postMessage).toHaveBeenCalled();
   });
 });

@@ -28,6 +28,25 @@
         "icon": "$(gamepad)"
       }
     ],
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "gamifyAI-panel",
+          "title": "Gamify AI",
+          "icon": "$(gamepad)"
+        }
+      ]
+    },
+    "views": {
+      "gamifyAI-panel": [
+        {
+          "type": "webview",
+          "id": "gamifyAI.avatar",
+          "name": "Avatar",
+          "icon": "$(gamepad)"
+        }
+      ]
+    },
     "configuration": {
       "title": "Gamify AI",
       "properties": {

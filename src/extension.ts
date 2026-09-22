@@ -123,7 +123,15 @@ export function activate(context: vscode.ExtensionContext) {
   stateMachine = new AvatarStateMachine();
   avatarPanel = new GamepadAvatarPanel(context, skinRegistry, stateMachine);
 
-  // Register avatar panel command
+  // Register the avatar view provider
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      GamepadAvatarPanel.viewType,
+      avatarPanel,
+    ),
+  );
+
+  // Register avatar panel command (to focus/reveal the view)
   const showAvatarDisposable = vscode.commands.registerCommand(
     'gamifyAI.showAvatar',
     () => {

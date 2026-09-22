@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background: #0a0a0a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+      font-family: 'Courier New', monospace;
+      gap: 4px;
+      padding: 4px;
+    }
+    #hud {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      border: 2px solid #3a3a3a;
+      box-shadow: 0 0 15px rgba(255, 0, 0, 0.2), inset 0 0 20px rgba(0, 0, 0, 0.8);
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    #hud canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    #label {
+      color: #ff4444;
+      font-size: 14px;
+      font-weight: bold;
+      letter-spacing: 4px;
+      text-align: center;
+      text-transform: uppercase;
+      opacity: 0.9;
+      background: rgba(10, 10, 10, 0.8);
+      padding: 4px 12px;
+      border-radius: 2px;
+      border: 1px solid #2a2a2a;
+      white-space: nowrap;
+    }
+    #log {
+      color: #888;
+      font-size: 10px;
+      text-align: center;
+      font-family: monospace;
+      min-height: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <canvas id="avatar"></canvas>
+  </div>
+  <div id="label">IDLE</div>
+  <div id="log"></div>
+  <script>
+    const vsCodeApi = acquireVsCodeApi();
+    function log(text) {
+      var el = document.querySelector('#log');
+      if (el) { el.textContent = text; }
+      if (vsCodeApi) {
+        vsCodeApi.postMessage({ type: 'log', text: text });
+      }
+    }
+
+    log('Avatar panel initialized');
+
+    var canvas = document.querySelector('#avatar');
+    var ctx = canvas ? canvas.getContext('2d') : null;
+    var label = document.querySelector('#label');
+    var spriteImage = null;
+    var spriteSrc = null;
+    var frameData = null;
+    var tick = 0;
+    var currentExpression = 'IDLE';
+
+    function resizeCanvas() {
+      if (!canvas || !canvas.parentElement) return;
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
+    }
+
+    function drawPlaceholder(ctx, expression, tick) {
+      if (!ctx || !canvas) return;
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      var cx = canvas.width / 2;
+      var cy = canvas.height * 0.44;
+      var scale = canvas.width / 128;
+
+      // Face outline
+      ctx.fillStyle = '#d4a574';
+      ctx.fillRect(cx - 26 * scale, cy - 26 * scale, 52 * scale, 52 * scale);
+
+      // Hair
+      ctx.fillStyle = '#4a3728';
+      ctx.fillRect(cx - 28 * scale, cy - 28 * scale, 56 * scale, 12 * scale);
+
+      // Eyes
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(cx - 14 * scale, cy - 8 * scale, 10 * scale, 10 * scale);
+      ctx.fillRect(cx + 4 * scale, cy - 8 * scale, 10 * scale, 10 * scale);
+
+      // Pupils
+      var pupilX = 0, pupilY = 0;
+      if (expression === 'surprised' || expression === 'focused') {
+        pupilX = -2 * scale;
+        pupilY = 2 * scale;
+      } else if (expression === 'thinking') {
+        pupilY = -3 * scale;
+      }
+
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(cx - 12 * scale + pupilX, cy - 6 * scale + pupilY, 4 * scale, 4 * scale);
+      ctx.fillRect(cx + 6 * scale + pupilX, cy - 6 * scale + pupilY, 4 * scale, 4 * scale);
+
+      // Brow
+      ctx.fillStyle = '#4a3728';
+      if (expression === 'surprised' || expression === 'focused') {
+        ctx.fillRect(cx - 16 * scale, cy - 12 * scale, 14 * scale, 3 * scale);
+        ctx.fillRect(cx + 2 * scale, cy - 12 * scale, 14 * scale, 3 * scale);
+      } else if (expression === 'dying') {
+        // Closed eyes
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(cx - 14 * scale, cy - 2 * scale, 10 * scale, 3 * scale);
+        ctx.fillRect(cx + 4 * scale, cy - 2 * scale, 10 * scale, 3 * scale);
+      }
+
+      // Mouth
+      ctx.fillStyle = '#000000';
+      if (expression === 'dying') {
+        ctx.fillRect(cx - 8 * scale, cy + 12 * scale, 16 * scale, 8 * scale);
+      } else if (expression === 'surprised') {
+        ctx.beginPath();
+        ctx.arc(cx, cy + 14 * scale, 6 * scale, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (expression === 'happy' || expression === 'thinking') {
+        ctx.fillRect(cx - 10 * scale, cy + 12 * scale, 20 * scale, 3 * scale);
+      } else {
+        ctx.fillRect(cx - 6 * scale, cy + 10 * scale, 12 * scale, 2 * scale);
+      }
+    }
+
+    function render() {
+      tick++;
+      if (!ctx || !frameData) {
+        return;
+      }
+
+      var expression = frameData.expression;
+      var row = frameData.row;
+      var frameWidth = frameData.frameWidth;
+      var frameHeight = frameData.frameHeight;
+
+      if (spriteImage) {
+        ctx.imageSmoothingEnabled = false;
+        var sy = row * frameHeight;
+        ctx.drawImage(spriteImage, 0, sy, frameWidth, frameHeight, 0, 0, canvas.width, canvas.height);
+      } else {
+        drawPlaceholder(ctx, expression, tick);
+      }
+
+      if (currentExpression !== expression) {
+        currentExpression = expression;
+        if (label) {
+          label.textContent = expression.toUpperCase();
+          if (expression === 'dying') {
+            label.style.color = '#ff0000';
+          } else if (expression === 'happy') {
+            label.style.color = '#44ff44';
+          } else if (expression === 'surprised') {
+            label.style.color = '#ffff44';
+          } else {
+            label.style.color = '#ff4444';
+          }
+        }
+      }
+    }
+
+    window.addEventListener('message', function(event) {
+      var message = event.data;
+      if (message.type === 'update') {
+        log('Received update: ' + message.expression);
+        frameData = message;
+
+        if (message.spriteData && message.spriteData !== spriteSrc) {
+          spriteImage = new Image();
+          spriteSrc = message.spriteData;
+          spriteImage.onload = function() {
+            resizeCanvas();
+            render();
+          };
+          spriteImage.src = message.spriteData;
+        } else {
+          resizeCanvas();
+          render();
+        }
+      }
+    });
+
+    window.addEventListener('resize', function() {
+      resizeCanvas();
+      render();
+    });
+
+    if (typeof ResizeObserver !== 'undefined') {
+      var hud = document.querySelector('#hud');
+      if (hud) {
+        new ResizeObserver(function() {
+          resizeCanvas();
+          render();
+        }).observe(hud);
+      }
+    }
+
+    resizeCanvas();
+    render();
+  </script>
+</body>
+</html>
