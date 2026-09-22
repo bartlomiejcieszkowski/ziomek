@@ -23,8 +23,8 @@
     }
     #hud {
       position: relative;
-      flex: 1;
-      width: 100%;
+      flex: 0 0 auto;
+      width: auto;
       border: 2px solid #3a3a3a;
       box-shadow: 0 0 15px rgba(255, 0, 0, 0.2), inset 0 0 20px rgba(0, 0, 0, 0.8);
       border-radius: 2px;
@@ -36,7 +36,7 @@
     #hud canvas {
       display: block;
       width: 100%;
-      height: 100%;
+      height: auto;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
     }
@@ -92,8 +92,9 @@
 
     function resizeCanvas() {
       if (!canvas || !canvas.parentElement) return;
-      canvas.width = canvas.parentElement.clientWidth;
-      canvas.height = canvas.parentElement.clientHeight;
+      var w = canvas.parentElement.clientWidth;
+      canvas.width = w;
+      canvas.height = w; // maintain 1:1 aspect ratio
     }
 
     function drawPlaceholder(ctx, expression, tick) {
