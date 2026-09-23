@@ -9,6 +9,8 @@
 import http from 'http';
 import { Logger } from '../logger.js';
 import { AvatarStateMachine } from './avatar/state-machine.js';
+import { TTSService } from './tts/tts-service.js';
+import { StubTTSService } from './tts/stub-tts.js';
 
 const _logger = new Logger('debug');
 
@@ -16,10 +18,16 @@ export class LocalHTTPServer {
   private server: http.Server | null = null;
   private readonly port: number;
   private readonly stateMachine: AvatarStateMachine;
+  private readonly tts: TTSService;
 
-  constructor(stateMachine: AvatarStateMachine, port: number = 5001) {
+  constructor(
+    stateMachine: AvatarStateMachine,
+    port: number = 5001,
+    tts?: TTSService,
+  ) {
     this.port = port;
     this.stateMachine = stateMachine;
+    this.tts = tts ?? new StubTTSService();
   }
 
   /** Start the HTTP server */
@@ -50,6 +58,18 @@ export class LocalHTTPServer {
         case '/api/avatar/emotion':
           this.handleEmotion(req, res);
           break;
+        case '/api/avatar/message':
+          this.handleMessage(req, res);
+          break;
+        case '/api/tts/speak':
+          this.handleTTS(req, res);
+          break;
+        case '/api/tts/status':
+          this.handleTTSStatus(res);
+          break;
+        case '/api/tts/stop':
+          this.handleTTSStop(req, res);
+          break;
         case '/':
           this.handleRoot(res);
           break;
@@ -66,6 +86,10 @@ export class LocalHTTPServer {
     // Log available endpoints
     _logger.info('extension', `  GET  http://localhost:${this.port}/api/avatar/state`);
     _logger.info('extension', `  POST http://localhost:${this.port}/api/avatar/emotion`);
+    _logger.info('extension', `  POST http://localhost:${this.port}/api/avatar/message`);
+    _logger.info('extension', `  POST http://localhost:${this.port}/api/tts/speak`);
+    _logger.info('extension', `  GET  http://localhost:${this.port}/api/tts/status`);
+    _logger.info('extension', `  POST http://localhost:${this.port}/api/tts/stop`);
   }
 
   /** Stop the HTTP server */
@@ -85,9 +109,15 @@ export class LocalHTTPServer {
       endpoints: {
         state: 'GET /api/avatar/state',
         emotion: 'POST /api/avatar/emotion',
+        message: 'POST /api/avatar/message',
+        ttsSpeak: 'POST /api/tts/speak',
+        ttsStatus: 'GET /api/tts/status',
+        ttsStop: 'POST /api/tts/stop',
       },
       usage: {
         emotion: 'POST /api/avatar/emotion {"expression": "happy"}',
+        message: 'POST /api/avatar/message {"expression":"happy","message":"Hello!","durationMs":5000}',
+        ttsSpeak: 'POST /api/tts/speak {"text":"Hello world"}',
       },
     });
   }
@@ -130,6 +160,96 @@ export class LocalHTTPServer {
         this.sendJSON(res, { error: 'Invalid JSON body' }, 400);
       }
     });
+  }
+
+  /** POST /api/avatar/message — combined emotion + message in one call */
+  private handleMessage(req: http.IncomingMessage, res: http.ServerResponse): void {
+    let body = '';
+    req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+    req.on('end', () => {
+      try {
+        const data = JSON.parse(body);
+        const expression = data.expression;
+        const message = data.message;
+        const durationMs = data.durationMs ?? 10000;
+
+        if (!expression && !message) {
+          _logger.warn('HTTP', 'POST /api/avatar/message: neither expression nor message provided');
+          this.sendJSON(res, { error: 'At least one of "expression" or "message" must be provided' }, 400);
+          return;
+        }
+
+        if (expression) {
+          const success = this.stateMachine.setExpression(expression, durationMs);
+          if (!success) {
+            const expressions = this.stateMachine.getExpressionNames();
+            _logger.warn('HTTP', `POST /api/avatar/message: unknown expression "${expression}"`);
+            this.sendJSON(res, {
+              error: `Unknown expression "${expression}"`,
+              available: expressions,
+            }, 400);
+            return;
+          }
+          _logger.debug('HTTP', `POST /api/avatar/message: expression "${expression}" set (duration=${durationMs}ms)`);
+        }
+
+        if (message) {
+          this.stateMachine.setMessage(message, durationMs);
+          _logger.debug('HTTP', `POST /api/avatar/message: message set (expiry=${durationMs}ms)`);
+        }
+
+        const state = this.stateMachine.getCurrentState();
+        this.sendJSON(res, {
+          expression: state.expressionName,
+          message: this.stateMachine.getMessage() ?? undefined,
+          availableExpressions: this.stateMachine.getExpressionNames(),
+        });
+      } catch {
+        _logger.warn('HTTP', 'POST /api/avatar/message: invalid JSON body');
+        this.sendJSON(res, { error: 'Invalid JSON body' }, 400);
+      }
+    });
+  }
+
+  /** POST /api/tts/speak — send text to TTS engine */
+  private handleTTS(req: http.IncomingMessage, res: http.ServerResponse): void {
+    let body = '';
+    req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+    req.on('end', () => {
+      try {
+        const data = JSON.parse(body);
+        const text = data.text;
+
+        if (!text || typeof text !== 'string' || !text.trim()) {
+          _logger.warn('HTTP', 'POST /api/tts/speak: missing or empty text');
+          this.sendJSON(res, { error: 'Missing or empty "text" field' }, 400);
+          return;
+        }
+
+        _logger.debug('HTTP', `POST /api/tts/speak: speaking "${text.slice(0, 60)}..."`);
+        this.tts.speak(text);
+
+        this.sendJSON(res, { status: 'speaking', text: text.slice(0, 100) });
+      } catch {
+        _logger.warn('HTTP', 'POST /api/tts/speak: invalid JSON body');
+        this.sendJSON(res, { error: 'Invalid JSON body' }, 400);
+      }
+    });
+  }
+
+  /** GET /api/tts/status — return current TTS status */
+  private handleTTSStatus(res: http.ServerResponse): void {
+    const status = this.tts.getStatus();
+    const available = this.tts.isAvailable();
+    _logger.debug('HTTP', `GET /api/tts/status: status=${status}, available=${available}`);
+    this.sendJSON(res, { status, available });
+  }
+
+  /** POST /api/tts/stop — stop TTS immediately */
+  private handleTTSStop(_req: http.IncomingMessage, res: http.ServerResponse): void {
+    _logger.debug('HTTP', 'POST /api/tts/stop: stopping TTS');
+    this.tts.stop();
+    this.sendJSON(res, { status: this.tts.getStatus() });
   }
 
   private sendJSON(res: http.ServerResponse, data: unknown, statusCode: number = 200): void {

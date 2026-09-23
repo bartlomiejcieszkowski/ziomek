@@ -8,6 +8,7 @@ import { GamepadAvatarPanel } from './gamepad/avatar-panel.js';
 import { SkinRegistry } from './gamepad/avatar/skin-registry.js';
 import { AvatarStateMachine, type GamepadAvatarInput } from './gamepad/avatar/state-machine.js';
 import { LocalHTTPServer } from './gamepad/local-http-server.js';
+import { StubTTSService } from './gamepad/tts/stub-tts.js';
 import { ContextTracker } from './context.js';
 import { ModuleRegistry } from './modules/base.js';
 import { MappingResolver } from './mapping/resolver.js';
@@ -25,6 +26,7 @@ let contextTracker: ContextTracker | null = null;
 let logger: Logger | null = null;
 let debugChannel: vscode.OutputChannel | null = null;
 let httpServer: LocalHTTPServer | null = null;
+let ttsService: import('./gamepad/tts/tts-service.js').TTSService | null = null;
 
 export function activate(context: vscode.ExtensionContext) {
   logger = new Logger('debug');
@@ -123,7 +125,8 @@ export function activate(context: vscode.ExtensionContext) {
   // Avatar panel — created after gamepadService so it can receive state
   const skinRegistry = SkinRegistry.getInstance();
   stateMachine = new AvatarStateMachine();
-  httpServer = new LocalHTTPServer(stateMachine, 5001);
+  ttsService = new StubTTSService();
+  httpServer = new LocalHTTPServer(stateMachine, 5001, ttsService);
   httpServer.start();
   avatarPanel = new GamepadAvatarPanel(context, skinRegistry, stateMachine);
 
@@ -295,5 +298,9 @@ export function deactivate(): void {
   if (httpServer) {
     httpServer.stop();
     httpServer = null;
+  }
+  if (ttsService) {
+    ttsService.stop();
+    ttsService = null;
   }
 }
