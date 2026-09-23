@@ -71,6 +71,31 @@
           "type": "boolean",
           "default": true,
           "description": "Enable Copilot Chat gamepad controls"
+        },
+        "gamifyAI.tts.backend": {
+          "type": "string",
+          "enum": [
+            "stub",
+            "pocket",
+            "auto"
+          ],
+          "default": "stub",
+          "description": "TTS backend: 'stub' (simulated), 'pocket' (Python server), or 'auto' (pick best available)"
+        },
+        "gamifyAI.tts.pocket.port": {
+          "type": "number",
+          "default": 5003,
+          "description": "Port for the Pocket TTS Python server"
+        },
+        "gamifyAI.tts.pocket.modelPath": {
+          "type": "string",
+          "default": null,
+          "description": "Optional path to a custom Pocket TTS model"
+        },
+        "gamifyAI.tts.pocket.voice": {
+          "type": "string",
+          "default": "default",
+          "description": "Voice identifier for Pocket TTS (HuggingFace URL, local file, or 'default')"
         }
       }
     }

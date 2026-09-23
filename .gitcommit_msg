@@ -1,7 +1,7 @@
-test(tts): add PocketTTSService interface tests using stub
+feat(extension): wire PocketTTSService with config-driven backend selection
 
-- Replace ESM mocking approach with testable stub implementation
-- Test TTSService interface contract (speak, stop, status, callbacks)
-- Verify status transitions: idle/speaking/stopping/error
-- Verify callback notification and error handling
-- 15 new tests covering constructor, speak, stop, callbacks
+- Add TTS config options to package.json (backend, port, modelPath, voice)
+- Create createTTS() helper with stub/pocket/auto mode selection
+- Auto-fallback: PocketTTSService if Python available, else StubTTSService
+- Log which backend is selected on extension activation
+- Clean up PocketTTSService subprocess in deactivate()

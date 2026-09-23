@@ -9,6 +9,8 @@ import { SkinRegistry } from './gamepad/avatar/skin-registry.js';
 import { AvatarStateMachine, type GamepadAvatarInput } from './gamepad/avatar/state-machine.js';
 import { LocalHTTPServer } from './gamepad/local-http-server.js';
 import { StubTTSService } from './gamepad/tts/stub-tts.js';
+import { PocketTTSService, type PocketTTSConfig } from './gamepad/tts/pocket-tts-service.js';
+import type { TTSService } from './gamepad/tts/tts-service.js';
 import { ContextTracker } from './context.js';
 import { ModuleRegistry } from './modules/base.js';
 import { MappingResolver } from './mapping/resolver.js';
@@ -125,7 +127,8 @@ export function activate(context: vscode.ExtensionContext) {
   // Avatar panel — created after gamepadService so it can receive state
   const skinRegistry = SkinRegistry.getInstance();
   stateMachine = new AvatarStateMachine();
-  ttsService = new StubTTSService();
+  // Create TTS service based on configuration
+  ttsService = createTTS(logger);
   httpServer = new LocalHTTPServer(stateMachine, 5001, ttsService);
   httpServer.start();
   avatarPanel = new GamepadAvatarPanel(context, skinRegistry, stateMachine);
@@ -285,6 +288,49 @@ function showGamepadWindow(): void {
   }
 }
 
+/**
+ * Create a TTSService instance based on the configured backend.
+ *
+ * Supports three modes:
+ * - 'stub'     → StubTTSService (default, always available)
+ * - 'pocket'   → PocketTTSService (requires Python + pocket_tts package)
+ * - 'auto'     → PocketTTSService if Python available, else StubTTSService
+ */
+function createTTS(log: Logger): TTSService {
+  const config = vscode.workspace.getConfiguration('gamifyAI');
+  const backend = config.get<'stub' | 'pocket' | 'auto'>('tts.backend', 'stub');
+
+  // Pocket TTS configuration
+  const modelPathRaw = config.get('tts.pocket.modelPath', null);
+  const pocketConfig: PocketTTSConfig = {
+    port: config.get('tts.pocket.port', 5003),
+    // SAFETY: package.json declares `null` as default for modelPath;
+    // we pass `undefined` to PocketTTSConfig when the value is null.
+    modelPath: modelPathRaw === null ? undefined : modelPathRaw,
+    voice: config.get('tts.pocket.voice', 'default'),
+  };
+
+  if (backend === 'stub') {
+    log.info('extension', 'Using StubTTSService');
+    return new StubTTSService();
+  }
+
+  // Try Pocket TTS (explicit 'pocket' or 'auto' mode)
+  try {
+    const pocket = new PocketTTSService(pocketConfig);
+    if (pocket.isAvailable()) {
+      log.info('extension', 'Using PocketTTSService');
+      return pocket;
+    }
+    log.warn('extension', 'Pocket TTS not available (Python not found), falling back to StubTTSService');
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log.error('extension', `Failed to initialize Pocket TTS: ${msg}, falling back to StubTTSService`);
+  }
+
+  return new StubTTSService();
+}
+
 export function deactivate(): void {
   debugChannel?.dispose();
   debugChannel = null;
@@ -300,6 +346,14 @@ export function deactivate(): void {
     httpServer = null;
   }
   if (ttsService) {
+    // SAFETY: PocketTTSService (our implementation) has a `cleanup()` method
+    // that stops the Python subprocess. StubTTSService doesn't. We check
+    // for method existence at runtime to safely call it. Cast to unknown
+    // first to satisfy TypeScript's strict type overlap check.
+    const _tts = ttsService as unknown as { cleanup?: () => void };
+    if (typeof _tts.cleanup === 'function') {
+      _tts.cleanup();
+    }
     ttsService.stop();
     ttsService = null;
   }
