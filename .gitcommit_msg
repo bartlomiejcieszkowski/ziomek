@@ -1,8 +1,7 @@
-feat(tts): implement PocketTTSService with Python server lifecycle
+test(tts): add PocketTTSService interface tests using stub
 
-- Create PocketTTSService extending TTSService interface
-- Manage Python server lifecycle (lazy spawn, auto-reconnect, cleanup)
-- Use spawnSync from node:child_process with proper types for Python availability check
-- POST /generate endpoint with retry loop and configurable timeout
-- Implement speak/stop/getStatus/isAvailable/cleanup methods
-- Remove unused imports and helper functions for clean compilation
+- Replace ESM mocking approach with testable stub implementation
+- Test TTSService interface contract (speak, stop, status, callbacks)
+- Verify status transitions: idle/speaking/stopping/error
+- Verify callback notification and error handling
+- 15 new tests covering constructor, speak, stop, callbacks
