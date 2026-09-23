@@ -21,6 +21,8 @@ export interface GamepadAvatarInput {
 export interface ExpressionState {
   readonly expressionName: string;
   readonly cycleIndex: number;
+  readonly message?: string;
+  readonly messageExpiry?: number;
 }
 
 export interface Skin {
@@ -78,6 +80,10 @@ export class AvatarStateMachine {
   private _prevStreaming = false;
   private _prevErrorState = false;
   private _currentExpressionType: 'idle' | 'button' | 'axis' | 'vscode' | 'external' | null = null;
+  private _currentMessage: string | null = null;
+  private _messageTimer: ReturnType<typeof setTimeout> | null = null;
+  private _timedExpressionTimer: ReturnType<typeof setTimeout> | null = null;
+  private _messageExpiryTimestamp: number = 0;
 
   update(input: GamepadAvatarInput): void {
     const pressedButtons: number[] = [];
@@ -114,7 +120,15 @@ export class AvatarStateMachine {
 
     if (!this._current) {
       _logger.debug('StateMachine', 'tick: _current still null, returning static idle');
-      return { expressionName: 'idle', cycleIndex: 0 };
+      // Check message expiry even when _current is null
+      return {
+        expressionName: 'idle',
+        cycleIndex: 0,
+        message: (this._messageExpiryTimestamp && Date.now() < this._messageExpiryTimestamp)
+          ? (this._currentMessage ?? undefined)
+          : undefined,
+        messageExpiry: this._messageExpiryTimestamp || undefined,
+      };
     }
 
     this._current.timer += dtMs;
@@ -177,9 +191,18 @@ export class AvatarStateMachine {
       }
     }
 
+    // Check message expiry
+    const hasMessage = this._messageExpiryTimestamp && Date.now() < this._messageExpiryTimestamp;
+    const message = hasMessage ? this._currentMessage : null;
+    if (!hasMessage) {
+      this._messageExpiryTimestamp = 0;
+    }
+
     return {
       expressionName: this._current.name,
       cycleIndex: this._current.cycleIndex,
+      message: message ?? undefined,
+      messageExpiry: this._messageExpiryTimestamp || undefined,
     };
   }
 
@@ -191,6 +214,18 @@ export class AvatarStateMachine {
     this._prevStreaming = false;
     this._prevErrorState = false;
     this._currentExpressionType = null;
+
+    // Clear message-related state
+    if (this._messageTimer) {
+      clearTimeout(this._messageTimer);
+      this._messageTimer = null;
+    }
+    if (this._timedExpressionTimer) {
+      clearTimeout(this._timedExpressionTimer);
+      this._timedExpressionTimer = null;
+    }
+    this._currentMessage = null;
+    this._messageExpiryTimestamp = 0;
   }
 
   getCurrentState(): ExpressionState {
@@ -209,7 +244,7 @@ export class AvatarStateMachine {
   }
 
   /** Force-set the current expression (for external commands) */
-  setExpression(expressionName: string): boolean {
+  setExpression(expressionName: string, durationMs?: number): boolean {
     const expr = EXPRESSIONS.find(e => e.name === expressionName);
     if (!expr) {
       _logger.debug('StateMachine', `setExpression: expression '${expressionName}' not found`);
@@ -217,8 +252,53 @@ export class AvatarStateMachine {
     }
     this._startExpression(expr);
     this._currentExpressionType = 'external';
-    _logger.debug('StateMachine', `setExpression: forced '${expressionName}'`);
+
+    // Clear any existing timed expression timer
+    if (this._timedExpressionTimer) {
+      clearTimeout(this._timedExpressionTimer);
+      this._timedExpressionTimer = null;
+    }
+
+    // If duration provided, schedule auto-return to idle
+    if (durationMs && durationMs > 0) {
+      this._timedExpressionTimer = setTimeout(() => {
+        this._currentExpressionType = null;
+        this._timedExpressionTimer = null;
+      }, durationMs);
+    }
+
+    _logger.debug('StateMachine', `setExpression: forced '${expressionName}'${durationMs ? ` (duration=${durationMs}ms)` : ''}`);
     return true;
+  }
+
+  /** Set an optional message to display with the current expression */
+  setMessage(text?: string, durationMs: number = 10000): void {
+    if (this._messageTimer) {
+      clearTimeout(this._messageTimer);
+      this._messageTimer = null;
+    }
+    if (text && text.trim()) {
+      this._currentMessage = text.trim();
+      if (durationMs > 0) {
+        this._messageExpiryTimestamp = Date.now() + durationMs;
+        this._messageTimer = setTimeout(() => {
+          this._currentMessage = null;
+          this._messageTimer = null;
+          this._messageExpiryTimestamp = 0;
+        }, durationMs);
+      } else {
+        this._messageExpiryTimestamp = 0;
+      }
+    } else {
+      this._currentMessage = null;
+      this._messageExpiryTimestamp = 0;
+    }
+    _logger.debug('StateMachine', `setMessage: ${this._currentMessage ?? 'cleared'} (expiry=${this._messageExpiryTimestamp || 'none'})`);
+  }
+
+  /** Get the current message */
+  getMessage(): string | null {
+    return this._currentMessage;
   }
 
   // ── Private helpers ──────────────────────────────────────────────────

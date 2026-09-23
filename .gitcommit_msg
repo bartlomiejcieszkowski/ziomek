@@ -1,9 +1,0 @@
-feat: expose HTTP API for external programs to control avatar
-
-- Add LocalHTTPServer class with REST endpoints on localhost:5001
-- GET /api/avatar/state returns current expression and available expressions
-- POST /api/avatar/emotion sets expression by name (e.g. {"expression":"happy"})
-- GET / returns API documentation
-- CORS support for localhost/127.0.0.1 origins only
-- Wire server into extension lifecycle (start/stop)
-- Add 6 integration tests for all API endpoints
