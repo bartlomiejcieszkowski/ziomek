@@ -1,0 +1,8 @@
+feat(tts): implement PocketTTSService with Python server lifecycle
+
+- Create PocketTTSService extending TTSService interface
+- Manage Python server lifecycle (lazy spawn, auto-reconnect, cleanup)
+- Use spawnSync from node:child_process with proper types for Python availability check
+- POST /generate endpoint with retry loop and configurable timeout
+- Implement speak/stop/getStatus/isAvailable/cleanup methods
+- Remove unused imports and helper functions for clean compilation
