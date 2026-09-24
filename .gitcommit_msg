@@ -1,9 +1,5 @@
-feat(tts): add integration tests with uv-based Python server
+feat(config): add gamifyAI.http.port to package.json and wire it in
 
-- Add pocket-tts-integration.test.ts for HTTP server endpoint testing
-- Add pocket-tts-service.integration.test.ts for PocketTTSService class testing
-- Use `uv run pocket-tts` for server startup (Windows uv.exe fallback)
-- Skip suites gracefully when uv/pocket_tts not available (show as skipped, not failed)
-- Update pocket-tts-server.py docstring with uv usage guidance
-- Fix isort lint warning in Python server script
-- Fix TypeScript unused variable errors in integration tests
+- Add 'gamifyAI.http.port' config (default: 5001) with description
+- Wire port into LocalHTTPServer constructor in extension.ts
+- Document both service ports (HTTP: 5001, TTS: 5003) in package.json

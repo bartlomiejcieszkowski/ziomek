@@ -96,6 +96,11 @@
           "type": "string",
           "default": "default",
           "description": "Voice identifier for Pocket TTS (HuggingFace URL, local file, or 'default')"
+        },
+        "gamifyAI.http.port": {
+          "type": "number",
+          "default": 5001,
+          "description": "Port for the local HTTP server (avatar state, emotion, message, TTS endpoints)"
         }
       }
     }

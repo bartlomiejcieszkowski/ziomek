@@ -129,7 +129,10 @@ export function activate(context: vscode.ExtensionContext) {
   stateMachine = new AvatarStateMachine();
   // Create TTS service based on configuration
   ttsService = createTTS(logger);
-  httpServer = new LocalHTTPServer(stateMachine, 5001, ttsService);
+  // Read HTTP server port from config
+  const config = vscode.workspace.getConfiguration('gamifyAI');
+  const httpPort = config.get('http.port', 5001) as number;
+  httpServer = new LocalHTTPServer(stateMachine, httpPort, ttsService);
   httpServer.start();
   avatarPanel = new GamepadAvatarPanel(context, skinRegistry, stateMachine);
 
