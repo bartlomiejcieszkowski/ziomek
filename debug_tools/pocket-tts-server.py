@@ -2,10 +2,14 @@
 Pocket TTS Server — HTTP server wrapping the pocket_tts Python package.
 Starts the model once on startup, then serves /generate requests.
 
-Usage:
+Usage (preferred):
   uv run python pocket-tts-server.py --port 5003
   uv run python pocket-tts-server.py --port 5003 --voice "hf://kyutai/tts-voices/alba-mackenna/casual.wav"
+
+Usage (fallback):
+  python pocket-tts-server.py --port 5003
 """
+# isort: skip_file
 
 import argparse
 import base64

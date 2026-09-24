@@ -1,7 +1,9 @@
-feat(extension): wire PocketTTSService with config-driven backend selection
+feat(tts): add integration tests with uv-based Python server
 
-- Add TTS config options to package.json (backend, port, modelPath, voice)
-- Create createTTS() helper with stub/pocket/auto mode selection
-- Auto-fallback: PocketTTSService if Python available, else StubTTSService
-- Log which backend is selected on extension activation
-- Clean up PocketTTSService subprocess in deactivate()
+- Add pocket-tts-integration.test.ts for HTTP server endpoint testing
+- Add pocket-tts-service.integration.test.ts for PocketTTSService class testing
+- Use `uv run pocket-tts` for server startup (Windows uv.exe fallback)
+- Skip suites gracefully when uv/pocket_tts not available (show as skipped, not failed)
+- Update pocket-tts-server.py docstring with uv usage guidance
+- Fix isort lint warning in Python server script
+- Fix TypeScript unused variable errors in integration tests
