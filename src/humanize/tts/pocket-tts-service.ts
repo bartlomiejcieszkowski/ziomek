@@ -6,7 +6,13 @@ import {
   type StdioOptions,
   type SpawnSyncOptions,
 } from 'node:child_process';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { mkdirSync, existsSync } from 'fs';
 import { Logger } from '../../logger.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 /** Configuration for the Pocket TTS backend. */
 export interface PocketTTSConfig {
@@ -14,6 +20,8 @@ export interface PocketTTSConfig {
   modelPath?: string;
   voice?: string;
   timeoutMs?: number;
+  /** Local directory to cache downloaded voice files (auto-created if missing). */
+  voicesDir?: string;
 }
 
 const DEFAULTS = {
@@ -33,6 +41,7 @@ export class PocketTTSService extends TTSService {
   private readonly _voice: string;
   private readonly _timeoutMs: number;
   private readonly _modelPath: string | undefined;
+  private readonly _voicesDir: string | undefined;
 
   private _child: ChildProcess | null = null;
   private readonly _logger: Logger;
@@ -47,7 +56,25 @@ export class PocketTTSService extends TTSService {
     this._voice = config?.voice ?? DEFAULTS.voice;
     this._timeoutMs = config?.timeoutMs ?? DEFAULTS.timeoutMs;
     this._modelPath = config?.modelPath;
+    this._voicesDir = config?.voicesDir;
     this._logger = new Logger('debug');
+
+    // Ensure the voice cache directory exists
+    if (this._voicesDir && !existsSync(this._voicesDir)) {
+      try {
+        mkdirSync(this._voicesDir, { recursive: true });
+        this._logger.info(
+          'pocket-tts',
+          `Created voice cache directory: ${this._voicesDir}`,
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this._logger.warn(
+          'pocket-tts',
+          `Failed to create voice cache directory ${this._voicesDir}: ${msg}`,
+        );
+      }
+    }
   }
 
   /** Check if Python is available on the system PATH. */
@@ -75,12 +102,24 @@ export class PocketTTSService extends TTSService {
     if (this._child) return;
 
     try {
-      const args: string[] = [];
+      const args: string[] = [
+        join(
+          dirname(__dirname),
+          '..',
+          '..',
+          '..',
+          'debug_tools',
+          'pocket-tts-server.py',
+        ),
+      ];
       if (this._modelPath) {
         args.push('--model-path', this._modelPath);
       }
       args.push('--voice', this._voice);
       args.push('--port', String(this._port));
+      if (this._voicesDir) {
+        args.push('--voice-dir', this._voicesDir);
+      }
 
       // SAFETY: spawn from node:child_process returns a ChildProcess.
       // TypeScript stdio types are strict — we cast the stdio array
@@ -164,7 +203,7 @@ export class PocketTTSService extends TTSService {
       return;
     }
 
-    const url = `http://localhost:${this._port}/generate`;
+    const url = `http://localhost:${this._port}/api/tts/generate`;
 
     fetch(url, {
       method: 'POST',
@@ -190,14 +229,14 @@ export class PocketTTSService extends TTSService {
         if (retries > 0) {
           this._logger.warn(
             'pocket-tts',
-            `POST /generate failed, retrying... (${retries} left): ${msg}`,
+            `POST /api/tts/generate failed, retrying... (${retries} left): ${msg}`,
           );
           setTimeout(() => this._doSpeak(text, retries - 1), 500);
           return;
         }
 
         // Server may have died — kill and re-spawn on next speak
-        this._logger.error('pocket-tts', `POST /generate failed after retries: ${msg}`);
+        this._logger.error('pocket-tts', `POST /api/tts/generate failed after retries: ${msg}`);
         this._stopServer();
         this._isAvailableCache = null; // force re-check
         this._setStatus('error');

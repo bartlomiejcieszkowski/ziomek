@@ -1,5 +1,5 @@
 import { describe, test, expect } from '@jest/globals';
-import { SingleFrameSkin } from '../../../../src/gamepad/avatar/skins/single-frame-skin.js';
+import { SingleFrameSkin } from '../../../../src/humanize/avatar/skins/single-frame-skin.js';
 
 describe('SingleFrameSkin', () => {
   test('should create skin with default sprite path', () => {

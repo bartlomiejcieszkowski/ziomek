@@ -362,7 +362,7 @@ async function main() {
 
   // Create debug window
   const win = video.createWindow({
-    title: 'Gamify AI — Gamepad Debug',
+    title: 'Humanize AI — Gamepad Debug',
     width: 500,
     height: 220,
     x: 50,
@@ -397,8 +397,8 @@ async function main() {
     // Update title
     if (frame % 15 === 0) {
       win.setTitle(count > 0
-        ? `Gamify AI — Gamepad Debug [${count} connected]`
-        : 'Gamify AI — Gamepad Debug [none]'
+        ? `Humanize AI — Gamepad Debug [${count} connected]`
+        : 'Humanize AI — Gamepad Debug [none]'
       );
     }
 

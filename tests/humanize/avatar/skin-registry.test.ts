@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from '@jest/globals';
-import { SkinRegistry } from '../../../src/gamepad/avatar/skin-registry';
+import { SkinRegistry } from '../../../src/humanize/avatar/skin-registry';
 
 describe('SkinRegistry', () => {
   const registry = SkinRegistry.getInstance();

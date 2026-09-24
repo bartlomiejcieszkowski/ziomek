@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach, jest } from '@jest/globals';
-import { StubTTSService } from '../../../src/gamepad/tts/stub-tts.js';
-import { TTSService, SpeechStatus } from '../../../src/gamepad/tts/tts-service.js';
+import { StubTTSService } from '../../../src/humanize/tts/stub-tts.js';
+import { TTSService, SpeechStatus } from '../../../src/humanize/tts/tts-service.js';
 
 describe('StubTTSService', () => {
   let tts: StubTTSService;

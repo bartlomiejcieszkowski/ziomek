@@ -1,7 +1,7 @@
 {
-  "name": "gamify-ai",
-  "displayName": "Gamify AI",
-  "description": "Control VS Code and Copilot Chat with a gamepad. Modular architecture for extensible gamepad integration.",
+  "name": "humanize-ai",
+  "displayName": "Humanize AI",
+  "description": "Humanize your VS Code and Copilot Chat experience. Control with a gamepad — modular architecture for extensible gamepad integration.",
   "version": "0.1.0",
   "engines": {
     "vscode": "^1.95.0"
@@ -12,67 +12,67 @@
   "contributes": {
     "commands": [
       {
-        "command": "gamifyAI.showDebugInfo",
+        "command": "humanizeAI.showDebugInfo",
         "title": "Show Gamepad Debug Info",
         "description": "Outputs current gamepad state and active mappings to the output channel."
       },
       {
-        "command": "gamifyAI.showGamepadWindow",
+        "command": "humanizeAI.showGamepadWindow",
         "title": "Show Gamepad Debug Window",
         "description": "Opens an SDL window visualizing gamepad state in real-time."
       },
       {
-        "command": "gamifyAI.showAvatar",
-        "title": "Show Gamify AI - Avatar",
-        "description": "Shows the Gamify AI avatar panel with animated single-frame portrait.",
+        "command": "humanizeAI.showAvatar",
+        "title": "Show Humanize AI - Avatar",
+        "description": "Shows the Humanize AI avatar panel with animated single-frame portrait.",
         "icon": "$(gamepad)"
       }
     ],
     "viewsContainers": {
       "panel": [
         {
-          "id": "gamifyAI-panel",
-          "title": "Gamify AI",
+          "id": "humanizeAI-panel",
+          "title": "Humanize AI",
           "icon": "$(gamepad)"
         }
       ]
     },
     "views": {
-      "gamifyAI-panel": [
+      "humanizeAI-panel": [
         {
           "type": "webview",
-          "id": "gamifyAI.avatar",
+          "id": "humanizeAI.avatar",
           "name": "Avatar",
           "icon": "$(gamepad)"
         }
       ]
     },
     "configuration": {
-      "title": "Gamify AI",
+      "title": "Humanize AI",
       "properties": {
-        "gamifyAI.enabled": {
+        "humanizeAI.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable gamepad input for Gamify AI"
+          "description": "Enable gamepad input for Humanize AI"
         },
-        "gamifyAI.pollingIntervalMs": {
+        "humanizeAI.pollingIntervalMs": {
           "type": "number",
           "default": 16,
           "description": "Gamepad polling interval in milliseconds (lower = more responsive, higher CPU usage)",
           "minimum": 4,
           "maximum": 250
         },
-        "gamifyAI.debounceMs": {
+        "humanizeAI.debounceMs": {
           "type": "number",
           "default": 80,
           "description": "Minimum time between repeated actions in milliseconds (prevents rapid duplicates)"
         },
-        "gamifyAI.modules.copilotChat.enabled": {
+        "humanizeAI.modules.copilotChat.enabled": {
           "type": "boolean",
           "default": true,
           "description": "Enable Copilot Chat gamepad controls"
         },
-        "gamifyAI.tts.backend": {
+        "humanizeAI.tts.backend": {
           "type": "string",
           "enum": [
             "stub",
@@ -82,22 +82,22 @@
           "default": "stub",
           "description": "TTS backend: 'stub' (simulated), 'pocket' (Python server), or 'auto' (pick best available)"
         },
-        "gamifyAI.tts.pocket.port": {
+        "humanizeAI.tts.pocket.port": {
           "type": "number",
           "default": 5003,
           "description": "Port for the Pocket TTS Python server"
         },
-        "gamifyAI.tts.pocket.modelPath": {
+        "humanizeAI.tts.pocket.modelPath": {
           "type": "string",
           "default": null,
           "description": "Optional path to a custom Pocket TTS model"
         },
-        "gamifyAI.tts.pocket.voice": {
+        "humanizeAI.tts.pocket.voice": {
           "type": "string",
-          "default": "default",
-          "description": "Voice identifier for Pocket TTS (HuggingFace URL, local file, or 'default')"
+          "default": "hf://kyutai/tts-voices/alba-mackenna/casual.wav",
+          "description": "Voice identifier for Pocket TTS (HuggingFace URL, local file, or 'default'). Auto-downloaded on first use."
         },
-        "gamifyAI.http.port": {
+        "humanizeAI.http.port": {
           "type": "number",
           "default": 5001,
           "description": "Port for the local HTTP server (avatar state, emotion, message, TTS endpoints)"

@@ -13,7 +13,7 @@ console.log('video methods:', Object.keys(video));
 try {
   // Create a small debug window
   const win = video.createWindow({
-    title: 'SDL Test - Gamify AI',
+    title: 'SDL Test - Humanize AI',
     width: 400,
     height: 300,
     x: 100,

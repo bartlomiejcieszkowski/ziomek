@@ -67,7 +67,7 @@ export class Logger {
     try {
       let channel = this._channels.get(module);
       if (!channel) {
-        channel = vscode.window.createOutputChannel(`Gamify AI - ${module}`);
+        channel = vscode.window.createOutputChannel(`Humanize AI - ${module}`);
         this._channels.set(module, channel);
       }
       channel.appendLine(message);
@@ -97,7 +97,7 @@ export class Logger {
   clear(): void {
     for (const [module, channel] of this._channels) {
       channel.dispose();
-      this._channels.set(module, vscode.window.createOutputChannel(`Gamify AI - ${module}`));
+      this._channels.set(module, vscode.window.createOutputChannel(`Humanize AI - ${module}`));
     }
   }
 }

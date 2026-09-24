@@ -8,7 +8,7 @@ jest.mock('gamepad-node', () => {
 });
 
 // Re-export so the service import picks up the stubbed module.
-import { GamepadService } from '../../src/gamepad/service';
+import { GamepadService } from '../../src/humanize/service';
 
 describe('GamepadService', () => {
   describe('when gamepad-node is unavailable', () => {

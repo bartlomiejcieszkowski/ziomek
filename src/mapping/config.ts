@@ -88,7 +88,7 @@ export class ConfigManager {
   }
 
   refreshSettings(): void {
-    const config = vscode.workspace.getConfiguration('gamifyAI');
+    const config = vscode.workspace.getConfiguration('humanizeAI');
     const copilotEnabled = config.get('modules.copilotChat.enabled', true);
     this.setEnabled('copilotChat', copilotEnabled);
   }

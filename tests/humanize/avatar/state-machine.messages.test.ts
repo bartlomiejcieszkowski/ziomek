@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { AvatarStateMachine, GamepadAvatarInput } from '../../../src/gamepad/avatar/state-machine.js';
+import { AvatarStateMachine, GamepadAvatarInput } from '../../../src/humanize/avatar/state-machine.js';
 
 function createInput(overrides: Partial<GamepadAvatarInput> = {}): GamepadAvatarInput {
   return {

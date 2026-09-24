@@ -28,7 +28,7 @@ export type AssetResolver = (relativePath: string) => string;
  * an animated avatar that reacts to gamepad input.
  */
 export class GamepadAvatarPanel implements vscode.Disposable {
-  static readonly viewType = 'gamifyAI.avatar';
+  static readonly viewType = 'humanizeAI.avatar';
   private readonly _stateMachine: StateMachineProvider;
   private readonly _assetResolver: AssetResolver;
 

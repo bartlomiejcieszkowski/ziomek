@@ -3,14 +3,14 @@ import { spawn } from 'child_process';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { Logger } from './logger.js';
-import { GamepadService } from './gamepad/service.js';
-import { GamepadAvatarPanel } from './gamepad/avatar-panel.js';
-import { SkinRegistry } from './gamepad/avatar/skin-registry.js';
-import { AvatarStateMachine, type GamepadAvatarInput } from './gamepad/avatar/state-machine.js';
-import { LocalHTTPServer } from './gamepad/local-http-server.js';
-import { StubTTSService } from './gamepad/tts/stub-tts.js';
-import { PocketTTSService, type PocketTTSConfig } from './gamepad/tts/pocket-tts-service.js';
-import type { TTSService } from './gamepad/tts/tts-service.js';
+import { GamepadService } from './humanize/service.js';
+import { GamepadAvatarPanel } from './humanize/avatar-panel.js';
+import { SkinRegistry } from './humanize/avatar/skin-registry.js';
+import { AvatarStateMachine, type GamepadAvatarInput } from './humanize/avatar/state-machine.js';
+import { LocalHTTPServer } from './humanize/local-http-server.js';
+import { StubTTSService } from './humanize/tts/stub-tts.js';
+import { PocketTTSService, type PocketTTSConfig } from './humanize/tts/pocket-tts-service.js';
+import type { TTSService } from './humanize/tts/tts-service.js';
 import { ContextTracker } from './context.js';
 import { ModuleRegistry } from './modules/base.js';
 import { MappingResolver } from './mapping/resolver.js';
@@ -28,11 +28,11 @@ let contextTracker: ContextTracker | null = null;
 let logger: Logger | null = null;
 let debugChannel: vscode.OutputChannel | null = null;
 let httpServer: LocalHTTPServer | null = null;
-let ttsService: import('./gamepad/tts/tts-service.js').TTSService | null = null;
+let ttsService: import('./humanize/tts/tts-service.js').TTSService | null = null;
 
 export function activate(context: vscode.ExtensionContext) {
   logger = new Logger('debug');
-  logger.info('extension', 'Activating Gamify AI extension');
+  logger.info('extension', 'Activating Humanize AI extension');
 
   const configManager = new ConfigManager();
   const moduleRegistry = new ModuleRegistry(logger);
@@ -55,13 +55,13 @@ export function activate(context: vscode.ExtensionContext) {
     moduleRegistry
       .executeAction('copilotChat', action, { context: activeContext })
       .catch((error) => {
-        vscode.window.showErrorMessage(`Gamify AI: ${error.message}`);
+        vscode.window.showErrorMessage(`Humanize AI: ${error.message}`);
       });
   });
 
   // Start gamepad service
   const pollingInterval = vscode.workspace
-    .getConfiguration('gamifyAI')
+    .getConfiguration('humanizeAI')
     .get('pollingIntervalMs', 16);
   gamepadService = new GamepadService(pollingInterval);
 
@@ -78,26 +78,26 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   gamepadService.start().catch((error) => {
-    vscode.window.showErrorMessage(`Gamify AI: Failed to initialize gamepad service — ${error.message}`);
+    vscode.window.showErrorMessage(`Humanize AI: Failed to initialize gamepad service — ${error.message}`);
   });
 
   // Set up settings change watcher
   const configDisposable = vscode.workspace.onDidChangeConfiguration((event) => {
-    if (event.affectsConfiguration('gamifyAI')) {
+    if (event.affectsConfiguration('humanizeAI')) {
       refreshConfiguration(configManager, mappingResolver);
     }
   });
 
   // Register debug command with log level toggle
   const debugDisposable = vscode.commands.registerCommand(
-    'gamifyAI.showDebugInfo',
+    'humanizeAI.showDebugInfo',
     () => {
       showDebugInfo(moduleRegistry, gamepadService, logger!);
     },
   );
 
   const logLevelDisposable = vscode.commands.registerCommand(
-    'gamifyAI.cycleLogLevel',
+    'humanizeAI.cycleLogLevel',
     () => {
       if (!logger) return;
       const levels: Array<'debug' | 'info' | 'warn' | 'error'> = [
@@ -111,14 +111,14 @@ export function activate(context: vscode.ExtensionContext) {
       logger.setLevel(nextLevel);
       logger.info('extension', `Log level changed to ${nextLevel}`);
       vscode.window.showInformationMessage(
-        `Gamify AI debug log level: ${nextLevel}`,
+        `Humanize AI debug log level: ${nextLevel}`,
       );
     },
   );
 
   // Register gamepad debug window command
   const gamepadWindowDisposable = vscode.commands.registerCommand(
-    'gamifyAI.showGamepadWindow',
+    'humanizeAI.showGamepadWindow',
     () => {
       showGamepadWindow();
     },
@@ -128,9 +128,9 @@ export function activate(context: vscode.ExtensionContext) {
   const skinRegistry = SkinRegistry.getInstance();
   stateMachine = new AvatarStateMachine();
   // Create TTS service based on configuration
-  ttsService = createTTS(logger);
+  ttsService = createTTS(logger, context);
   // Read HTTP server port from config
-  const config = vscode.workspace.getConfiguration('gamifyAI');
+  const config = vscode.workspace.getConfiguration('humanizeAI');
   const httpPort = config.get('http.port', 5001) as number;
   httpServer = new LocalHTTPServer(stateMachine, httpPort, ttsService);
   httpServer.start();
@@ -146,7 +146,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register avatar panel command (to focus/reveal the view)
   const showAvatarDisposable = vscode.commands.registerCommand(
-    'gamifyAI.showAvatar',
+    'humanizeAI.showAvatar',
     () => {
       avatarPanel?.show();
     },
@@ -160,7 +160,7 @@ export function activate(context: vscode.ExtensionContext) {
     showAvatarDisposable,
     // Emotion setter (callable by other extensions)
     vscode.commands.registerCommand(
-      'gamifyAI.setEmotion',
+      'humanizeAI.setEmotion',
       (expressionName: string) => {
         if (!stateMachine) return;
         const success = stateMachine.setExpression(expressionName);
@@ -225,13 +225,13 @@ function showDebugInfo(
   loggerRef: Logger,
 ): void {
   if (!debugChannel) {
-    debugChannel = vscode.window.createOutputChannel('Gamify AI Debug');
+    debugChannel = vscode.window.createOutputChannel('Humanize AI Debug');
     loggerRef.setFallbackChannel(debugChannel);
   }
   debugChannel.clear();
   const now = new Date();
   const timestamp = now.toLocaleTimeString();
-  debugChannel.appendLine(`=== Gamify AI Debug Info [${timestamp}] ===`);
+  debugChannel.appendLine(`=== Humanize AI Debug Info [${timestamp}] ===`);
   debugChannel.appendLine(`Current time: ${now.toISOString()}`);
   debugChannel.appendLine(`Log level: ${loggerRef.getLevel()}`);
   debugChannel.appendLine(
@@ -279,13 +279,13 @@ function showGamepadWindow(): void {
 
     child.unref();
     vscode.window.showInformationMessage(
-      `Gamify AI: Gamepad debug window launched.`,
+      `Humanize AI: Gamepad debug window launched.`,
     );
     logger?.info('extension', `Launched gamepad debug window (pid ${child.pid})`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     vscode.window.showErrorMessage(
-      `Gamify AI: Failed to launch gamepad debug window — ${msg}`,
+      `Humanize AI: Failed to launch gamepad debug window — ${msg}`,
     );
     logger?.error('extension', `Failed to launch gamepad debug window: ${msg}`);
   }
@@ -299,18 +299,21 @@ function showGamepadWindow(): void {
  * - 'pocket'   → PocketTTSService (requires Python + pocket_tts package)
  * - 'auto'     → PocketTTSService if Python available, else StubTTSService
  */
-function createTTS(log: Logger): TTSService {
-  const config = vscode.workspace.getConfiguration('gamifyAI');
+function createTTS(log: Logger, extContext: vscode.ExtensionContext): TTSService {
+  const config = vscode.workspace.getConfiguration('humanizeAI');
   const backend = config.get<'stub' | 'pocket' | 'auto'>('tts.backend', 'stub');
 
   // Pocket TTS configuration
   const modelPathRaw = config.get('tts.pocket.modelPath', null);
+  // Use extension storage directory for voice cache
+  const voicesDir = join(extContext.storagePath || __dirname, 'voices');
   const pocketConfig: PocketTTSConfig = {
     port: config.get('tts.pocket.port', 5003),
     // SAFETY: package.json declares `null` as default for modelPath;
     // we pass `undefined` to PocketTTSConfig when the value is null.
     modelPath: modelPathRaw === null ? undefined : modelPathRaw,
     voice: config.get('tts.pocket.voice', 'default'),
+    voicesDir,
   };
 
   if (backend === 'stub') {

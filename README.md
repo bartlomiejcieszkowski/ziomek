@@ -1,4 +1,4 @@
-# Gamify AI
+# Humanize AI
 
 Control VS Code and Copilot Chat with a gamepad. Modular architecture for extensible gamepad integration.
 

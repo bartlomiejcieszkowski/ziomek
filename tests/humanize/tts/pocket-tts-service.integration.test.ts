@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
 import { spawn, type ChildProcess } from 'node:child_process';
 import type { SpawnOptions } from 'node:child_process';
-import { PocketTTSService } from '../../../src/gamepad/tts/pocket-tts-service.js';
+import { PocketTTSService } from '../../../src/humanize/tts/pocket-tts-service.js';
 
 // Use an ephemeral port to avoid collisions
 const TEST_PORT = 19877;

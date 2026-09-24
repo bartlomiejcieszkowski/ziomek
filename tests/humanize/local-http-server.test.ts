@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
-import { LocalHTTPServer } from '../../src/gamepad/local-http-server.js';
-import { AvatarStateMachine } from '../../src/gamepad/avatar/state-machine.js';
-import { StubTTSService } from '../../src/gamepad/tts/stub-tts.js';
+import { LocalHTTPServer } from '../../src/humanize/local-http-server.js';
+import { AvatarStateMachine } from '../../src/humanize/avatar/state-machine.js';
+import { StubTTSService } from '../../src/humanize/tts/stub-tts.js';
 import http from 'http';
 
 function fetchJSON(path: string, port = 5001): Promise<unknown> {
@@ -60,7 +60,7 @@ describe('LocalHTTPServer', () => {
 
   test('GET / should return API info', async () => {
     const result = await fetchJSON('/');
-    expect(result).toHaveProperty('name', 'Gamify AI Avatar API');
+    expect(result).toHaveProperty('name', 'Humanize AI Avatar API');
   });
 
   test('GET /api/avatar/state should return current state', async () => {

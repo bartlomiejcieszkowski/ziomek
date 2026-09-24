@@ -36,12 +36,10 @@ export class LocalHTTPServer {
       const url = new URL(req.url ?? '/', `http://localhost:${this.port}`);
       const pathname = url.pathname;
 
-      // CORS for external programs (curl, Python, browser scripts) — no credentials involved
+      // CORS for external programs (curl, Python, browser scripts)
       const origin = req.headers.origin;
       if (origin && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
-      } else {
-        res.setHeader('Access-Control-Allow-Origin', '*');
       }
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -104,7 +102,7 @@ export class LocalHTTPServer {
 
   private handleRoot(res: http.ServerResponse): void {
     this.sendJSON(res, {
-      name: 'Gamify AI Avatar API',
+      name: 'Humanize AI Avatar API',
       version: '1.0.0',
       endpoints: {
         state: 'GET /api/avatar/state',

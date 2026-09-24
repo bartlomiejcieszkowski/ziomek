@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { GamepadAvatarPanel } from '../../src/gamepad/avatar-panel';
-import { SkinRegistry } from '../../src/gamepad/avatar/skin-registry';
-import { AvatarStateMachine } from '../../src/gamepad/avatar/state-machine';
+import { GamepadAvatarPanel } from '../../src/humanize/avatar-panel';
+import { SkinRegistry } from '../../src/humanize/avatar/skin-registry';
+import { AvatarStateMachine } from '../../src/humanize/avatar/state-machine';
 
 // Simple mock for VS Code that satisfies the panel's constructor
 const mockPanel = {
@@ -42,7 +42,7 @@ describe('GamepadAvatarPanel', () => {
   });
 
   test('should have correct view type', () => {
-    expect(GamepadAvatarPanel.viewType).toBe('gamifyAI.avatar');
+    expect(GamepadAvatarPanel.viewType).toBe('humanizeAI.avatar');
   });
 
   test('should initialize with default gamepad state', () => {
