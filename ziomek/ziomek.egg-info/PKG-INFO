@@ -1,0 +1,47 @@
+Metadata-Version: 2.4
+Name: ziomek
+Version: 0.1.0
+Summary: Humanize AI backend — TTS + avatar display server
+License: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pocket-tts>=3.0
+Requires-Dist: torch>=2.0
+Requires-Dist: numpy>=1.24
+Requires-Dist: scipy>=1.10
+Requires-Dist: sounddevice>=0.4
+Requires-Dist: soundfile>=0.12
+Requires-Dist: safetensors>=0.4
+Requires-Dist: fastapi>=0.100
+Requires-Dist: uvicorn[standard]>=0.23
+Requires-Dist: pydantic>=2.0
+Requires-Dist: pillow>=10.0
+Requires-Dist: requests>=2.31
+Requires-Dist: pygame-ce>=2.5.8
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21; extra == "dev"
+Requires-Dist: httpx>=0.24; extra == "dev"
+Requires-Dist: ruff>=0.1; extra == "dev"
+Dynamic: license-file
+
+# ziomek
+
+Humanize AI backend — TTS synthesis + avatar rendering via HTTP.
+
+## Installation
+
+```bash
+pip install -e .
+```
+
+## Usage
+
+```bash
+ziomek serve --port 5003
+```
+
+## License
+
+MIT
