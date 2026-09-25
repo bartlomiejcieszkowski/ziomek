@@ -22,7 +22,7 @@ Requires-Dist: pygame-ce>=2.5.8
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.21; extra == "dev"
-Requires-Dist: httpx>=0.24; extra == "dev"
+Requires-Dist: httpx2>=2.0; extra == "dev"
 Requires-Dist: ruff>=0.1; extra == "dev"
 Dynamic: license-file
 
