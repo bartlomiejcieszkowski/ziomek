@@ -17,19 +17,29 @@ Control VS Code and Copilot Chat with a gamepad. Modular architecture with a sta
 pip install -e ziomek
 ```
 
-### Start the ziomek server (TTS backend)
+### Start the TTS server
 
 ```bash
 ziomek serve --port 5003
 ```
 
-### Start the ziomek client (gamepad + avatar display)
+### Start the client (gamepad + avatar display)
 
 ```bash
-ziomek-client --port 5004 --server-url http://localhost:5003
+ziomek client --port 5004 --server-url http://localhost:5003
 ```
 
 This opens a browser window with the avatar display and relays gamepad state to the VS Code extension.
+
+**Launch options:**
+
+| Command | What runs |
+|---------|----------|
+| `ziomek` | Ziomek client (default) |
+| `ziomek serve` | TTS server only |
+| `ziomek client` | Client only (gamepad + display) |
+| `ziomek client --no-vscode` | Client only, no VS Code relay |
+| `ziomek client --no-browser` | Client only, no local browser |
 
 ### Install and launch the VS Code extension
 

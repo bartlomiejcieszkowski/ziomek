@@ -2,6 +2,9 @@ out/
 node_modules/
 *.vsix
 .DS_Store
+__pycache__/
+*.pyc
+*.egg-info/
 IDEAS.md
 ISSUES.md
 .worktrees/
