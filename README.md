@@ -1,84 +1,124 @@
 # Ziomek — Humanize AI
 
-Control VS Code and Copilot Chat with a gamepad. Modular architecture for extensible gamepad integration. Connects to a locally running [ziomek](https://github.com/your-org/ziomek) TTS server for voice synthesis and avatar display.
+Control VS Code and Copilot Chat with a gamepad. Modular architecture with a standalone Python backend.
 
-## Features
+**Two processes:**
+- **ziomek server** — TTS synthesis, sprite data, voice caching (port 5003)
+- **ziomek client** — gamepad polling, avatar state machine, HTML display (port 5004)
 
-- **Copilot Chat Control**: Send messages, start new chats, navigate responses
-- **VS Code Navigation**: Focus up/down/left/right, scroll through content
-- **Context Aware**: Behaves differently based on what you're focused on
-- **TTS Integration**: Voice synthesis via ziomek server (localhost:5003)
-- **Avatar Display**: Animated avatar synchronized with speech and gamepad input
-- **Fully Configurable**: Remap any button, axis, or trigger via VS Code settings
+**One extension:**
+- **Ziomek — Humanize AI** — thin canvas renderer + Copilot Chat integration
 
-## Installation
+## Quick Start
 
-### Step 1: Install ziomek Server (Python backend)
-
-The extension requires a locally running ziomek server for TTS and avatar rendering.
+### Install Python packages
 
 ```bash
-# Clone and install ziomek
-git clone <ziomek-repo-url>
-cd ziomek
-git checkout ziomek-server-split
-
-# Install from source
-cd ziomek
-cd ziomek
-pip install -e .
-
-# Verify installation
-ziomek --version
+pip install -e ziomek
 ```
 
-### Step 2: Start the ziomek Server
+### Start the ziomek server (TTS backend)
 
 ```bash
-# Using the CLI directly (default port: 5003)
-ziomek serve
-
-# Or with launcher script
-./run-ziomek.sh      # Linux/macOS
-run-ziomek.bat       # Windows
-
-# Or specify a custom port
-ziomek serve --port 5004
+ziomek serve --port 5003
 ```
 
-### Step 3: Install the VS Code Extension
+### Start the ziomek client (gamepad + avatar display)
 
 ```bash
-cd <extension-root>
+ziomek-client --port 5004 --server-url http://localhost:5003
+```
+
+This opens a browser window with the avatar display and relays gamepad state to the VS Code extension.
+
+### Install and launch the VS Code extension
+
+```bash
+cd C:/gh/gamify_ai
 npm install
 npm run compile
-
-# Press F5 in VS Code to launch extension host
-# Connect your gamepad
 ```
 
-### Step 4: Configure the Extension
+Press **F5** in VS Code to launch the extension host. The extension automatically connects to the ziomek client.
 
-Open VS Code Settings (`Ctrl+,`) and search for `ziomek`:
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     ziomek client (port 5004)                            │
+│                                                                          │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────┐          │
+│  │ pygame       │───→│ State Machine│───→│ HTML/JS Renderer │          │
+│  │ gamepad poll │    │ (Python)     │    │ (shared)           │          │
+│  └──────────────┘    └──────────────┘    │  Browser/Canvas  │          │
+│                                         └──────────────────┘          │
+│  ┌────────────────────┐     ┌──────────────────┐                      │
+│  │ FastAPI Web Server │───→ │ Local Browser     │                      │
+│  │ :5004              │     │ (auto-opened)     │                      │
+│  │                    │     └──────────────────┘                      │
+│  │ /avatar-view       │                                                │
+│  │ /avatar            │   ┌──────────────────┐                         │
+│  │ /avatar/sprite     │   │ Extension Canvas  │                         │
+│  │ /avatar/state      │   │ (optional relay)  │                         │
+│  └────────────────────┘   └──────────────────┘                         │
+└──────────────────────────────────────────────────────────────────────────┘
+                                                                        │
+                                                                        │ WebSocket relay
+                                                                        ▼
+┌─────────────────────────────┐     └──────────────────────────────────┐
+│  VS Code Extension          │     │  ziomek server (port 5003)       │
+│  • Canvas rendering         │     │  • TTS synthesis                 │
+│  • Copilot Chat integration │     │  • Sprite data                   │
+│  • Fetches HTML from client │     │  • Audio playback                │
+└─────────────────────────────┘     └──────────────────────────────────┘
+````
+
+## Launch Commands
+
+### ziomek server (TTS backend)
+
+```bash
+ziomek serve --port 5003 --voice cosette --cache-dir ./voices
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--port` | 5003 | HTTP port |
+| `--voice` | default | Voice name (cosette) |
+| `--cache-dir` | ~ | Voice cache directory |
+
+### ziomek client (gamepad + avatar display)
+
+```bash
+ziomek-client --port 5004 --server-url http://localhost:5003
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--port` | 5004 | Client HTTP/WebSocket port |
+| `--no-vscode` | false | Disable VS Code WebSocket relay |
+| `--no-browser` | false | Disable local browser view |
+| `--server-url` | localhost:5003 | TTS server URL |
+
+**Usage modes:**
+
+| Command | What runs |
+|---------|-----------|
+| `ziomek-client` | Browser view + VS Code relay (default) |
+| `ziomek-client --no-vscode` | Browser view only (no extension needed) |
+| `ziomek-client --no-browser` | VS Code relay only (headless) |
+| `ziomek-client --no-browser --no-vscode` | Standalone display only |
+
+## VS Code Extension Configuration
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `ziomek.enabled` | `true` | Enable gamepad input for Ziomek Humanize AI |
-| `ziomek.tts.url` | `http://localhost:5003` | URL of the ziomek TTS server |
-| `ziomek.tts.port` | `5003` | Port for the ziomek TTS server |
-| `ziomek.tts.voice` | `cosette` | Voice identifier for TTS |
-| `ziomek.pollingIntervalMs` | `16` | Gamepad polling interval (ms) |
-| `ziomek.debounceMs` | `80` | Minimum time between repeated actions (ms) |
-
-## Prerequisites
-
-- **Python 3.10+** with pip installed
-- **VS Code 1.95+**
-- **Gamepad** (Xbox, PlayStation, or any compatible gamepad)
-
-1. Build: `npm run compile`
-2. Press F5 in VS Code to launch extension host
-3. Connect your gamepad
+| `ziomek.enabled` | true | Enable gamepad input for Ziomek Humanize AI |
+| `ziomek.client.url` | http://localhost:5004 | URL of the ziomek client (gamepad relay) |
+| `ziomek.tts.url` | http://localhost:5003 | URL of the ziomek TTS server |
+| `ziomek.tts.voice` | cosette | Voice identifier for TTS |
+| `ziomek.tts.backend` | stub | TTS backend ('stub' or 'ziomek') |
+| `ziomek.debounceMs` | 80 | Minimum time between repeated actions (ms) |
 
 ## Default Gamepad Mapping
 
@@ -100,39 +140,73 @@ Open VS Code Settings (`Ctrl+,`) and search for `ziomek`:
 | Select | Open command palette |
 | Left Stick | Scroll chat content |
 
-## Configuration
+## Prerequisites
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `ziomek.enabled` | `true` | Enable gamepad input for Ziomek Humanize AI |
-| `ziomek.tts.url` | `http://localhost:5003` | URL of the ziomek TTS server |
-| `ziomek.tts.port` | `5003` | Port for the ziomek TTS server |
-| `ziomek.tts.voice` | `cosette` | Voice identifier for TTS |
-| `ziomek.pollingIntervalMs` | `16` | Gamepad polling interval (ms) |
-| `ziomek.debounceMs` | `80` | Minimum time between repeated actions (ms) |
+- **Python 3.10+** with pip installed
+- **VS Code 1.95+**
+- **Gamepad** (Xbox, PlayStation, or any compatible gamepad)
+- **pygame-ce** (installed automatically with `pip install -e ziomek`)
 
 ## Development
 
 ```bash
+# Install dependencies
+cd C:/gh/gamify_ai
 npm install
-npm run watch      # Auto-recompile on changes
-npm test           # Run tests
+
+# Compile TypeScript
+npm run compile
+
+# Run tests
+npm test
+
+# Auto-recompile on changes
+npm run watch
 ```
 
-## Architecture
+## File Structure
 
 ```
-┌─────────────────┐         HTTP          ┌──────────────────┐
-│  VS Code Ext    │ ◄──────────────────► │  ziomek Server   │
-│  (ziomek.humanize│    localhost:5003    │  (Python/FastAPI) │
-│  -ai)           │                        │                  │
-│                 │                        │  - TTS Synthesis │
-│  - Gamepad API  │                        │  - Avatar State  │
-│  - Webviews     │                        │  - Sprite Sheet  │
-└─────────────────┘                        └──────────────────┘
-```
+ziomek/                          # ziomek Python package
+├── ziomek/
+│   ├── cli.py                   # ziomek server CLI
+│   ├── server.py                # TTS server (port 5003)
+│   ├── config.py                # Settings
+│   ├── tts/                     # TTS module
+│   │   ├── engine.py            # Pocket TTS model wrapper
+│   │   ├── voice.py             # Voice state cache
+│   │   ├── generate.py          # WAV generation
+│   │   └── playback.py          # Audio player
+│   ├── avatar/                  # Avatar module
+│   │   ├── state_machine.py     # Expression state machine
+│   │   ├── skins.py             # Skin registry
+│   │   └── sprites.py           # Sprite sheet parser
+│   ├── api/                     # FastAPI endpoints
+│   │   ├── tts.py               # /api/tts/*
+│   │   ├── avatar.py            # /api/avatar/* + /avatar (WS)
+│   │   └── health.py            # /status, /
+│   └── client/                  # ziomek client module
+│       ├── cli.py               # ziomek-client CLI
+│       ├── server.py            # Client HTTP server (port 5004)
+│       ├── gamepad.py           # Pygame gamepad polling
+│       └── __init__.py          # Package init
+├── client/
+│   └── renderer.html            # Shared HTML avatar renderer
+├── pyproject.toml               # Package config
+├── run-ziomek.sh                # Launcher script (Linux/macOS)
+└── run-ziomek.bat               # Launcher script (Windows)
 
-The extension is a thin HTTP client that manages gamepad input and webview UI, while all TTS and avatar rendering is handled by the ziomek Python server.
+src/                             # VS Code extension
+├── extension.ts                 # Main entry point
+├── humanize/
+│   ├── avatar-panel.ts          # Canvas renderer (reads from client)
+│   ├── avatar/
+│   │   └── websocket-client.ts  # WebSocket client for state updates
+│   └── tts/                     # TTS service abstraction
+├── modules/                     # Copilot Chat module system
+├── mapping/                     # Input mapping system
+└── context.ts                   # Context tracking
+```
 
 ## Contributing
 
