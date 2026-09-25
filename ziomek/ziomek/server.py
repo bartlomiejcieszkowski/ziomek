@@ -4,6 +4,7 @@ from typing import Optional
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from ziomek.config import Settings
 from ziomek.tts.engine import TTSModelWrapper
@@ -26,6 +27,14 @@ def create_app(settings: Settings = None) -> FastAPI:
     if settings is None:
         settings = Settings()
     app = FastAPI(title="ziomek", version="0.1.0")
+    # Add CORS middleware for VS Code webviews
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     # Initialize TTS model
     _tts_model = TTSModelWrapper()
     # Note: model loading deferred to endpoint initialization
@@ -36,9 +45,10 @@ def create_app(settings: Settings = None) -> FastAPI:
     _state_machine = AvatarStateMachine()
     _skin_registry = SkinRegistry()
     # Include routers
-    from ziomek.api import tts, avatar
+    from ziomek.api import tts, avatar, health
     app.include_router(tts.router, tags=["TTS"])
     app.include_router(avatar.router, tags=["Avatar"])
+    app.include_router(health.router)
     return app
 
 
