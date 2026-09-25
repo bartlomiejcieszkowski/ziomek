@@ -1,2 +1,9 @@
-[tool.uv.workspace]
-members = ["ziomek"]
+[project]
+name = "gamify-ai"
+version = "0.1.0"
+description = "Gamepad-controlled VS Code Copilot Chat assistant"
+requires-python = ">=3.10"
+dependencies = ["ziomek", "pytest>=7.0", "pytest-asyncio>=0.21"]
+
+[tool.uv.sources]
+ziomek = { path = "ziomek", editable = true }

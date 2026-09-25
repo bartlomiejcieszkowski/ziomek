@@ -6,6 +6,7 @@ Usage:
     ziomek             Start ziomek client (default)
 """
 import argparse
+from importlib.metadata import version as get_version
 
 from ziomek.server import run_server
 
@@ -38,7 +39,7 @@ def _default_main():
 def main():
     parser = argparse.ArgumentParser(prog="ziomek", description="Humanize AI backend")
     parser.add_argument("--version", action="version",
-        version=f"%(prog)s {__import__('ziomek').__version__}")
+        version=f"%(prog)s {get_version('ziomek')}")
     sub = parser.add_subparsers(dest="command", help="Available commands")
 
     # -- server --

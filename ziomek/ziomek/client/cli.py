@@ -1,11 +1,11 @@
 """ziomek-client CLI — gamepad polling + avatar display launcher.
 
 Usage:
-    ziomek-client                    # Start with browser + VS Code relay
-    ziomek-client --no-browser       # VS Code relay only
-    ziomek-client --no-vscode        # Browser only
-    ziomek-client --no-vscode --no-browser  # Standalone display only
-    ziomek-client --server-url http://remote:5003  # Remote TTS server
+    ziomek client                    # Start with browser + VS Code relay
+    ziomek client --no-browser       # VS Code relay only
+    ziomek client --no-vscode        # Browser only
+    ziomek client --no-vscode --no-browser  # Standalone display only
+    ziomek client --server-url http://remote:5003  # Remote TTS server
 """
 from __future__ import annotations
 
@@ -15,9 +15,15 @@ import sys
 from ziomek.client.server import ZiomekClientApp
 
 
-def main() -> None:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse arguments, stripping the 'client' subcommand if present."""
+    if argv is None:
+        argv = list(sys.argv[1:])
+    # Strip 'client' subcommand when invoked as `ziomek client ...`
+    if argv and argv[0] == "client":
+        argv = argv[1:]
     parser = argparse.ArgumentParser(
-        prog="ziomek-client",
+        prog="ziomek client",
         description="ziomek client — gamepad polling + avatar display",
     )
     parser.add_argument(
@@ -42,7 +48,11 @@ def main() -> None:
         default="http://localhost:5003",
         help="ziomek TTS server URL (default: http://localhost:5003)",
     )
-    args = parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def main() -> None:
+    args = _parse_args()
 
     open_browser = not args.no_browser
     open_browser_str = "yes" if open_browser else "no"
