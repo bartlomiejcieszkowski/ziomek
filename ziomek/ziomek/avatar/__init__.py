@@ -1,0 +1,1 @@
+"""ziomek avatar package."""
