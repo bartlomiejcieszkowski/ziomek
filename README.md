@@ -11,21 +11,70 @@ Control VS Code and Copilot Chat with a gamepad. Modular architecture for extens
 - **Avatar Display**: Animated avatar synchronized with speech and gamepad input
 - **Fully Configurable**: Remap any button, axis, or trigger via VS Code settings
 
-## Prerequisites
+## Installation
 
-### ziomek Server (Python backend)
+### Step 1: Install ziomek Server (Python backend)
 
-The extension requires a locally running ziomek server for TTS and avatar rendering:
+The extension requires a locally running ziomek server for TTS and avatar rendering.
 
 ```bash
-# Install ziomek
-pip install ziomek  # or clone and run: pip install -e .
+# Clone and install ziomek
+git clone <ziomek-repo-url>
+cd ziomek
+git checkout ziomek-server-split
 
-# Start the server (default port: 5003)
-ziomek serve --port 5003
+# Install from source
+cd ziomek
+cd ziomek
+pip install -e .
+
+# Verify installation
+ziomek --version
 ```
 
-### VS Code Extension
+### Step 2: Start the ziomek Server
+
+```bash
+# Using the CLI directly (default port: 5003)
+ziomek serve
+
+# Or with launcher script
+./run-ziomek.sh      # Linux/macOS
+run-ziomek.bat       # Windows
+
+# Or specify a custom port
+ziomek serve --port 5004
+```
+
+### Step 3: Install the VS Code Extension
+
+```bash
+cd <extension-root>
+npm install
+npm run compile
+
+# Press F5 in VS Code to launch extension host
+# Connect your gamepad
+```
+
+### Step 4: Configure the Extension
+
+Open VS Code Settings (`Ctrl+,`) and search for `ziomek`:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `ziomek.enabled` | `true` | Enable gamepad input for Ziomek Humanize AI |
+| `ziomek.tts.url` | `http://localhost:5003` | URL of the ziomek TTS server |
+| `ziomek.tts.port` | `5003` | Port for the ziomek TTS server |
+| `ziomek.tts.voice` | `cosette` | Voice identifier for TTS |
+| `ziomek.pollingIntervalMs` | `16` | Gamepad polling interval (ms) |
+| `ziomek.debounceMs` | `80` | Minimum time between repeated actions (ms) |
+
+## Prerequisites
+
+- **Python 3.10+** with pip installed
+- **VS Code 1.95+**
+- **Gamepad** (Xbox, PlayStation, or any compatible gamepad)
 
 1. Build: `npm run compile`
 2. Press F5 in VS Code to launch extension host
