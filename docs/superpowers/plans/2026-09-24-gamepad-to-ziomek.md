@@ -15,11 +15,13 @@
 - ziomek server port: 5003 (unchanged)
 - ziomek client port: 5004 (new — FastAPI + WebSocket)
 - WebSocket endpoint path: `/avatar`
-- HTML renderer: `ziomek/client/renderer.html` — shared between client browser and extension webview
+- HTML renderer: `ziomek/client/renderer.html` — served by client at `/avatar-view` (extension fetches via HTTP at runtime)
 - gamepad-node dependency removed from package.json
-- Client startup: `ziomek-client` (no flags = browser view + WebSocket relay; `--no-vscode` = browser view only; `--no-browser` = WebSocket relay only)
+- Client startup: `ziomek-client` (no flags = browser view + WebSocket relay to extension; `--no-vscode` = browser view only; `--no-browser` = extension relay only)
+- WebSocket relay: ON by default (both browser view and extension relay active simultaneously); `--no-vscode` disables extension relay, `--no-browser` disables local browser view
 - WebSocket relay delay: 10ms (client side), state changes only pushed when expression or cycleIndex changes
 - Extension WebSocket reconnect delay: 2 seconds (exponential backoff)
+- Extension loads HTML via `fetch(clientUrl + '/avatar-view')` at activation (no npm dependency)
 - TTS via HTTP POST (unchanged)
 - Sprite sheet: client fetches from server → caches → serves to renderer
 
@@ -639,7 +641,7 @@ git commit -m "feat: add ziomek client HTTP server (FastAPI, gamepad relay, WebS
 
 **Interfaces:**
 - Consumes: `ZiomekClientApp` from Task 3
-- Produces: `ziomek-client` command-line tool with `--port`, `--no-vscode`, `--no-browser`, `--server-url` flags
+- Produces: `ziomek-client` command-line tool with `--port`, `--no-vscode`, `--no-browser`, `--server-url` flags (default: both browser AND WebSocket relay enabled)
 
 **Dependencies:** Task 3 (client server)
 
@@ -660,7 +662,7 @@ def main() -> None:
         description="ziomek client — gamepad polling + avatar display",
     )
     parser.add_argument("--port", type=int, default=5004, help="Client HTTP port (default: 5004)")
-    parser.add_argument("--no-vscode", action="store_true", help="Disable WebSocket relay to VS Code")
+    parser.add_argument("--no-vscode", action="store_true", help="Disable WebSocket relay to VS Code (default: relay enabled)")
     parser.add_argument("--no-browser", action="store_true", help="Do not open local browser")
     parser.add_argument(
         "--server-url",
@@ -724,8 +726,9 @@ git commit -m "feat: add ziomek-client CLI with --port, --no-browser, --no-vscod
 - Modify: `package.json` (remove gamepad-node)
 
 **Interfaces:**
-- Consumes: Shared HTML renderer from Task 1, WebSocket from client
+- Consumes: WebSocket from client (`AvatarWebSocketClient`), fetches HTML at runtime from `http://localhost:5004/avatar-view` (HTTP GET)
 - Produces: Simplified extension (~50 lines of gamepad code removed)
+- Extension loads HTML via `fetch(clientUrl + '/avatar-view')` at activation time (no npm dependency, no file copying)
 
 **Dependencies:** Task 2 (gamepad module), Task 3 (client server)
 
@@ -808,16 +811,16 @@ export class GamepadAvatarPanel implements vscode.Disposable {
     this._htmlTemplate = this._loadSharedHtml();
   }
 
-  private _loadSharedHtml(): string {
-    // Load from ziomek client package (npm package or local path)
-    // In dev: read from ziomek/client/renderer.html
+  /** Load shared HTML renderer from ziomek client at runtime (HTTP GET /avatar-view) */
+  private async _loadSharedHtml(): Promise<string> {
     try {
-      const htmlPath = join(__dirname, '..', '..', 'ziomek', 'client', 'renderer.html');
-      return readFileSync(htmlPath, 'utf-8');
+      const clientUrl = vscode.workspace.getConfiguration('ziomek').get('client.url', 'http://localhost:5004');
+      const resp = await fetch(`${clientUrl}/avatar-view`);
+      if (resp.ok) return await resp.text();
     } catch {
-      // Fallback: generate minimal HTML
-      return '<html><body>Avatar view unavailable — ziomek client not installed</body></html>';
+      // Client unavailable — generate minimal HTML
     }
+    return '<html><body>Avatar view unavailable — start ziomek-client (ziomek-client --port 5004)</body></html>';
   }
 
   /** Connect to ziomek client WebSocket for avatar state updates */
@@ -958,6 +961,10 @@ ziomek-client --port 5004 --server-url http://localhost:5003
 # --no-browser     : Disable local browser view
 # --no-vscode      : Disable WebSocket relay to VS Code
 # --server-url URL : Ziomek TTS server URL (default: http://localhost:5003)
+#
+# Default behavior: opens browser window AND relays to VS Code.
+# --no-vscode: disable VS Code relay (keep browser only)
+# --no-browser: disable browser (keep VS Code relay only)
 ```
 
 ### Step 3: Install VS Code Extension
@@ -1016,6 +1023,7 @@ git commit -m "docs: update README with ziomek client installation instructions"
 │  • Canvas rendering         │     │  • TTS synthesis                 │
 │  • Copilot Chat integration │     │  • Sprite data                   │
 │  • Gamepad → client relay   │     │  • Audio playback                │
+  • Fetches HTML from client   │                                    │
 └─────────────────────────────┘     └──────────────────────────────────┘
 ```
 
