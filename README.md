@@ -11,22 +11,25 @@ Control VS Code and Copilot Chat with a gamepad. Modular architecture with a sta
 
 ## Quick Start
 
-### Install Python packages
+### Install Python packages (uv)
 
 ```bash
-pip install -e ziomek
+cd C:/gh/gamify_ai
+uv run ziomek serve --port 5003   # first run installs deps, creates .venv
 ```
+
+`uv` auto-creates a `.venv` from `pyproject.toml`, downloads dependencies, and installs `ziomek` in development mode. You only need to do this once.
 
 ### Start the TTS server
 
 ```bash
-ziomek serve --port 5003
+uv run ziomek serve --port 5003
 ```
 
 ### Start the client (gamepad + avatar display)
 
 ```bash
-ziomek client --port 5004 --server-url http://localhost:5003
+uv run ziomek client --port 5004 --server-url http://localhost:5003
 ```
 
 This opens a browser window with the avatar display and relays gamepad state to the VS Code extension.
@@ -100,7 +103,7 @@ ziomek serve --port 5003 --voice cosette --cache-dir ./voices
 ### ziomek client (gamepad + avatar display)
 
 ```bash
-ziomek-client --port 5004 --server-url http://localhost:5003
+uv run ziomek client --port 5004 --server-url http://localhost:5003
 ```
 
 | Option | Default | Description |
@@ -114,10 +117,10 @@ ziomek-client --port 5004 --server-url http://localhost:5003
 
 | Command | What runs |
 |---------|-----------|
-| `ziomek-client` | Browser view + VS Code relay (default) |
-| `ziomek-client --no-vscode` | Browser view only (no extension needed) |
-| `ziomek-client --no-browser` | VS Code relay only (headless) |
-| `ziomek-client --no-browser --no-vscode` | Standalone display only |
+| `uv run ziomek client` | Browser view + VS Code relay (default) |
+| `uv run ziomek client --no-vscode` | Browser view only (no extension needed) |
+| `uv run ziomek client --no-browser` | VS Code relay only (headless) |
+| `uv run ziomek client --no-browser --no-vscode` | Standalone display only |
 
 ## VS Code Extension Configuration
 
@@ -152,10 +155,12 @@ ziomek-client --port 5004 --server-url http://localhost:5003
 
 ## Prerequisites
 
-- **Python 3.10+** with pip installed
+- **uv** (recommended — installs deps and manages venv in one step)
+  - Install: <https://docs.astral.sh/uv/getting-started/installation/>
+- **Python 3.10+** (auto-managed by uv, or use your system Python)
 - **VS Code 1.95+**
 - **Gamepad** (Xbox, PlayStation, or any compatible gamepad)
-- **pygame-ce** (installed automatically with `pip install -e ziomek`)
+- **pygame-ce** (installed automatically by uv)
 
 ## Development
 
@@ -177,11 +182,17 @@ npm run watch
 ## File Structure
 
 ```
-ziomek/                          # ziomek Python package
-├── ziomek/
-│   ├── cli.py                   # ziomek server CLI
-│   ├── server.py                # TTS server (port 5003)
-│   ├── config.py                # Settings
+.
+├── pyproject.toml             # Workspace root (uv workspace config)
+├── uv.lock                    # Resolved dependency lockfile
+├── ziomek/                    # ziomek Python package
+│   ├── pyproject.toml         # Package config
+│   ├── run-ziomek.sh          # Launcher script (Linux/macOS)
+│   ├── run-ziomek.bat         # Launcher script (Windows)
+│   ├── ziomek/
+│   │   ├── cli.py             # ziomek server & client CLI
+│   │   ├── server.py          # TTS server (port 5003)
+│   │   ├── config.py          # Settings
 │   ├── tts/                     # TTS module
 │   │   ├── engine.py            # Pocket TTS model wrapper
 │   │   ├── voice.py             # Voice state cache
