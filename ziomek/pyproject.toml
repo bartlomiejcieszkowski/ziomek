@@ -22,7 +22,6 @@ dev = ["pytest>=7.0", "pytest-asyncio>=0.21", "httpx2>=2.0", "ruff>=0.1"]
 
 [project.scripts]
 ziomek = "ziomek.cli:main"
-ziomek-client = "ziomek.client.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["ziomek*"]

@@ -1,3 +1,2 @@
 [console_scripts]
 ziomek = ziomek.cli:main
-ziomek-client = ziomek.client.cli:main
