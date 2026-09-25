@@ -1,201 +1,95 @@
 import { TTSService, SpeechStatus } from './tts-service.js';
-import {
-  spawn,
-  spawnSync,
-  type ChildProcess,
-  type StdioOptions,
-  type SpawnSyncOptions,
-} from 'node:child_process';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { mkdirSync, existsSync } from 'fs';
 import { Logger } from '../../logger.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-/** Configuration for the Pocket TTS backend. */
-export interface PocketTTSConfig {
-  port?: number;
-  modelPath?: string;
+/** Configuration for the Ziomek TTS HTTP client. */
+export interface ZiomekTTSConfig {
+  /** Base URL of the ziomek server (default: http://localhost:5003). */
+  url?: string;
+  /** Default voice to use for synthesis. */
   voice?: string;
+  /** Request timeout in milliseconds (default: 30000). */
   timeoutMs?: number;
-  /** Local directory to cache downloaded voice files (auto-created if missing). */
-  voicesDir?: string;
 }
 
 const DEFAULTS = {
-  port: 5003,
-  voice: 'default',
+  url: 'http://localhost:5003',
+  voice: 'cosette',
   timeoutMs: 30_000,
 } as const;
 
 /**
- * Pocket TTS service that wraps a Python HTTP server for speech synthesis.
+ * HTTP client for the ziomek TTS server.
  *
- * Manages the Python server lifecycle (lazy spawn, auto-reconnect, cleanup)
- * and exposes the TTSService interface with proper status callbacks.
+ * Communicates with a locally running ziomek server via HTTP.
+ * No Python process management — the server must be started separately.
  */
-export class PocketTTSService extends TTSService {
-  private readonly _port: number;
+export class ZiomekTTSClient extends TTSService {
+  private readonly _url: string;
   private readonly _voice: string;
   private readonly _timeoutMs: number;
-  private readonly _modelPath: string | undefined;
-  private readonly _voicesDir: string | undefined;
-
-  private _child: ChildProcess | null = null;
   private readonly _logger: Logger;
   private _isAvailableCache: boolean | null = null;
 
   private _speakResolve: (() => void) | null = null;
   private _abort: boolean = false;
 
-  constructor(config?: PocketTTSConfig) {
+  constructor(config?: ZiomekTTSConfig) {
     super();
-    this._port = config?.port ?? DEFAULTS.port;
+    this._url = config?.url ?? DEFAULTS.url;
     this._voice = config?.voice ?? DEFAULTS.voice;
     this._timeoutMs = config?.timeoutMs ?? DEFAULTS.timeoutMs;
-    this._modelPath = config?.modelPath;
-    this._voicesDir = config?.voicesDir;
     this._logger = new Logger('debug');
 
-    // Ensure the voice cache directory exists
-    if (this._voicesDir && !existsSync(this._voicesDir)) {
-      try {
-        mkdirSync(this._voicesDir, { recursive: true });
-        this._logger.info(
-          'pocket-tts',
-          `Created voice cache directory: ${this._voicesDir}`,
-        );
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        this._logger.warn(
-          'pocket-tts',
-          `Failed to create voice cache directory ${this._voicesDir}: ${msg}`,
-        );
-      }
+    if (!this._url.endsWith('/')) {
+      this._url = this._url + '/';
     }
   }
 
-  /** Check if Python is available on the system PATH. */
-  private _checkPython(): boolean {
-    for (const pyCmd of ['python3', 'python']) {
-      try {
-        // SAFETY: spawnSync from node:child_process is available at
-        // runtime in the VS Code extension host (Node.js environment).
-        const result = spawnSync(pyCmd, ['--version'], {
-          timeout: 2_000,
-          stdio: ['ignore', 'ignore', 'pipe'],
-        } as SpawnSyncOptions);
-        if (result.status === 0) {
-          return true;
-        }
-      } catch {
-        // Python not found or spawn failed — try next
-      }
-    }
-    return false;
-  }
-
-  /** Start the Pocket TTS Python server as a background process. */
-  private _startServer(): void {
-    if (this._child) return;
-
+  /** Check if the ziomek server is reachable. */
+  private async _checkServer(): Promise<boolean> {
     try {
-      const args: string[] = [
-        join(
-          dirname(__dirname),
-          '..',
-          '..',
-          '..',
-          'debug_tools',
-          'pocket-tts-server.py',
-        ),
-      ];
-      if (this._modelPath) {
-        args.push('--model-path', this._modelPath);
-      }
-      args.push('--voice', this._voice);
-      args.push('--port', String(this._port));
-      if (this._voicesDir) {
-        args.push('--voice-dir', this._voicesDir);
-      }
-
-      // SAFETY: spawn from node:child_process returns a ChildProcess.
-      // TypeScript stdio types are strict — we cast the stdio array
-      // to the expected tuple type using an intermediate variable.
-      const stdio: StdioOptions = ['ignore', 'ignore', 'pipe'];
-      // SAFETY: spawn returns a ChildProcess; the type assertion
-      // satisfies TypeScript's strict stdio validation.
-      this._child = spawn(
-        'python3',
-        args,
-        { stdio, detached: false } as SpawnSyncOptions,
-      ) as unknown as ChildProcess;
-
-      this._child.on('error', (err) => {
-        this._logger.error('pocket-tts', `Python server error: ${err.message}`);
-        this._child = null;
-        this._isAvailableCache = false;
+      const url = `${this._url}api/tts/status`;
+      const res = await fetch(url, {
+        method: 'GET',
+        signal: AbortSignal.timeout(3000),
       });
-
-      this._child.on('exit', (code, signal) => {
-        this._logger.info(
-          'pocket-tts',
-          `Python server exited (code=${code}, signal=${signal})`,
-        );
-        this._child = null;
-      });
-
-      this._logger.info('pocket-tts', `Started Python server on port ${this._port}`);
-    } catch (err) {
-      this._logger.error(
-        'pocket-tts',
-        `Failed to start Python server: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      this._isAvailableCache = false;
-    }
-  }
-
-  /** Stop the Python server process. */
-  private _stopServer(): void {
-    if (!this._child) return;
-    try {
-      this._child.kill('SIGTERM');
+      return res.ok;
     } catch {
-      // Process may already be dead
+      return false;
     }
-    this._child = null;
   }
 
-  override speak(_text: string): Promise<void> {
+  override speak(text: string): Promise<void> {
     return new Promise<void>((resolve) => {
-      // 1. Check availability (with cache)
+      // Check server availability (with cache)
       if (this._isAvailableCache === null) {
-        this._isAvailableCache = this._checkPython();
+        // Don't block — check async
+        this._checkServer().then((available) => {
+          this._isAvailableCache = available;
+          if (!available) {
+            this._logger.error('ziomek-tts', 'ziomek server not reachable');
+            this._setStatus('error');
+            resolve();
+            return;
+          }
+          this._doSpeak(text, resolve);
+        });
+        return;
       }
+
       if (!this._isAvailableCache) {
-        this._logger.error('pocket-tts', 'Python not available for Pocket TTS');
+        this._logger.error('ziomek-tts', 'ziomek server not available');
         this._setStatus('error');
         resolve();
         return;
       }
 
-      // 2. Start server if not running
-      this._startServer();
-
-      // 3. Wait briefly for server to be ready
-      this._setStatus('speaking');
-      this._abort = false;
-      this._speakResolve = resolve;
-
-      // Retry loop: wait for server, then POST
-      this._doSpeak(_text);
+      this._doSpeak(text, resolve);
     });
   }
 
-  /** Actually perform the POST to the Python server, with retries. */
-  private _doSpeak(text: string, retries: number = 3): void {
+  /** Perform the POST to the ziomek server. */
+  private _doSpeak(text: string, resolve: () => void): void {
     if (this._abort) {
       this._setStatus('idle');
       this._speakResolve?.();
@@ -203,7 +97,11 @@ export class PocketTTSService extends TTSService {
       return;
     }
 
-    const url = `http://localhost:${this._port}/api/tts/generate`;
+    this._setStatus('speaking');
+    this._abort = false;
+    this._speakResolve = resolve;
+
+    const url = `${this._url}api/tts/speak`;
 
     fetch(url, {
       method: 'POST',
@@ -224,20 +122,7 @@ export class PocketTTSService extends TTSService {
       .catch((err) => {
         if (this._abort) return;
         const msg = err instanceof Error ? err.message : String(err);
-
-        // Retry if server might not be ready yet
-        if (retries > 0) {
-          this._logger.warn(
-            'pocket-tts',
-            `POST /api/tts/generate failed, retrying... (${retries} left): ${msg}`,
-          );
-          setTimeout(() => this._doSpeak(text, retries - 1), 500);
-          return;
-        }
-
-        // Server may have died — kill and re-spawn on next speak
-        this._logger.error('pocket-tts', `POST /api/tts/generate failed after retries: ${msg}`);
-        this._stopServer();
+        this._logger.error('ziomek-tts', `POST /api/tts/speak failed: ${msg}`);
         this._isAvailableCache = null; // force re-check
         this._setStatus('error');
         this._speakResolve?.();
@@ -254,7 +139,6 @@ export class PocketTTSService extends TTSService {
       this._speakResolve = null;
     }
 
-    this._stopServer();
     this._setStatus('idle');
     return Promise.resolve();
   }
@@ -265,15 +149,22 @@ export class PocketTTSService extends TTSService {
 
   override isAvailable(): boolean {
     if (this._isAvailableCache === null) {
-      this._isAvailableCache = this._checkPython();
+      // Can't block on async check — return unknown
+      return true; // Assume available until proven otherwise
     }
     return this._isAvailableCache;
   }
 
-  /** Clean up resources. Called on extension deactivate. */
+  /** Clean up resources. */
   cleanup(): void {
-    this._stopServer();
-    this._child = null;
+    this._abort = true;
+    if (this._speakResolve) {
+      this._speakResolve();
+      this._speakResolve = null;
+    }
     this._isAvailableCache = null;
   }
 }
+
+// Keep PocketTTSService as an alias for backward compatibility
+export { ZiomekTTSClient as PocketTTSService };

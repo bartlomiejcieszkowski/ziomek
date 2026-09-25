@@ -9,7 +9,7 @@ import { SkinRegistry } from './humanize/avatar/skin-registry.js';
 import { AvatarStateMachine, type GamepadAvatarInput } from './humanize/avatar/state-machine.js';
 import { LocalHTTPServer } from './humanize/local-http-server.js';
 import { StubTTSService } from './humanize/tts/stub-tts.js';
-import { PocketTTSService, type PocketTTSConfig } from './humanize/tts/pocket-tts-service.js';
+import { ZiomekTTSClient } from './humanize/tts/pocket-tts-service.js';
 import type { TTSService } from './humanize/tts/tts-service.js';
 import { ContextTracker } from './context.js';
 import { ModuleRegistry } from './modules/base.js';
@@ -61,7 +61,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Start gamepad service
   const pollingInterval = vscode.workspace
-    .getConfiguration('humanizeAI')
+    .getConfiguration('ziomek')
     .get('pollingIntervalMs', 16);
   gamepadService = new GamepadService(pollingInterval);
 
@@ -128,7 +128,7 @@ export function activate(context: vscode.ExtensionContext) {
   const skinRegistry = SkinRegistry.getInstance();
   stateMachine = new AvatarStateMachine();
   // Create TTS service based on configuration
-  ttsService = createTTS(logger, context);
+  ttsService = createTTS(logger);
   // Read HTTP server port from config
   const config = vscode.workspace.getConfiguration('humanizeAI');
   const httpPort = config.get('http.port', 5001) as number;
@@ -294,44 +294,31 @@ function showGamepadWindow(): void {
 /**
  * Create a TTSService instance based on the configured backend.
  *
- * Supports three modes:
+ * Supports two modes:
  * - 'stub'     → StubTTSService (default, always available)
- * - 'pocket'   → PocketTTSService (requires Python + pocket_tts package)
- * - 'auto'     → PocketTTSService if Python available, else StubTTSService
+ * - 'ziomek'   → ZiomekTTSClient (HTTP client to ziomek server)
  */
-function createTTS(log: Logger, extContext: vscode.ExtensionContext): TTSService {
-  const config = vscode.workspace.getConfiguration('humanizeAI');
-  const backend = config.get<'stub' | 'pocket' | 'auto'>('tts.backend', 'stub');
+function createTTS(log: Logger): TTSService {
+  const config = vscode.workspace.getConfiguration('ziomek');
+  const backend = config.get<'stub' | 'ziomek'>('tts.backend', 'stub');
 
-  // Pocket TTS configuration
-  const modelPathRaw = config.get('tts.pocket.modelPath', null);
-  // Use extension storage directory for voice cache
-  const voicesDir = join(extContext.storagePath || __dirname, 'voices');
-  const pocketConfig: PocketTTSConfig = {
-    port: config.get('tts.pocket.port', 5003),
-    // SAFETY: package.json declares `null` as default for modelPath;
-    // we pass `undefined` to PocketTTSConfig when the value is null.
-    modelPath: modelPathRaw === null ? undefined : modelPathRaw,
-    voice: config.get('tts.pocket.voice', 'default'),
-    voicesDir,
-  };
+  // Ziomek TTS configuration
+  const ttsUrl = config.get('tts.url', 'http://localhost:5003');
+  const voice = config.get('tts.voice', 'cosette');
 
   if (backend === 'stub') {
     log.info('extension', 'Using StubTTSService');
     return new StubTTSService();
   }
 
-  // Try Pocket TTS (explicit 'pocket' or 'auto' mode)
+  // Use Ziomek HTTP client
   try {
-    const pocket = new PocketTTSService(pocketConfig);
-    if (pocket.isAvailable()) {
-      log.info('extension', 'Using PocketTTSService');
-      return pocket;
-    }
-    log.warn('extension', 'Pocket TTS not available (Python not found), falling back to StubTTSService');
+    const client = new ZiomekTTSClient({ url: ttsUrl, voice });
+    log.info('extension', `Using ZiomekTTSClient (url=${ttsUrl}, voice=${voice})`);
+    return client;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    log.error('extension', `Failed to initialize Pocket TTS: ${msg}, falling back to StubTTSService`);
+    log.error('extension', `Failed to initialize Ziomek TTS client: ${msg}, falling back to StubTTSService`);
   }
 
   return new StubTTSService();
@@ -352,14 +339,7 @@ export function deactivate(): void {
     httpServer = null;
   }
   if (ttsService) {
-    // SAFETY: PocketTTSService (our implementation) has a `cleanup()` method
-    // that stops the Python subprocess. StubTTSService doesn't. We check
-    // for method existence at runtime to safely call it. Cast to unknown
-    // first to satisfy TypeScript's strict type overlap check.
-    const _tts = ttsService as unknown as { cleanup?: () => void };
-    if (typeof _tts.cleanup === 'function') {
-      _tts.cleanup();
-    }
+    ttsService.cleanup();
     ttsService.stop();
     ttsService = null;
   }

@@ -76,6 +76,15 @@ export abstract class TTSService {
   }
 
   /**
+   * Cleans up resources. Subclasses may override for custom cleanup.
+   *
+   * Default is a no-op for implementations that don't need cleanup.
+   */
+  cleanup(): void {
+    // No-op base implementation
+  }
+
+  /**
    * Updates the internal status and notifies all registered callbacks.
    *
    * @param newStatus - The new status to set.
