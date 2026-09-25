@@ -1,7 +1,7 @@
 {
-  "name": "humanize-ai",
-  "displayName": "Humanize AI",
-  "description": "Humanize your VS Code and Copilot Chat experience. Control with a gamepad — modular architecture for extensible gamepad integration.",
+  "name": "ziomek.humanize-ai",
+  "displayName": "Ziomek — Humanize AI",
+  "description": "Ziomek Humanize AI — gamepad-controlled avatar with TTS. Connect to a locally running ziomek server.",
   "version": "0.1.0",
   "engines": {
     "vscode": "^1.95.0"
@@ -12,95 +12,75 @@
   "contributes": {
     "commands": [
       {
-        "command": "humanizeAI.showDebugInfo",
+        "command": "ziomek.humanizeAI.showDebugInfo",
         "title": "Show Gamepad Debug Info",
         "description": "Outputs current gamepad state and active mappings to the output channel."
       },
       {
-        "command": "humanizeAI.showGamepadWindow",
+        "command": "ziomek.humanizeAI.showGamepadWindow",
         "title": "Show Gamepad Debug Window",
         "description": "Opens an SDL window visualizing gamepad state in real-time."
       },
       {
-        "command": "humanizeAI.showAvatar",
-        "title": "Show Humanize AI - Avatar",
-        "description": "Shows the Humanize AI avatar panel with animated single-frame portrait.",
+        "command": "ziomek.humanizeAI.showAvatar",
+        "title": "Show Ziomek — Avatar",
+        "description": "Shows the Ziomek avatar panel with animated single-frame portrait.",
         "icon": "$(gamepad)"
       }
     ],
     "viewsContainers": {
       "panel": [
         {
-          "id": "humanizeAI-panel",
-          "title": "Humanize AI",
+          "id": "ziomek-humanizeAI-panel",
+          "title": "Ziomek — Humanize AI",
           "icon": "$(gamepad)"
         }
       ]
     },
     "views": {
-      "humanizeAI-panel": [
+      "ziomek-humanizeAI-panel": [
         {
           "type": "webview",
-          "id": "humanizeAI.avatar",
+          "id": "ziomek.humanizeAI.avatar",
           "name": "Avatar",
           "icon": "$(gamepad)"
         }
       ]
     },
     "configuration": {
-      "title": "Humanize AI",
+      "title": "Ziomek — Humanize AI",
       "properties": {
-        "humanizeAI.enabled": {
+        "ziomek.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable gamepad input for Humanize AI"
+          "description": "Enable gamepad input for Ziomek Humanize AI"
         },
-        "humanizeAI.pollingIntervalMs": {
+        "ziomek.tts.url": {
+          "type": "string",
+          "default": "http://localhost:5003",
+          "description": "URL of the ziomek TTS server (default: localhost:5003)"
+        },
+        "ziomek.tts.port": {
+          "type": "number",
+          "default": 5003,
+          "description": "Port for the ziomek TTS server"
+        },
+        "ziomek.tts.voice": {
+          "type": "string",
+          "default": "cosette",
+          "description": "Voice identifier for TTS (HuggingFace URL, local file, or catalog voice name)"
+        },
+        "ziomek.pollingIntervalMs": {
           "type": "number",
           "default": 16,
           "description": "Gamepad polling interval in milliseconds (lower = more responsive, higher CPU usage)",
           "minimum": 4,
           "maximum": 250
         },
-        "humanizeAI.debounceMs": {
+        "ziomek.debounceMs": {
           "type": "number",
           "default": 80,
           "description": "Minimum time between repeated actions in milliseconds (prevents rapid duplicates)"
-        },
-        "humanizeAI.modules.copilotChat.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable Copilot Chat gamepad controls"
-        },
-        "humanizeAI.tts.backend": {
-          "type": "string",
-          "enum": [
-            "stub",
-            "pocket",
-            "auto"
-          ],
-          "default": "stub",
-          "description": "TTS backend: 'stub' (simulated), 'pocket' (Python server), or 'auto' (pick best available)"
-        },
-        "humanizeAI.tts.pocket.port": {
-          "type": "number",
-          "default": 5003,
-          "description": "Port for the Pocket TTS Python server"
-        },
-        "humanizeAI.tts.pocket.modelPath": {
-          "type": "string",
-          "default": null,
-          "description": "Optional path to a custom Pocket TTS model"
-        },
-        "humanizeAI.tts.pocket.voice": {
-          "type": "string",
-          "default": "hf://kyutai/tts-voices/alba-mackenna/casual.wav",
-          "description": "Voice identifier for Pocket TTS (HuggingFace URL, local file, or 'default'). Auto-downloaded on first use."
-        },
-        "humanizeAI.http.port": {
-          "type": "number",
-          "default": 5001,
-          "description": "Port for the local HTTP server (avatar state, emotion, message, TTS endpoints)"
         }
       }
     }
