@@ -92,9 +92,7 @@
     "pretest": "npm run compile",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --forceExit"
   },
-  "dependencies": {
-    "gamepad-node": "^1.5.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@jest/globals": "^29.7.0",
     "@types/jest": "^29.5.14",

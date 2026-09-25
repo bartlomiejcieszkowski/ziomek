@@ -1,7 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { GamepadAvatarPanel } from '../../src/humanize/avatar-panel';
-import { SkinRegistry } from '../../src/humanize/avatar/skin-registry';
-import { AvatarStateMachine } from '../../src/humanize/avatar/state-machine';
 
 // Simple mock for VS Code that satisfies the panel's constructor
 const mockPanel = {
@@ -17,16 +15,10 @@ const mockPanel = {
 
 describe('GamepadAvatarPanel', () => {
   let panel: GamepadAvatarPanel;
-  let skinRegistry: SkinRegistry;
-  let stateMachine: AvatarStateMachine;
 
   beforeEach(() => {
-    skinRegistry = SkinRegistry.getInstance();
-    stateMachine = new AvatarStateMachine();
     panel = new GamepadAvatarPanel(
       { extensionUri: { fsPath: '/test' } } as any,
-      skinRegistry,
-      stateMachine,
     );
 
     // Simulate VS Code calling resolveWebviewView
@@ -45,42 +37,8 @@ describe('GamepadAvatarPanel', () => {
     expect(GamepadAvatarPanel.viewType).toBe('humanizeAI.avatar');
   });
 
-  test('should initialize with default gamepad state', () => {
-    // Panel should initialize with empty gamepad state
-    expect(panel).toBeDefined();
-  });
-
-  test('should handle updateFromGamepad without error', () => {
-    panel.updateFromGamepad([
-      {
-        buttons: [{ pressed: false, value: 0 }],
-        axes: [0, 0, 0, 0],
-      } as any,
-    ]);
-    // Should not throw
-  });
-
-  test('should handle disconnected gamepad', () => {
-    panel.updateFromGamepad([]);
-    // Should not throw
-  });
-
-  test('should set streaming state', () => {
-    panel.setStreaming(true);
-    panel.setStreaming(false);
-    // Should not throw
-  });
-
-  test('should set error state', () => {
-    panel.setErrorState(true);
-    panel.setErrorState(false);
-    // Should not throw
-  });
-
-  test('should set chat focused state', () => {
-    panel.setChatFocused(true);
-    panel.setChatFocused(false);
-    // Should not throw
+  test('should initialize with default HTML', () => {
+    expect(panel['_htmlTemplate']).toContain('html');
   });
 
   test('should dispose without error', () => {
@@ -89,12 +47,14 @@ describe('GamepadAvatarPanel', () => {
     panel.dispose();
   });
 
-  test('should send update message via postMessage (integration)', () => {
-    // Update state machine and panel
-    const state = panel.getCurrentState();
-    panel.updateState(state);
+  test('should handle WebSocket disconnection on dispose', () => {
+    panel.connectToClient('http://localhost:5004');
+    panel.dispose();
+    // Should not throw
+  });
 
-    // Verify postMessage was called on the mock view
-    expect(mockPanel.webview.postMessage).toHaveBeenCalled();
+  test('should show view when visible', () => {
+    panel.show();
+    // show() should not throw, just reveal if view exists
   });
 });

@@ -1,34 +1,18 @@
 import * as vscode from 'vscode';
-import { spawn } from 'child_process';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
 import { Logger } from './logger.js';
-import { GamepadService } from './humanize/service.js';
 import { GamepadAvatarPanel } from './humanize/avatar-panel.js';
-import { SkinRegistry } from './humanize/avatar/skin-registry.js';
-import { AvatarStateMachine, type GamepadAvatarInput } from './humanize/avatar/state-machine.js';
-import { LocalHTTPServer } from './humanize/local-http-server.js';
-import { StubTTSService } from './humanize/tts/stub-tts.js';
-import { ZiomekTTSClient } from './humanize/tts/pocket-tts-service.js';
-import type { TTSService } from './humanize/tts/tts-service.js';
 import { ContextTracker } from './context.js';
 import { ModuleRegistry } from './modules/base.js';
 import { MappingResolver } from './mapping/resolver.js';
 import { ConfigManager } from './mapping/config.js';
 import { CopilotChatModule } from './modules/copilot-chat.js';
+import { StubTTSService } from './humanize/tts/stub-tts.js';
+import { ZiomekTTSClient } from './humanize/tts/pocket-tts-service.js';
+import type { TTSService } from './humanize/tts/tts-service.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-let gamepadService: GamepadService | null = null;
-let avatarPanel: GamepadAvatarPanel | null = null;
-let stateMachine: AvatarStateMachine | null = null;
-let avatarPollTimer: ReturnType<typeof setInterval> | null = null;
-let contextTracker: ContextTracker | null = null;
 let logger: Logger | null = null;
 let debugChannel: vscode.OutputChannel | null = null;
-let httpServer: LocalHTTPServer | null = null;
-let ttsService: import('./humanize/tts/tts-service.js').TTSService | null = null;
+let avatarPanel: GamepadAvatarPanel | null = null;
 
 export function activate(context: vscode.ExtensionContext) {
   logger = new Logger('debug');
@@ -40,7 +24,7 @@ export function activate(context: vscode.ExtensionContext) {
     configManager.loadMapping('copilotChat'),
     { logger },
   );
-  contextTracker = new ContextTracker(undefined, logger);
+  const contextTracker = new ContextTracker(undefined, logger);
 
   // Register the Copilot Chat module
   const copilotChatModule = new CopilotChatModule();
@@ -49,9 +33,7 @@ export function activate(context: vscode.ExtensionContext) {
   // Wire resolver output to module registry
   mappingResolver.onAction((action) => {
     if (!contextTracker) return;
-    const contextState = contextTracker.getState();
-    const activeContext = detectContext(contextState);
-
+    const activeContext = detectContext(contextTracker.getState());
     moduleRegistry
       .executeAction('copilotChat', action, { context: activeContext })
       .catch((error) => {
@@ -59,27 +41,38 @@ export function activate(context: vscode.ExtensionContext) {
       });
   });
 
-  // Start gamepad service
-  const pollingInterval = vscode.workspace
+  // Create TTS service based on configuration
+  const ttsService = createTTS(logger);
+
+  // Avatar panel — gamepad is now handled by ziomek client
+  avatarPanel = new GamepadAvatarPanel(context);
+
+  // Load HTML from ziomek client and connect WebSocket
+  const clientUrl = vscode.workspace
     .getConfiguration('ziomek')
-    .get('pollingIntervalMs', 16);
-  gamepadService = new GamepadService(pollingInterval);
+    .get('client.url', 'http://localhost:5004') as string;
 
-  gamepadService.on('button', (event) => {
-    if (event.type === 'gamepadbutton') {
-      mappingResolver.handleButton(event.buttonIndex, event.pressed, event.value);
-    }
+  // Load HTML from client at runtime
+  avatarPanel._loadSharedHtml(clientUrl).then(() => {
+    // Connect WebSocket for avatar state updates
+    avatarPanel?.connectToClient(clientUrl);
   });
 
-  gamepadService.on('axis', (event) => {
-    if (event.type === 'gamepadaxis') {
-      mappingResolver.handleAxis(event.axisIndex, event.value);
-    }
-  });
+  // Register the avatar view provider
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      GamepadAvatarPanel.viewType,
+      avatarPanel,
+    ),
+  );
 
-  gamepadService.start().catch((error) => {
-    vscode.window.showErrorMessage(`Humanize AI: Failed to initialize gamepad service — ${error.message}`);
-  });
+  // Register avatar panel command (to focus/reveal the view)
+  const showAvatarDisposable = vscode.commands.registerCommand(
+    'humanizeAI.showAvatar',
+    () => {
+      avatarPanel?.show();
+    },
+  );
 
   // Set up settings change watcher
   const configDisposable = vscode.workspace.onDidChangeConfiguration((event) => {
@@ -92,7 +85,7 @@ export function activate(context: vscode.ExtensionContext) {
   const debugDisposable = vscode.commands.registerCommand(
     'humanizeAI.showDebugInfo',
     () => {
-      showDebugInfo(moduleRegistry, gamepadService, logger!);
+      showDebugInfo(moduleRegistry, logger!);
     },
   );
 
@@ -116,89 +109,12 @@ export function activate(context: vscode.ExtensionContext) {
     },
   );
 
-  // Register gamepad debug window command
-  const gamepadWindowDisposable = vscode.commands.registerCommand(
-    'humanizeAI.showGamepadWindow',
-    () => {
-      showGamepadWindow();
-    },
-  );
-
-  // Avatar panel — created after gamepadService so it can receive state
-  const skinRegistry = SkinRegistry.getInstance();
-  stateMachine = new AvatarStateMachine();
-  // Create TTS service based on configuration
-  ttsService = createTTS(logger);
-  // Read HTTP server port from config
-  const config = vscode.workspace.getConfiguration('humanizeAI');
-  const httpPort = config.get('http.port', 5001) as number;
-  httpServer = new LocalHTTPServer(stateMachine, httpPort, ttsService);
-  httpServer.start();
-  avatarPanel = new GamepadAvatarPanel(context, skinRegistry, stateMachine);
-
-  // Register the avatar view provider
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(
-      GamepadAvatarPanel.viewType,
-      avatarPanel,
-    ),
-  );
-
-  // Register avatar panel command (to focus/reveal the view)
-  const showAvatarDisposable = vscode.commands.registerCommand(
-    'humanizeAI.showAvatar',
-    () => {
-      avatarPanel?.show();
-    },
-  );
-
   context.subscriptions.push(
     configDisposable,
     debugDisposable,
     logLevelDisposable,
-    gamepadWindowDisposable,
     showAvatarDisposable,
-    // Emotion setter (callable by other extensions)
-    vscode.commands.registerCommand(
-      'humanizeAI.setEmotion',
-      (expressionName: string) => {
-        if (!stateMachine) return;
-        const success = stateMachine.setExpression(expressionName);
-        const exprNames = stateMachine.getExpressionNames().join(', ');
-        if (success) {
-          vscode.window.showInformationMessage(`Avatar emotion set to: ${expressionName}`);
-        } else {
-          vscode.window.showErrorMessage(`Unknown expression '${expressionName}'. Valid: ${exprNames}`);
-        }
-      },
-    ),
   );
-
-  // Gamepad polling loop for avatar panel (10 FPS)
-  let lastAvatarUpdate = 0;
-  avatarPollTimer = setInterval(() => {
-    const now = Date.now();
-    if (!avatarPanel || !stateMachine) return;
-    if (now - lastAvatarUpdate < 100) return;
-    lastAvatarUpdate = now;
-
-    const gamepads = gamepadService?.getGamepads() || [];
-    avatarPanel.updateFromGamepad(gamepads);
-
-    // Feed state to state machine
-    const input: GamepadAvatarInput = {
-      buttons: gamepads.length > 0 ? gamepads[0].buttons : [],
-      axes: gamepads.length > 0 ? gamepads[0].axes : [],
-      connected: gamepads.length > 0,
-      streaming: false,
-      chatFocused: false,
-      errorState: false,
-    };
-
-    stateMachine.update(input);
-    const state = stateMachine.tick(16);
-    avatarPanel.updateState(state);
-  }, 100);
 }
 
 function detectContext(
@@ -221,7 +137,6 @@ function refreshConfiguration(
 
 function showDebugInfo(
   moduleRegistry: ModuleRegistry,
-  gamepadService: GamepadService | null,
   loggerRef: Logger,
 ): void {
   if (!debugChannel) {
@@ -238,57 +153,9 @@ function showDebugInfo(
     `Registered modules: ${moduleRegistry.getRegisteredModuleNames().join(', ')}`,
   );
   debugChannel.appendLine('');
-  debugChannel.appendLine('=== Gamepad Service ===');
-  if (gamepadService) {
-    debugChannel.appendLine(`Started: ${gamepadService.isStarted()}`);
-    debugChannel.appendLine(`Manager ready: ${gamepadService.isManagerReady()}`);
-    debugChannel.appendLine(`Connected gamepads: ${gamepadService.getGamepadCount()}`);
-
-    if (gamepadService.getGamepadCount() > 0) {
-      debugChannel.appendLine('');
-      for (let i = 0; i < 4; i++) {
-        const detail = gamepadService.getGamepadDetail(i);
-        if (detail) {
-          debugChannel.appendLine(`Gamepad ${i}: ${detail.id}`);
-          debugChannel.appendLine(`  Mapping: ${detail.mapping}`);
-          debugChannel.appendLine(`  Buttons: ${detail.buttons}, Axes: ${detail.axes}`);
-        }
-      }
-    } else {
-      debugChannel.appendLine('No gamepads detected.');
-      debugChannel.appendLine('Make sure:');
-      debugChannel.appendLine('  1. Gamepad is plugged in before starting VS Code');
-      debugChannel.appendLine('  2. No other app is using the gamepad');
-      debugChannel.appendLine('  3. Windows Game Controller settings show it as connected');
-    }
-  } else {
-    debugChannel.appendLine('Gamepad service not initialized (extension not activated?)');
-  }
+  debugChannel.appendLine('Gamepad polling is now handled by ziomek client.');
+  debugChannel.appendLine('Start ziomek-client to enable gamepad input.');
   debugChannel.show();
-}
-
-/** Launch the SDL-based gamepad debug window in a separate process. */
-function showGamepadWindow(): void {
-  const scriptPath = join(__dirname, '..', 'debug_tools', 'gamepad-window.js');
-
-  try {
-    const child = spawn('node', [scriptPath], {
-      stdio: ['ignore', 'ignore', 'inherit'],
-      detached: true,
-    });
-
-    child.unref();
-    vscode.window.showInformationMessage(
-      `Humanize AI: Gamepad debug window launched.`,
-    );
-    logger?.info('extension', `Launched gamepad debug window (pid ${child.pid})`);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    vscode.window.showErrorMessage(
-      `Humanize AI: Failed to launch gamepad debug window — ${msg}`,
-    );
-    logger?.error('extension', `Failed to launch gamepad debug window: ${msg}`);
-  }
 }
 
 /**
@@ -327,20 +194,8 @@ function createTTS(log: Logger): TTSService {
 export function deactivate(): void {
   debugChannel?.dispose();
   debugChannel = null;
-  if (gamepadService) {
-    gamepadService.stop();
-  }
-  if (avatarPollTimer) {
-    clearInterval(avatarPollTimer);
-    avatarPollTimer = null;
-  }
-  if (httpServer) {
-    httpServer.stop();
-    httpServer = null;
-  }
-  if (ttsService) {
-    ttsService.cleanup();
-    ttsService.stop();
-    ttsService = null;
+  if (avatarPanel) {
+    avatarPanel.dispose();
+    avatarPanel = null;
   }
 }
