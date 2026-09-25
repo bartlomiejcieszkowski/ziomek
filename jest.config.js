@@ -16,6 +16,7 @@ export default {
     ],
   },
   testMatch: ['**/tests/**/*.test.ts'],
+  testPathIgnorePatterns: ['/.worktrees/'],
   coverageDirectory: 'coverage',
   injectGlobals: true,
 };
