@@ -169,7 +169,8 @@ class ZiomekClientApp:
                 time.sleep(0.01)  # 100Hz
 
         self._thread = threading.Thread(target=poll_loop, daemon=True)
-        self._thread.start()
+        # Thread-safe: self._state_lock serializes all state_machine mutations
+        self._thread.start()  # type: ignore[no-untyped-call]  # pyright: ignore[reportArgumentType]
 
     async def _load_sprite(self) -> None:
         """Lazy-load sprite from server (called on first /api/avatar/sprite request)."""
