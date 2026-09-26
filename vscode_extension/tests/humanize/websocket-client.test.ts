@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, jest } from '@jest/globals';
-import { AvatarWebSocketClient, AvatarStateUpdate } from '../../src/humanize/avatar/websocket-client';
+import { AvatarWebSocketClient, AvatarStateUpdate } from '../../humanize/avatar/websocket-client.js';
 
 // Mock WebSocket globally
 const mockSend = jest.fn();

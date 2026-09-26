@@ -1,4 +1,4 @@
-import { ContextTracker, ContextState } from '../src/context';
+import { ContextTracker, ContextState } from '../context.js';
 
 // Create a mock vscode API object
 function createMockVscode() {

@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
-import { LocalHTTPServer } from '../../src/humanize/local-http-server.js';
-import { AvatarStateMachine } from '../../src/humanize/avatar/state-machine.js';
-import { StubTTSService } from '../../src/humanize/tts/stub-tts.js';
+import { LocalHTTPServer } from '../../humanize/local-http-server.js';
+import { AvatarStateMachine } from '../../humanize/avatar/state-machine.js';
+import { StubTTSService } from '../../humanize/tts/stub-tts.js';
 import http from 'http';
 
 function fetchJSON(path: string, port = 5001): Promise<unknown> {

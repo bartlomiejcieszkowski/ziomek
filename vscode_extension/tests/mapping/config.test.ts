@@ -1,4 +1,4 @@
-import { ConfigManager, defaultMapping } from '../../src/mapping/config';
+import { ConfigManager, defaultMapping } from '../../mapping/config.js';
 
 describe('defaultMapping', () => {
   test('should be defined', () => {

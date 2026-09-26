@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from '@jest/globals';
-import { TTSService, SpeechStatus } from '../../../src/humanize/tts/tts-service.js';
+import { TTSService, SpeechStatus } from '../../../humanize/tts/tts-service.js';
 
 // Stub PocketTTSService for interface testing
 // We test the TTSService interface contract here;

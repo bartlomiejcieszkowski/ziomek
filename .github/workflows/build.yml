@@ -15,22 +15,25 @@ jobs:
         node-version: [20]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@4
 
       - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
+        working-directory: vscode_extension
 
       - name: Compile TypeScript
         run: npm run compile
+        working-directory: vscode_extension
 
       - name: Run tests
         run: npm test
+        working-directory: vscode_extension
 
       - name: Build .vsix package
         run: |
@@ -38,7 +41,7 @@ jobs:
           vsce package --out dist/
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@4
         with:
           name: ziomek-humanize-ai
           path: dist/

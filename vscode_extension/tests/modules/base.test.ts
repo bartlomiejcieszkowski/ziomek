@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { ModuleRegistry, GamepadModule } from '../../src/modules/base';
+import { ModuleRegistry, GamepadModule } from '../../modules/base.js';
 
 describe('ModuleRegistry', () => {
   let registry: ModuleRegistry;
@@ -12,8 +12,8 @@ describe('ModuleRegistry', () => {
       displayName: 'Copilot Chat',
       actions: ['send-message', 'new-chat', 'cancel'],
       contexts: ['chat-focused', 'input-focused'],
-      execute: jest.fn().mockResolvedValue(undefined),
-    };
+      execute: jest.fn() as any,
+    } as any;
   });
 
   test('should be defined', () => {
@@ -31,7 +31,7 @@ describe('ModuleRegistry', () => {
       displayName: 'Test',
       actions: ['test-action'],
       contexts: ['test'],
-      execute: jest.fn().mockResolvedValue(undefined),
+      execute: jest.fn() as any as unknown as (action: string, context: { context: string }) => Promise<void>,
     };
 
     registry.register(mockModule);
@@ -52,7 +52,7 @@ describe('ModuleRegistry', () => {
       displayName: 'Test',
       actions: ['test-action'],
       contexts: ['test'],
-      execute: jest.fn().mockResolvedValue(undefined),
+      execute: jest.fn() as any as unknown as (action: string, context: { context: string }) => Promise<void>,
     };
 
     registry.register(mockModule);
@@ -105,7 +105,13 @@ describe('ModuleRegistry', () => {
   });
 
   test('should execute action in the specified context', async () => {
-    registry.register(mockModule);
+    const module2: GamepadModule = {
+      name: 'copilotChat',
+      displayName: 'Copilot Chat',
+      actions: ['new-chat'],
+      contexts: ['chat-focused'],
+      execute: jest.fn() as any,
+    } as unknown as GamepadModule;
 
     await registry.resolve('copilotChat', 'new-chat', {
       context: 'chat-focused',
@@ -136,8 +142,8 @@ describe('ModuleRegistry', () => {
       displayName: 'Empty',
       actions: [],
       contexts: [],
-      execute: jest.fn().mockResolvedValue(undefined),
-    };
+      execute: jest.fn() as any,
+    } as unknown as GamepadModule;
 
     registry.register(emptyModule);
     expect(registry.getModule('empty')).toBe(emptyModule);
@@ -150,8 +156,8 @@ describe('ModuleRegistry', () => {
       displayName: 'Copilot Chat V2',
       actions: ['new-action'],
       contexts: ['new-context'],
-      execute: jest.fn().mockResolvedValue(undefined),
-    };
+      execute: jest.fn() as any,
+    } as unknown as GamepadModule;
 
     registry.register(mockModule);
     registry.register(module2);
@@ -178,7 +184,7 @@ describe('ModuleRegistry', () => {
         await new Promise((r) => setTimeout(r, 10));
         executed = true;
       }),
-    };
+    } as unknown as GamepadModule;
 
     registry.register(asyncModule);
     await registry.resolve('async', 'async-action', { context: 'test' });
@@ -207,8 +213,8 @@ describe('ModuleRegistry', () => {
       displayName: 'Beta',
       actions: ['beta-action'],
       contexts: [],
-      execute: jest.fn().mockResolvedValue(undefined),
-    };
+      execute: jest.fn() as any,
+    } as unknown as GamepadModule;
 
     registry.register(mockModule);
     registry.register(module2);

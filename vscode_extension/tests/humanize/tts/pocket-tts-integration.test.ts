@@ -73,18 +73,6 @@ const uvAvailable = checkUV();
 const pocketTTSAvailable = checkPocketTTS();
 const skipSuite = !uvAvailable || !pocketTTSAvailable;
 
-describe.skipIf = function (
-  condition: boolean,
-  name: string,
-  fn: () => void,
-): void {
-  if (condition) {
-    test.skip(`Suite skipped: environment not available`, () => {});
-  } else {
-    describe(name, fn);
-  }
-};
-
 if (skipSuite) {
   test.skip('Pocket TTS Server — skipped (uv/pocket_tts not available)', () => {});
 } else {

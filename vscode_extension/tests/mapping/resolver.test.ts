@@ -1,5 +1,5 @@
-import { MappingResolver } from '../../src/mapping/resolver';
-import type { MappingConfig } from '../../src/mapping/config';
+import { MappingResolver } from '../../mapping/resolver.js';
+import type { MappingConfig } from '../../mapping/config.js';
 
 describe('MappingResolver', () => {
   let resolver: MappingResolver;
@@ -136,8 +136,8 @@ describe('MappingResolver', () => {
   test('should update config when setConfig is called', () => {
     const newConfig: MappingConfig = {
       buttons: { 0: 'new-action' },
-      dpad: {},
-      axes: {},
+      dpad: { 0: 'focus-up', 1: 'focus-right', 2: 'focus-down', 3: 'focus-left' },
+      axes: { yAxis: [0, 'scroll-up'], xAxis: [2, 'scroll-right'] },
     };
     resolver.setConfig(newConfig);
     resolver.handleButton(0, true, 1);

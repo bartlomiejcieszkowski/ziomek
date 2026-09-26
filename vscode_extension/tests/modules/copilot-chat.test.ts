@@ -1,12 +1,12 @@
 import { jest } from '@jest/globals';
-import { CopilotChatModule } from '../../src/modules/copilot-chat';
+import { CopilotChatModule } from '../../modules/copilot-chat.js';
 
 describe('CopilotChatModule', () => {
-  let mockExecuteCommand: jest.Mock;
+  let mockExecuteCommand: any;
   let module: CopilotChatModule;
 
   beforeEach(() => {
-    mockExecuteCommand = jest.fn().mockResolvedValue(undefined);
+    mockExecuteCommand = jest.fn() as any;
     module = new CopilotChatModule({
       commands: { executeCommand: mockExecuteCommand },
     });

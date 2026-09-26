@@ -4,7 +4,7 @@ export default {
   extensionsToTreatAsEsm: ['.ts'],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
-    '^vscode$': '<rootDir>/tests/vscode.mock.cjs',
+    '^vscode$': '<rootDir>/vscode_extension/tests/vscode.mock.cjs',
   },
   transform: {
     '^.+\\.tsx?$': [
@@ -16,7 +16,7 @@ export default {
     ],
   },
   testMatch: ['**/tests/**/*.test.ts'],
-  testPathIgnorePatterns: ['/.worktrees/'],
+  testPathIgnorePatterns: ['/.worktrees/', '/node_modules/', '/ziomek/'],
   coverageDirectory: 'coverage',
   injectGlobals: true,
 };

@@ -1,17 +1,17 @@
 import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { GamepadAvatarPanel } from '../../src/humanize/avatar-panel';
+import { GamepadAvatarPanel } from '../../humanize/avatar-panel.js';
 
 // Simple mock for VS Code that satisfies the panel's constructor
-const mockPanel = {
-  webview: {
-    html: '',
-    onDidDispose: () => ({ dispose: () => {} }),
-    postMessage: jest.fn().mockResolvedValue(undefined),
-    onDidReceiveMessage: jest.fn().mockReturnValue({ dispose: () => {} }),
-  },
-  visible: true,
-  onDidChangeVisibility: jest.fn().mockReturnValue({ dispose: () => {} }),
-};
+  const mockPanel: any = {
+    webview: {
+      html: '',
+      onDidDispose: () => ({ dispose: () => {} }),
+      postMessage: jest.fn() as any,
+      onDidReceiveMessage: jest.fn().mockReturnValue({ dispose: () => {} }),
+    },
+    visible: true,
+    onDidChangeVisibility: jest.fn().mockReturnValue({ dispose: () => {} }),
+  };
 
 describe('GamepadAvatarPanel', () => {
   let panel: GamepadAvatarPanel;
