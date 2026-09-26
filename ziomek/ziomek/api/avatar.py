@@ -7,22 +7,21 @@ from typing import Any
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from ziomek.avatar.state_machine import AvatarStateMachine, AvatarInput, ExpressionState
-from ziomek.avatar.skins import SkinRegistry
-from ziomek.avatar.sprites import parse_png_sprite, sprite_to_base64
+from ziomek.avatar.state_machine import AvatarInput
+from ziomek.avatar.sprites import sprite_to_base64
 
 
 router = APIRouter()
 
 # Path to the shared HTML renderer
-_renderer_html = Path(__file__).parent.parent.parent / "client" / "renderer.html"
+_renderer_html = Path(__file__).parent.parent / "client" / "resources" / "renderer.html"
 
 
 def _not_initialized(msg: str) -> JSONResponse:
     return JSONResponse(status_code=503, content={"error": msg})
 
 
-@router.get("/avatar-view")
+@router.get("/api/avatar/view")
 async def get_avatar_view() -> HTMLResponse:
     """Serve the avatar renderer HTML (fetched by client from server)."""
     if not _renderer_html.exists():
@@ -85,19 +84,21 @@ async def set_expression(request: Request) -> Any:
 async def speak(request: Request) -> Any:
     """Generate speech and optionally set an expression."""
     from ziomek.server import _tts_model, _voice_cache, _audio_player, _state_machine
-    if _tts_model is None or not _tts_model.ready:
-        return JSONResponse(status_code=503, content={"error": "TTS not ready"})
-    if _state_machine is None:
-        return JSONResponse(status_code=503, content={"error": "State machine not initialized"})
+    from ziomek.tts.generate import generate_wav
+
     body = await request.json()
     text = body.get("text", "")
     voice = body.get("voice", "default")
     expression = body.get("expression")
-    if expression:
-        _state_machine.setExpression(expression)
-    from ziomek.tts.generate import generate_wav
+
+    if _tts_model is None or not _tts_model.ready:
+        return JSONResponse(status_code=503, content={"error": "TTS not ready"})
+    if _state_machine is None:
+        return JSONResponse(status_code=503, content={"error": "State machine not initialized"})
     if _voice_cache is None:
         return JSONResponse(status_code=503, content={"error": "Voice cache not initialized"})
+    if expression:
+        _state_machine.setExpression(expression)
     audio_b64, duration, sample_rate = generate_wav(_tts_model, _voice_cache, text, voice)
     import base64
     wav_bytes = base64.b64decode(audio_b64)

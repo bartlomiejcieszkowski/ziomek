@@ -1,10 +1,12 @@
 """ziomek health endpoints."""
+from __future__ import annotations
+
 from fastapi import APIRouter
 
-from ziomek.server import _tts_model, _state_machine
+from ziomek.server import _tts_model
 
 
-router = APIRouter()
+router = APIRouter(prefix="/api")
 
 
 @router.get("/status")
@@ -17,16 +19,19 @@ async def status():
         "model_loaded": model_loaded,
         "endpoints": {
             "tts": ["POST /api/tts/generate", "POST /api/tts/speak", "GET /api/tts/status", "GET /api/tts/voices"],
-            "avatar": ["POST /api/avatar/input", "GET /api/avatar/state", "POST /api/avatar/expression", "GET /api/avatar/sprite"],
+            "avatar": ["POST /api/avatar/input", "GET /api/avatar/state", "POST /api/avatar/expression", "GET /api/avatar/sprite", "POST /api/avatar/speak", "GET /api/avatar/view"],
         },
     }
 
 
 @router.get("/")
-async def root():
+async def root() -> dict:
     """Server root endpoint."""
     return {
         "name": "ziomek",
         "version": "0.1.0",
-        "endpoints": {"generate": "POST /api/tts/generate", "status": "GET /status"},
+        "endpoints": {
+            "generate": "POST /api/tts/generate",
+            "status": "GET /api/status",
+        },
     }

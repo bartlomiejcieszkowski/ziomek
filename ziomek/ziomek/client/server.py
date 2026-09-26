@@ -70,8 +70,6 @@ class ZiomekClientApp:
 
         @self._app.get("/avatar-view")
         async def avatar_view() -> HTMLResponse:
-            # __file__ is at ziomek/ziomek/client/server.py
-            # renderer.html is at ziomek/client/renderer.html (go up one level from ziomek/ziomek/)
             html_path = Path(__file__).parent / "resources" / "renderer.html"
             return HTMLResponse(content=html_path.read_text())
 
@@ -96,7 +94,7 @@ class ZiomekClientApp:
             except Exception:
                 _logger.exception("avatar_ws: error in WebSocket loop")
 
-        @self._app.get("/avatar/sprite")
+        @self._app.get("/avatar/sprite", response_model=None)
         async def avatar_sprite() -> dict | JSONResponse:
             if self._sprite_data is None:
                 return JSONResponse(
