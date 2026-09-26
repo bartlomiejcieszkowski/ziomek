@@ -36,10 +36,10 @@ export class GamepadAvatarPanel implements vscode.Disposable {
     // HTML template will be loaded from ziomek client at runtime
   }
 
-  /** Load HTML template from ziomek client at runtime (HTTP GET /avatar-view) */
+  /** Load HTML template from ziomek client at runtime (HTTP GET /) */
   async _loadSharedHtml(clientUrl: string): Promise<void> {
     try {
-      const resp = await fetch(`${clientUrl}/avatar-view`);
+      const resp = await fetch(clientUrl);
       if (resp.ok) {
         this._htmlTemplate = await resp.text();
       }

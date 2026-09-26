@@ -68,12 +68,12 @@ class ZiomekClientApp:
             allow_headers=["*"],
         )
 
-        @self._app.get("/avatar-view")
+        @self._app.get("/")
         async def avatar_view() -> HTMLResponse:
             html_path = Path(__file__).parent / "resources" / "renderer.html"
             return HTMLResponse(content=html_path.read_text())
 
-        @self._app.websocket("/avatar")
+        @self._app.websocket("/api/avatar")
         async def avatar_ws(websocket: WebSocket) -> None:
             await websocket.accept()
             try:
@@ -94,7 +94,7 @@ class ZiomekClientApp:
             except Exception:
                 _logger.exception("avatar_ws: error in WebSocket loop")
 
-        @self._app.get("/avatar/sprite", response_model=None)
+        @self._app.get("/api/avatar/sprite", response_model=None)
         async def avatar_sprite() -> dict | JSONResponse:
             if self._sprite_data is None:
                 return JSONResponse(
@@ -108,7 +108,7 @@ class ZiomekClientApp:
                 "frameHeight": self._frame_height,
             }
 
-        @self._app.get("/avatar/state")
+        @self._app.get("/api/avatar/state")
         async def avatar_state() -> dict:
             state = self._state_machine.tick(16)
             return {
@@ -116,7 +116,7 @@ class ZiomekClientApp:
                 "cycleIndex": state.cycleIndex,
             }
 
-        @self._app.post("/avatar/input")
+        @self._app.post("/api/avatar/input")
         async def avatar_input(request: Request) -> dict:
             body = await request.json()
             inp = AvatarInput(
@@ -181,7 +181,7 @@ class ZiomekClientApp:
     def _open_local_browser(self) -> None:
         import webbrowser
 
-        url = f"http://127.0.0.1:{self._port}/avatar-view"
+        url = f"http://127.0.0.1:{self._port}/"
         print(f"[ziomek client] Opening avatar view in browser: {url}", file=sys.stderr)
         try:
             webbrowser.open(url)
