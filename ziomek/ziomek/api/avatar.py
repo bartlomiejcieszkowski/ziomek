@@ -1,19 +1,40 @@
 """ziomek avatar API endpoints."""
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Any
+
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from ziomek.avatar.state_machine import AvatarStateMachine, AvatarInput, ExpressionState
 from ziomek.avatar.skins import SkinRegistry
 from ziomek.avatar.sprites import parse_png_sprite, sprite_to_base64
 
 
-router = APIRouter(prefix="/api/avatar")
+router = APIRouter()
+
+# Path to the shared HTML renderer
+_renderer_html = Path(__file__).parent.parent.parent / "client" / "renderer.html"
 
 
-@router.get("/state")
-async def get_state() -> dict:
+def _not_initialized(msg: str) -> JSONResponse:
+    return JSONResponse(status_code=503, content={"error": msg})
+
+
+@router.get("/avatar-view")
+async def get_avatar_view() -> HTMLResponse:
+    """Serve the avatar renderer HTML (fetched by client from server)."""
+    if not _renderer_html.exists():
+        return HTMLResponse(
+            content="<html><body><h1>Renderer not found</h1></body></html>",
+            status_code=404,
+        )
+    return HTMLResponse(content=_renderer_html.read_text())
+
+
+@router.get("/api/avatar/state")
+async def get_state() -> Any:
     """Get current avatar state."""
     from ziomek.server import _state_machine
     if _state_machine is None:
@@ -27,8 +48,8 @@ async def get_state() -> dict:
     }
 
 
-@router.post("/input")
-async def set_input(request: Request) -> dict:
+@router.post("/api/avatar/input")
+async def set_input(request: Request) -> Any:
     """Feed gamepad/VSCode state to the state machine."""
     from ziomek.server import _state_machine
     if _state_machine is None:
@@ -47,8 +68,8 @@ async def set_input(request: Request) -> dict:
     return {"expression": state.expressionName, "cycleIndex": state.cycleIndex}
 
 
-@router.post("/expression")
-async def set_expression(request: Request) -> dict:
+@router.post("/api/avatar/expression")
+async def set_expression(request: Request) -> Any:
     """Force-set an expression."""
     from ziomek.server import _state_machine
     if _state_machine is None:
@@ -60,8 +81,8 @@ async def set_expression(request: Request) -> dict:
     return {"ok": ok}
 
 
-@router.post("/speak")
-async def speak(request: Request) -> dict:
+@router.post("/api/avatar/speak")
+async def speak(request: Request) -> Any:
     """Generate speech and optionally set an expression."""
     from ziomek.server import _tts_model, _voice_cache, _audio_player, _state_machine
     if _tts_model is None or not _tts_model.ready:
@@ -75,6 +96,8 @@ async def speak(request: Request) -> dict:
     if expression:
         _state_machine.setExpression(expression)
     from ziomek.tts.generate import generate_wav
+    if _voice_cache is None:
+        return JSONResponse(status_code=503, content={"error": "Voice cache not initialized"})
     audio_b64, duration, sample_rate = generate_wav(_tts_model, _voice_cache, text, voice)
     import base64
     wav_bytes = base64.b64decode(audio_b64)
@@ -90,8 +113,8 @@ async def speak(request: Request) -> dict:
     }
 
 
-@router.get("/sprite")
-async def get_sprite() -> dict:
+@router.get("/api/avatar/sprite")
+async def get_sprite() -> Any:
     """Get sprite sheet for client rendering."""
     from ziomek.server import _skin_registry
     if _skin_registry is None:

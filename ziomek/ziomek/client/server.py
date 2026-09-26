@@ -6,20 +6,21 @@ WebSocket, and proxies sprite data from the TTS server.
 from __future__ import annotations
 
 import asyncio
-import os
+import logging
 import sys
 import threading
 import time
 from pathlib import Path
-from typing import Optional
 
 import uvicorn
 from fastapi import FastAPI, WebSocket, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from ziomek.avatar.state_machine import AvatarStateMachine, AvatarInput, ExpressionState
-from ziomek.client.gamepad import GamepadManager, GamepadState
+from ziomek.avatar.state_machine import AvatarStateMachine, AvatarInput
+from ziomek.client.gamepad import GamepadManager
+
+_logger = logging.getLogger(__name__)
 
 
 class ZiomekClientApp:
@@ -38,13 +39,13 @@ class ZiomekClientApp:
         self._state_machine = AvatarStateMachine()
         self._last_expr = ""
         self._last_cycle = -1
-        self._sprite_data: Optional[str] = None
+        self._sprite_data: str | None = None
         self._sprite_width = 0
         self._sprite_height = 0
         self._frame_width = 0
         self._frame_height = 0
-        self._app: Optional[FastAPI] = None
-        self._thread: Optional[threading.Thread] = None
+        self._app: FastAPI | None = None
+        self._thread: threading.Thread | None = None
 
     def start(self) -> None:
         self._create_app()
@@ -54,13 +55,14 @@ class ZiomekClientApp:
         if self._open_browser:
             self._open_local_browser()
 
+        assert self._app is not None
         uvicorn.run(self._app, host="127.0.0.1", port=self._port)
 
     def _create_app(self) -> None:
         self._app = FastAPI(title="ziomek client")
         self._app.add_middleware(
             CORSMiddleware,
-            allow_origins=["*"],
+            allow_origins=["http://localhost", "http://localhost:5004"],
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
@@ -68,7 +70,9 @@ class ZiomekClientApp:
 
         @self._app.get("/avatar-view")
         async def avatar_view() -> HTMLResponse:
-            html_path = Path(__file__).parent / "renderer.html"
+            # __file__ is at ziomek/ziomek/client/server.py
+            # renderer.html is at ziomek/client/renderer.html (go up one level from ziomek/ziomek/)
+            html_path = Path(__file__).parent / "resources" / "renderer.html"
             return HTMLResponse(content=html_path.read_text())
 
         @self._app.websocket("/avatar")
@@ -90,10 +94,10 @@ class ZiomekClientApp:
                         self._last_cycle = state.cycleIndex
                     await asyncio.sleep(0.01)
             except Exception:
-                pass
+                _logger.exception("avatar_ws: error in WebSocket loop")
 
         @self._app.get("/avatar/sprite")
-        async def avatar_sprite() -> dict:
+        async def avatar_sprite() -> dict | JSONResponse:
             if self._sprite_data is None:
                 return JSONResponse(
                     status_code=503, content={"error": "Sprite not loaded"}
@@ -151,7 +155,7 @@ class ZiomekClientApp:
                         )
                         self._state_machine.update(inp)
                 except Exception:
-                    pass
+                    _logger.exception("gamepad poll loop: unexpected error")
                 time.sleep(0.01)  # 100Hz
 
         self._thread = threading.Thread(target=poll_loop, daemon=True)
@@ -171,10 +175,9 @@ class ZiomekClientApp:
             self._frame_width = data.get("frameWidth", 0)
             self._frame_height = data.get("frameHeight", 0)
         except Exception:
-            # Sprite fetch failed — renderer will show "No sprite data"
-            print(
-                f"[ziomek client] Warning: could not fetch sprite from {self._server_url}/api/avatar/sprite",
-                file=sys.stderr,
+            _logger.exception(
+                "Could not fetch sprite from %s/api/avatar/sprite",
+                self._server_url,
             )
 
     def _open_local_browser(self) -> None:
@@ -185,7 +188,7 @@ class ZiomekClientApp:
         try:
             webbrowser.open(url)
         except Exception:
-            pass  # Headless environments may fail
+            _logger.exception("Could not open local browser")
 
     def stop(self) -> None:
         if self._thread:
