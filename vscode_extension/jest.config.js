@@ -4,7 +4,7 @@ export default {
   extensionsToTreatAsEsm: ['.ts'],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
-    '^vscode$': '<rootDir>/vscode_extension/tests/vscode.mock.cjs',
+    '^vscode$': '<rootDir>/tests/vscode.mock.cjs',
   },
   transform: {
     '^.+\\.tsx?$': [
