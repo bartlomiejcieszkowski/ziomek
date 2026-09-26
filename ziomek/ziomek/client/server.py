@@ -12,6 +12,7 @@ import threading
 import time
 from pathlib import Path
 
+import httpx
 import uvicorn
 from fastapi import FastAPI, WebSocket, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,6 +38,7 @@ class ZiomekClientApp:
         self._open_browser = open_browser
         self._gamepad_manager = GamepadManager()
         self._state_machine = AvatarStateMachine()
+        self._state_lock = threading.Lock()
         self._last_expr = ""
         self._last_cycle = -1
         self._sprite_data: str | None = None
@@ -48,14 +50,21 @@ class ZiomekClientApp:
         self._thread: threading.Thread | None = None
 
     def start(self) -> None:
+        # Set up logging before anything else (thread-safe)
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+            datefmt="%H:%M:%S",
+        )
+
         self._create_app()
         self._start_gamepad_thread()
-        self._fetch_sprite()
 
         if self._open_browser:
             self._open_local_browser()
 
-        assert self._app is not None
+        if self._app is None:
+            raise RuntimeError("Client app not initialized — _create_app must be called first")
         uvicorn.run(self._app, host="127.0.0.1", port=self._port)
 
     def _create_app(self) -> None:
@@ -96,6 +105,8 @@ class ZiomekClientApp:
 
         @self._app.get("/api/avatar/sprite", response_model=None)
         async def avatar_sprite() -> dict | JSONResponse:
+            if self._sprite_data is None:
+                await self._load_sprite()
             if self._sprite_data is None:
                 return JSONResponse(
                     status_code=503, content={"error": "Sprite not loaded"}
@@ -151,7 +162,8 @@ class ZiomekClientApp:
                             chatFocused=False,
                             errorState=False,
                         )
-                        self._state_machine.update(inp)
+                        with self._state_lock:
+                            self._state_machine.update(inp)
                 except Exception:
                     _logger.exception("gamepad poll loop: unexpected error")
                 time.sleep(0.01)  # 100Hz
@@ -159,24 +171,23 @@ class ZiomekClientApp:
         self._thread = threading.Thread(target=poll_loop, daemon=True)
         self._thread.start()
 
-    def _fetch_sprite(self) -> None:
-        import httpx
-
+    async def _load_sprite(self) -> None:
+        """Lazy-load sprite from server (called on first /api/avatar/sprite request)."""
         try:
-            resp = httpx.get(
-                f"{self._server_url}/api/avatar/sprite", timeout=5.0
-            )
-            data = resp.json()
-            self._sprite_data = data.get("sprite_b64")
-            self._sprite_width = data.get("width", 0)
-            self._sprite_height = data.get("height", 0)
-            self._frame_width = data.get("frameWidth", 0)
-            self._frame_height = data.get("frameHeight", 0)
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"{self._server_url}/api/avatar/sprite", timeout=5.0
+                )
+                data = resp.json()
+                self._sprite_data = data.get("sprite_b64")
+                self._sprite_width = data.get("width", 0)
+                self._sprite_height = data.get("height", 0)
+                self._frame_width = data.get("frameWidth", 0)
+                self._frame_height = data.get("frameHeight", 0)
+            if self._sprite_data:
+                _logger.info("Sprite loaded from %s", self._server_url)
         except Exception:
-            _logger.exception(
-                "Could not fetch sprite from %s/api/avatar/sprite",
-                self._server_url,
-            )
+            _logger.warning("Could not fetch sprite from %s/api/avatar/sprite", self._server_url)
 
     def _open_local_browser(self) -> None:
         import webbrowser
