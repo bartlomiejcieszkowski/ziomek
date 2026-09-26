@@ -139,7 +139,8 @@
         .then(data => {
           const sprite_b64 = data.sprite_b64;
           if (!sprite_b64) throw new Error('No sprite_b64 in response');
-          return loadSprite(`data:image/png;base64,${sprite_b64}`, data.width, data.height);
+          // Server returns the data URL already prefixed, so use it directly
+          return loadSprite(sprite_b64, data.width, data.height);
         })
         .catch(err => {
           statusEl.textContent = 'Sprite load error: ' + err.message;
