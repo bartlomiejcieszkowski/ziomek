@@ -1,7 +1,7 @@
 """ziomek CLI — command-line interface.
 
 Usage:
-    ziomek serve       Start TTS server (port 5003)
+    ziomek server      Start TTS server (port 5003)
     ziomek client      Start ziomek client (port 5004, gamepad + avatar display)
     ziomek             Start ziomek client (default)
 """
@@ -42,8 +42,16 @@ def main():
         version=f"%(prog)s {get_version('ziomek')}")
     sub = parser.add_subparsers(dest="command", help="Available commands")
 
-    # -- server --
-    serve = sub.add_parser("serve", help="Start TTS server (port 5003)")
+    # -- server (primary) --
+    server_cmd = sub.add_parser("server", help="Start TTS server (port 5003)")
+    server_cmd.add_argument("--port", type=int, default=5003)
+    server_cmd.add_argument("--model-path", type=str, default=None)
+    server_cmd.add_argument("--voice", type=str, default="default")
+    server_cmd.add_argument("--cache-dir", type=str, default=None)
+    server_cmd.set_defaults(func=serve_cmd)
+
+    # -- serve (deprecated alias for server) --
+    serve = sub.add_parser("serve", help="Start TTS server (port 5003) [deprecated, use 'server']")
     serve.add_argument("--port", type=int, default=5003)
     serve.add_argument("--model-path", type=str, default=None)
     serve.add_argument("--voice", type=str, default="default")
@@ -63,7 +71,7 @@ def main():
     client.set_defaults(func=client_cmd)
 
     args = parser.parse_args()
-    if args.command in ("serve", "client"):
+    if args.command in ("server", "serve", "client"):
         args.func(args)
     else:
         # No subcommand — default to client
