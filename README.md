@@ -1,6 +1,6 @@
 # Ziomek — Humanize AI
 
-Control VS Code and Copilot Chat with a gamepad. Modular architecture with a standalone Python backend.
+Humanize AI interaction by making it more natural. Work in progress.
 
 **Two processes:**
 - **ziomek server** — TTS synthesis, sprite data, voice caching (port 5003)
@@ -14,9 +14,10 @@ Control VS Code and Copilot Chat with a gamepad. Modular architecture with a sta
 ### Start the TTS server
 
 ```bash
-cd python
 uv run python -m ziomek.cli serve --port 5003
-```bash
+```
+
+`uv` auto-creates a `.venv`, downloads dependencies, and installs `ziomek` in development mode from the local package.
 
 `uv` auto-creates a `.venv`, downloads dependencies, and installs `ziomek` in development mode from the local package.
 
@@ -42,7 +43,9 @@ This opens a browser window with the avatar display and relays gamepad state to 
 cd vscode_extension
 npm install
 npm run compile
-```bash
+```
+
+Press **F5** in VS Code to launch the extension host. The extension automatically connects to the ziomek client.
 
 Press **F5** in VS Code to launch the extension host. The extension automatically connects to the ziomek client.
 
@@ -83,9 +86,8 @@ Press **F5** in VS Code to launch the extension host. The extension automaticall
 ### ziomek server (TTS backend)
 
 ```bash
-cd python
 uv run python -m ziomek.cli serve --port 5003 --voice cosette --cache-dir ./voices
-```bash
+```
 
 | Option | Default | Description |
 |--------|---------|-------------|
@@ -161,12 +163,11 @@ uv run python -m ziomek.cli client --port 5004 --server-url http://localhost:500
 ### Python (ziomek)
 
 ```bash
-cd python
 uv sync                           # install dependencies and .venv
 uv run python -m ziomek.cli serve # run the TTS server
 uv run pytest tests/              # run tests
 uv run ruff check .               # linting
-```bash
+```
 
 ### VS Code Extension
 
@@ -182,55 +183,52 @@ npm run watch                     # auto-recompile on changes
 
 ```text
 .
-├── python/                          # Python project (ziomek package)
-│   ├── src/ziomek/                  # ziomek package (src layout)
-│   │   ├── cli.py                   # Server & client CLI
-│   │   ├── server.py                # TTS server (port 5003)
-│   │   ├── config.py                # Settings
-│   │   ├── tts/                     # TTS module
-│   │   │   ├── engine.py            # Pocket TTS model wrapper
-│   │   │   ├── voice.py             # Voice state cache
-│   │   │   ├── generate.py          # WAV generation
-│   │   │   └── playback.py          # Audio player
-│   │   ├── avatar/                  # Avatar module
-│   │   │   ├── state_machine.py     # Expression state machine
-│   │   │   ├── skins.py             # Skin registry
-│   │   │   └── sprites.py           # Sprite sheet parser
-│   │   ├── api/                     # FastAPI endpoints
-│   │   │   ├── tts.py               # /api/tts/*
-│   │   │   ├── avatar.py            # /api/avatar/* + /avatar (WS)
-│   │   │   └── health.py            # /status, /
-│   │   └── client/                  # ziomek client module
-│   │       ├── cli.py               # ziomek-client CLI
-│   │       ├── server.py            # Client HTTP server (port 5004)
-│   │       └── gamepad.py           # Pygame gamepad polling
-│   ├── tests/                       # Python tests
-│   ├── pyproject.toml               # Package config (hatchling)
-│   ├── uv.lock                      # Dependency lockfile
-│   ├── .venv/                       # Virtual env (gitignored)
-│   ├── run-ziomek.sh                # Launcher script (Linux/macOS)
-│   └── run-ziomek.bat               # Launcher script (Windows)
+├── src/ziomek/                  # ziomek package (src layout)
+│   ├── cli.py                   # Server & client CLI
+│   ├── server.py                # TTS server (port 5003)
+│   ├── config.py                # Settings
+│   ├── tts/                     # TTS module
+│   │   ├── engine.py            # Pocket TTS model wrapper
+│   │   ├── voice.py             # Voice state cache
+│   │   ├── generate.py          # WAV generation
+│   │   └── playback.py          # Audio player
+│   ├── avatar/                  # Avatar module
+│   │   ├── state_machine.py     # Expression state machine
+│   │   ├── skins.py             # Skin registry
+│   │   └── sprites.py           # Sprite sheet parser
+│   ├── api/                     # FastAPI endpoints
+│   │   ├── tts.py               # /api/tts/*
+│   │   ├── avatar.py            # /api/avatar/* + /avatar (WS)
+│   │   └── health.py            # /status, /
+│   └── client/                  # ziomek client module
+│       ├── cli.py               # ziomek-client CLI
+│       ├── server.py            # Client HTTP server (port 5004)
+│       └── gamepad.py           # Pygame gamepad polling
+├── tests/                       # Python tests
+├── pyproject.toml               # Package config (hatchling)
+├── uv.lock                      # Dependency lockfile
+├── .venv/                       # Virtual env (gitignored)
+├── run-ziomek.sh                # Launcher script (Linux/macOS)
+├── run-ziomek.bat               # Launcher script (Windows)
+├── vscode_extension/            # VS Code extension
+│   ├── src/                     # Extension source
+│   │   ├── extension.ts         # Main entry point
+│   │   ├── humanize/            # Avatar & TTS rendering
+│   │   ├── modules/             # Copilot Chat module system
+│   │   ├── mapping/             # Input mapping system
+│   │   └── context.ts           # Context tracking
+│   ├── out/                     # Compiled JS (gitignored)
+│   ├── tests/                   # Jest tests
+│   ├── package.json             # Extension manifest
+│   ├── tsconfig.json            # TypeScript config
+│   └── jest.config.js           # Test config
 │
-├── vscode_extension/                # VS Code extension
-│   ├── src/                         # Extension source
-│   │   ├── extension.ts             # Main entry point
-│   │   ├── humanize/                # Avatar & TTS rendering
-│   │   ├── modules/                 # Copilot Chat module system
-│   │   ├── mapping/                 # Input mapping system
-│   │   └── context.ts               # Context tracking
-│   ├── out/                         # Compiled JS (gitignored)
-│   ├── tests/                       # Jest tests
-│   ├── package.json                 # Extension manifest
-│   ├── tsconfig.json                # TypeScript config
-│   └── jest.config.js               # Test config
-│
-├── .github/workflows/               # CI build workflow
-├── .vscode/                         # VS Code launch/tasks config
-├── debug_tools/                     # JS debug utilities (gamepad, TTS)
-├── docs/                            # Documentation
-├── voices/                          # Voice safetensors (gitignored)
-└── README.md
-```text
+├── .github/workflows/           # CI build workflow
+├── .vscode/                     # VS Code launch/tasks config
+├── debug_tools/                 # JS debug utilities (gamepad, TTS)
+├── docs/                        # Documentation
+└── voices/                      # Voice safetensors (gitignored)
+```
 
 ## Contributing
 
