@@ -24,6 +24,9 @@ ziomek = "ziomek.cli:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build]
+only-packages = true
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/ziomek"]
 
