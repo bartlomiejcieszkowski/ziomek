@@ -15,3 +15,7 @@ ISSUES.md
 # Internal docs
 docs/internal/
 
+# Symlinks
+cmdline.py
+README.md
+
