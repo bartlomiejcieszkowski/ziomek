@@ -1,0 +1,7 @@
+# Windows scripts — CRLF
+*.bat binary eol=crlf
+*.cmd binary eol=crlf
+*.ps1 binary eol=crlf
+
+# Unix scripts — LF
+*.sh binary eol=lf
