@@ -15,7 +15,7 @@ ISSUES.md
 # Internal docs
 docs/internal/
 
-# Symlinks
-cmdline.py
-README.md
+# Cache
+.mypy_cache/
+.ruff_cache/
 
