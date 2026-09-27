@@ -1,6 +1,6 @@
 [project]
 name = "ziomek"
-description = "Humanize AI backend — TTS + avatar display server"
+description = "ziomek - Humanize AI"
 dynamic = ["version"]
 
 author = [{name = "Bartlomiej Cieszkowski", email = "bartlomiej.cieszkowski@gmail.com"}]
