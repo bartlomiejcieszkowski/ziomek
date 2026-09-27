@@ -1,6 +1,7 @@
 [project]
 name = "ziomek"
 description = "ziomek - Humanize AI"
+readme = "README.md"
 dynamic = ["version"]
 author = [
     {name = "Bartlomiej Cieszkowski", email = "bartlomiej.cieszkowski@gmail.com"}
