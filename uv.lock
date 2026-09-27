@@ -496,7 +496,7 @@ dependencies = [
 requires-dist = [
     { name = "pytest", specifier = ">=7.0" },
     { name = "pytest-asyncio", specifier = ">=0.21" },
-    { name = "ziomek", editable = "ziomek" },
+    { name = "ziomek", editable = "python" },
 ]
 
 [[package]]
@@ -2643,7 +2643,7 @@ wheels = [
 [[package]]
 name = "ziomek"
 version = "0.1.0"
-source = { editable = "ziomek" }
+source = { editable = "python" }
 dependencies = [
     { name = "fastapi" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },

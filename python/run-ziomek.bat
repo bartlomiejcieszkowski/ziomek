@@ -1,11 +1,9 @@
 @echo off
 REM ziomek launcher script (Windows)
-REM Runs the ziomek TTS + avatar server
+REM Runs the ziomek TTS + avatar server via uv
 
-cd /d "%~dp0"
-
-REM Install ziomek if not already installed
-pip install -e . --quiet 2>nul || true
+REM Change to project root (one level up)
+cd /d "%~dp0.."
 
 REM Start the server (port from argument or default 5003)
-python -m ziomek.cli serve --port %1
+uv run python -m ziomek.cli serve --port %1

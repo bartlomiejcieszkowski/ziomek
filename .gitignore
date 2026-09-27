@@ -4,6 +4,7 @@ node_modules/
 .DS_Store
 build/
 __pycache__/
+.venv/
 *.pyc
 *.egg-info/
 IDEAS.md
