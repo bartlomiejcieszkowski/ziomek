@@ -44,6 +44,7 @@ jobs:
           path: dist/
 
   pypi-publish:
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
     needs:
       - release-build
