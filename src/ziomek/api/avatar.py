@@ -1,4 +1,5 @@
 """ziomek avatar API endpoints."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -7,11 +8,10 @@ from typing import Any
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from ziomek.avatar.state_machine import AvatarInput
 from ziomek.avatar.sprites import sprite_to_base64
+from ziomek.avatar.state_machine import AvatarInput
 
-
-router = APIRouter()
+router = APIRouter(tags=["Avatar"])
 
 # Path to the shared HTML renderer
 _renderer_html = Path(__file__).parent.parent / "client" / "resources" / "renderer.html"
@@ -21,7 +21,11 @@ def _not_initialized(msg: str) -> JSONResponse:
     return JSONResponse(status_code=503, content={"error": msg})
 
 
-@router.get("/api/avatar/view")
+@router.get(
+    "/api/avatar/view",
+    summary="Render HTML",
+    description="Serve the avatar renderer HTML page (used by the client to display the avatar in a browser).",
+)
 async def get_avatar_view() -> HTMLResponse:
     """Serve the avatar renderer HTML (fetched by client from server)."""
     if not _renderer_html.exists():
@@ -32,10 +36,15 @@ async def get_avatar_view() -> HTMLResponse:
     return HTMLResponse(content=_renderer_html.read_text())
 
 
-@router.get("/api/avatar/state")
+@router.get(
+    "/api/avatar/state",
+    summary="Get avatar state",
+    description="Return the current expression, sprite cycle, and displayed message.",
+)
 async def get_state() -> Any:
     """Get current avatar state."""
     from ziomek.server import _state_machine
+
     if _state_machine is None:
         return JSONResponse(status_code=503, content={"error": "State machine not initialized"})
     state = _state_machine.tick(16)
@@ -47,10 +56,15 @@ async def get_state() -> Any:
     }
 
 
-@router.post("/api/avatar/input")
+@router.post(
+    "/api/avatar/input",
+    summary="Feed gamepad input",
+    description="Feed gamepad button/axis state into the avatar state machine. Returns the new expression.",
+)
 async def set_input(request: Request) -> Any:
     """Feed gamepad/VSCode state to the state machine."""
     from ziomek.server import _state_machine
+
     if _state_machine is None:
         return JSONResponse(status_code=503, content={"error": "State machine not initialized"})
     body = await request.json()
@@ -67,10 +81,15 @@ async def set_input(request: Request) -> Any:
     return {"expression": state.expressionName, "cycleIndex": state.cycleIndex}
 
 
-@router.post("/api/avatar/expression")
+@router.post(
+    "/api/avatar/expression",
+    summary="Set expression",
+    description="Force-set an avatar expression, optionally for a limited duration.",
+)
 async def set_expression(request: Request) -> Any:
     """Force-set an expression."""
     from ziomek.server import _state_machine
+
     if _state_machine is None:
         return JSONResponse(status_code=503, content={"error": "State machine not initialized"})
     body = await request.json()
@@ -80,10 +99,14 @@ async def set_expression(request: Request) -> Any:
     return {"ok": ok}
 
 
-@router.post("/api/avatar/speak")
+@router.post(
+    "/api/avatar/speak",
+    summary="Speak with avatar",
+    description="Synthesize speech (TTS), play it, and optionally show an expression on the avatar.",
+)
 async def speak(request: Request) -> Any:
     """Generate speech and optionally set an expression."""
-    from ziomek.server import _tts_model, _voice_cache, _audio_player, _state_machine
+    from ziomek.server import _audio_player, _state_machine, _tts_model, _voice_cache
     from ziomek.tts.generate import generate_wav
 
     body = await request.json()
@@ -101,6 +124,7 @@ async def speak(request: Request) -> Any:
         _state_machine.setExpression(expression)
     audio_b64, duration, sample_rate = generate_wav(_tts_model, _voice_cache, text, voice)
     import base64
+
     wav_bytes = base64.b64decode(audio_b64)
     if _audio_player is not None:
         _audio_player.play(wav_bytes, sample_rate)
@@ -114,10 +138,15 @@ async def speak(request: Request) -> Any:
     }
 
 
-@router.get("/api/avatar/sprite")
+@router.get(
+    "/api/avatar/sprite",
+    summary="Get sprite",
+    description="Return the avatar sprite sheet as base64 for client-side rendering.",
+)
 async def get_sprite() -> Any:
     """Get sprite sheet for client rendering."""
     from ziomek.server import _skin_registry
+
     if _skin_registry is None:
         return JSONResponse(status_code=503, content={"error": "Skin registry not initialized"})
     skin = _skin_registry.get("single-frame")

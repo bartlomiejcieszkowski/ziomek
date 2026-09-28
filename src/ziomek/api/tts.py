@@ -1,40 +1,85 @@
 """ziomek TTS API endpoints."""
+
+from __future__ import annotations
+
+from typing import Optional
+
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
-router = APIRouter(prefix="/api/tts")
+router = APIRouter(prefix="/api/tts", tags=["TTS"])
 
 
-@router.get("/status")
+@router.get(
+    "/status",
+    summary="Get TTS status",
+    description="Check if the TTS model is loaded and available.",
+)
 async def tts_status() -> dict:
     """Get TTS server status."""
     from ziomek.server import _tts_model
+
     ready = _tts_model is not None and _tts_model.ready  # type: ignore[arg-type]
     return {"ready": ready, "voices": ["cosette", "marius", "javert", "alba"]}
 
 
-@router.get("/voices")
+@router.get(
+    "/voices",
+    summary="List available voices",
+    description="Return the full list of available PocketTTS voices and the default.",
+)
 async def list_voices() -> dict:
     """List available voices."""
     return {
-        "voices": ["cosette", "marius", "javert", "alba", "jean", "anna", "vera", "fantine",
-                   "charles", "paul", "eponine", "azelma", "george", "mary", "jane",
-                   "michael", "eve", "bill_boerst", "peter_yearsley", "stuart_bell",
-                   "caro_davy", "giovanni", "lola", "juergen", "rafael", "estelle"],
+        "voices": [
+            "cosette",
+            "marius",
+            "javert",
+            "alba",
+            "jean",
+            "anna",
+            "vera",
+            "fantine",
+            "charles",
+            "paul",
+            "eponine",
+            "azelma",
+            "george",
+            "mary",
+            "jane",
+            "michael",
+            "eve",
+            "bill_boerst",
+            "peter_yearsley",
+            "stuart_bell",
+            "caro_davy",
+            "giovanni",
+            "lola",
+            "juergen",
+            "rafael",
+            "estelle",
+        ],
         "default": "cosette",
     }
 
 
-@router.post("/generate")
+@router.post(
+    "/generate",
+    summary="Generate WAV from text",
+    description="Synthesize text to WAV audio using PocketTTS. Returns base64-encoded audio.",
+)
 async def tts_generate(request: Request) -> dict:
     """Generate WAV audio from text."""
     from ziomek.server import _tts_model, _voice_cache
+
     if _tts_model is None or not _tts_model.ready:
         return JSONResponse(status_code=503, content={"error": "TTS model not loaded"})
     body = await request.json()
     text = body.get("text", "")
     voice = body.get("voice", "default")
     from ziomek.tts.generate import generate_wav
+
     audio_b64, duration, sample_rate = generate_wav(_tts_model, _voice_cache, text, voice)
     return {
         "audio_b64": audio_b64,
@@ -46,18 +91,25 @@ async def tts_generate(request: Request) -> dict:
     }
 
 
-@router.post("/speak")
+@router.post(
+    "/speak",
+    summary="Generate and play audio",
+    description="Synthesize text to speech and start playback immediately.",
+)
 async def tts_speak(request: Request) -> dict:
     """Generate and play audio."""
-    from ziomek.server import _tts_model, _voice_cache, _audio_player
+    from ziomek.server import _audio_player, _tts_model, _voice_cache
+
     if _tts_model is None or not _tts_model.ready:
         return JSONResponse(status_code=503, content={"error": "TTS not ready"})
     body = await request.json()
     text = body.get("text", "")
     voice = body.get("voice", "default")
     from ziomek.tts.generate import generate_wav
+
     audio_b64, duration, sample_rate = generate_wav(_tts_model, _voice_cache, text, voice)
     import base64
+
     wav_bytes = base64.b64decode(audio_b64)
     if _audio_player is not None:  # type: ignore[arg-type]
         _audio_player.play(wav_bytes, sample_rate)

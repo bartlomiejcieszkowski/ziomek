@@ -1,4 +1,5 @@
 """ziomek HTTP server — FastAPI application."""
+
 import sys
 from typing import Optional
 
@@ -6,13 +7,16 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from ziomek import __version__
+from ziomek.avatar.skins import SkinRegistry
+from ziomek.avatar.state_machine import AvatarStateMachine
 from ziomek.config import Settings
 from ziomek.tts.engine import TTSModelWrapper
-from ziomek.tts.voice import VoiceStateCache
 from ziomek.tts.playback import AudioPlayer
-from ziomek.avatar.state_machine import AvatarStateMachine
-from ziomek.avatar.skins import SkinRegistry
+from ziomek.tts.voice import VoiceStateCache
 
+# Import version at module level
+_version = __version__
 
 # Global state (initialized at startup)
 _tts_model: Optional[TTSModelWrapper] = None
@@ -26,11 +30,17 @@ def create_app(settings: Settings = None) -> FastAPI:
     global _tts_model, _voice_cache, _audio_player, _state_machine, _skin_registry
     if settings is None:
         settings = Settings()
-    app = FastAPI(title="ziomek", version="0.1.0")
+    app = FastAPI(
+        title="ziomek",
+        version=_version,
+        description="Humanize AI — TTS speech synthesis, avatar state machine, and gamepad integration.",
+        docs_url="/docs",
+        redoc_url="/redoc",
+    )
     # Add CORS middleware for VS Code webviews
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=["http://localhost:*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -45,9 +55,10 @@ def create_app(settings: Settings = None) -> FastAPI:
     _state_machine = AvatarStateMachine()
     _skin_registry = SkinRegistry()
     # Include routers
-    from ziomek.api import tts, avatar, health
-    app.include_router(tts.router, tags=["TTS"])
-    app.include_router(avatar.router, tags=["Avatar"])
+    from ziomek.api import avatar, health, tts
+
+    app.include_router(tts.router)
+    app.include_router(avatar.router)
     app.include_router(health.router)
     return app
 
