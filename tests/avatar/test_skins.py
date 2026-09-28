@@ -1,9 +1,11 @@
 """Tests for ziomek avatar skin registry."""
-import pytest
+
 import os
 import tempfile
 
-from ziomek.avatar.skins import SkinRegistry, SingleFrameSkin
+import pytest
+
+from ziomek.avatar.skins import SingleFrameSkin, SkinRegistry
 
 
 def test_skin_registry_returns_default():
@@ -18,11 +20,11 @@ def test_skin_getFrameRow():
     """Verify getFrameRow returns correct row for expressions."""
     skin = SingleFrameSkin(
         name="test",
-        sprite_width=100,
-        sprite_height=400,
-        frame_width=100,
-        frame_height=100,
-        sprite_path="/dev/null",  # won't be loaded in test
+        _sprite_path="/dev/null",
+        _sprite_width=100,
+        _sprite_height=400,
+        _frame_width=100,
+        _frame_height=100,
     )
     assert skin.getFrameRow("happy", 0) == 0
     assert skin.getFrameRow("surprised", 0) == 1
@@ -32,8 +34,8 @@ def test_skin_getFrameRow():
 def test_skin_getExpressionNames():
     """Verify getExpressionNames returns full list."""
     skin = SingleFrameSkin(
-        name="test", sprite_width=100, sprite_height=400,
-        frame_width=100, frame_height=100, sprite_path="/dev/null",
+        name="test",
+        _sprite_path="/dev/null",
     )
     names = skin.getExpressionNames()
     assert "happy" in names
@@ -44,8 +46,12 @@ def test_skin_getExpressionNames():
 def test_skin_getFrameCount():
     """Verify getFrameCount returns 1 for single-frame skin."""
     skin = SingleFrameSkin(
-        name="test", sprite_width=100, sprite_height=400,
-        frame_width=100, frame_height=100, sprite_path="/dev/null",
+        name="test",
+        _sprite_path="/dev/null",
+        _sprite_width=100,
+        _sprite_height=400,
+        _frame_width=100,
+        _frame_height=100,
     )
     assert skin.getFrameCount("happy") == 1
 
@@ -59,18 +65,20 @@ def test_skin_registry_list():
 
 def test_skin_load_sprite_from_file():
     """Verify skin loads sprite from file."""
+    # Create a minimal valid PNG file (1x1 pixel)
+    png_header = b"\x89PNG\r\n\x1a\n" + b"\x00" * 40
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
-        f.write(b"fake png data")
+        f.write(png_header)
         f.flush()
         temp_path = f.name
 
     try:
         skin = SingleFrameSkin(
-            name="test", sprite_width=100, sprite_height=400,
-            frame_width=100, frame_height=100, sprite_path=temp_path,
+            name="test",
+            _sprite_path=temp_path,
         )
         buffer = skin.getSpriteBuffer()
-        assert buffer == b"fake png data"
+        assert buffer == png_header
     finally:
         os.unlink(temp_path)
 
@@ -78,8 +86,12 @@ def test_skin_load_sprite_from_file():
 def test_skin_sprite_not_found():
     """Verify getSpriteBuffer raises when file doesn't exist."""
     skin = SingleFrameSkin(
-        name="test", sprite_width=100, sprite_height=400,
-        frame_width=100, frame_height=100, sprite_path="/nonexistent.png",
+        name="test",
+        _sprite_path="/nonexistent.png",
+        _sprite_width=100,
+        _sprite_height=400,
+        _frame_width=100,
+        _frame_height=100,
     )
     with pytest.raises(FileNotFoundError):
         skin.getSpriteBuffer()

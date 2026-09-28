@@ -26,9 +26,6 @@ dependencies = [
 "Homepage" = "https://github.com/bartlomiejcieszkowski/ziomek"
 "Bug Tracker" = "https://github.com/bartlomiejcieszkowski/ziomek/issues"
 
-[project.optional-dependencies]
-dev = ["pytest>=7.0", "pytest-asyncio>=0.21", "httpx2>=2.0", "ruff>=0.1"]
-
 [project.scripts]
 ziomek = "ziomek.cli:main"
 
@@ -58,4 +55,7 @@ log_level = "NOTSET"
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    "pytest-asyncio>=0.21",
+    "httpx2>=2.0",
+    "ruff>=0.1",
 ]

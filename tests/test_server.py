@@ -1,5 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
+
 from ziomek.server import create_app
 
 
@@ -25,11 +26,11 @@ def test_root(client):
     assert resp.status_code == 200
     data = resp.json()
     assert data["name"] == "ziomek"
-    assert data["version"] == "0.1.0"
+    assert data["version"] == "0.1.3"
 
 
 def test_cors(client):
-    """Verify CORS headers present on regular requests."""
-    resp = client.get("/api/tts/status", headers={"Origin": "http://example.com"})
+    """Verify CORS headers present on requests from localhost.*"""
+    resp = client.get("/api/tts/status", headers={"Origin": "http://localhost:5004"})
     assert resp.status_code == 200
     assert "Access-Control-Allow-Origin" in resp.headers
