@@ -3,6 +3,7 @@
 Serves the HTML avatar renderer, relays gamepad state to extension via
 WebSocket, and proxies sprite data from the TTS server.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -14,11 +15,12 @@ from pathlib import Path
 
 import httpx
 import uvicorn
-from fastapi import FastAPI, WebSocket, Request
+from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from ziomek.avatar.state_machine import AvatarStateMachine, AvatarInput
+from ziomek import __version__
+from ziomek.avatar.state_machine import AvatarInput, AvatarStateMachine
 from ziomek.client.gamepad import GamepadManager
 
 _logger = logging.getLogger(__name__)
@@ -68,7 +70,13 @@ class ZiomekClientApp:
         uvicorn.run(self._app, host="127.0.0.1", port=self._port)
 
     def _create_app(self) -> None:
-        self._app = FastAPI(title="ziomek client")
+        self._app = FastAPI(
+            title="ziomek client",
+            version=__version__,
+            description="ziomek client — gamepad polling, avatar state machine, HTTP/WebSocket relay.",
+            docs_url="/docs",
+            redoc_url="/redoc",
+        )
         self._app.add_middleware(
             CORSMiddleware,
             allow_origins=["http://localhost", "http://localhost:5004"],
@@ -88,10 +96,7 @@ class ZiomekClientApp:
             try:
                 while True:
                     state = self._state_machine.tick(16)
-                    if (
-                        state.expressionName != self._last_expr
-                        or state.cycleIndex != self._last_cycle
-                    ):
+                    if state.expressionName != self._last_expr or state.cycleIndex != self._last_cycle:
                         msg = {
                             "expression": state.expressionName,
                             "cycleIndex": state.cycleIndex,
@@ -108,9 +113,7 @@ class ZiomekClientApp:
             if self._sprite_data is None:
                 await self._load_sprite()
             if self._sprite_data is None:
-                return JSONResponse(
-                    status_code=503, content={"error": "Sprite not loaded"}
-                )
+                return JSONResponse(status_code=503, content={"error": "Sprite not loaded"})
             return {
                 "sprite_b64": self._sprite_data,
                 "width": self._sprite_width,
@@ -150,10 +153,7 @@ class ZiomekClientApp:
                 try:
                     state = self._gamepad_manager.poll()
                     if state.connected:
-                        buttons = [
-                            {"pressed": bool(b), "value": 0.0}
-                            for b in state.buttons
-                        ]
+                        buttons = [{"pressed": bool(b), "value": 0.0} for b in state.buttons]
                         inp = AvatarInput(
                             buttons=buttons,
                             axes=state.axes,
@@ -176,9 +176,7 @@ class ZiomekClientApp:
         """Lazy-load sprite from server (called on first /api/avatar/sprite request)."""
         try:
             async with httpx.AsyncClient() as client:
-                resp = await client.get(
-                    f"{self._server_url}/api/avatar/sprite", timeout=5.0
-                )
+                resp = await client.get(f"{self._server_url}/api/avatar/sprite", timeout=5.0)
                 data = resp.json()
                 self._sprite_data = data.get("sprite_b64")
                 self._sprite_width = data.get("width", 0)
