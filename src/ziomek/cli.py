@@ -22,8 +22,14 @@ def _import_client_cli():
 
 
 def serve_cmd(args):
-    run_server(port=args.port, model_path=args.model_path,
-        voice=args.voice, cache_dir=args.cache_dir)
+    run_server(
+        port=args.port,
+        model_path=args.model_path,
+        voice=args.voice,
+        cache_dir=args.cache_dir,
+        audio_backend=args.audio_backend,
+        audio_device=args.audio_device,
+    )
 
 
 def client_cmd(args):
@@ -48,6 +54,10 @@ def main():
     server_cmd.add_argument("--model-path", type=str, default=None)
     server_cmd.add_argument("--voice", type=str, default="default")
     server_cmd.add_argument("--cache-dir", type=str, default=None)
+    server_cmd.add_argument("--audio-backend", type=str, default=None,
+        help="Audio playback backend (sounddevice, pygame, pyaudio, playsound, rtmixer, noop)")
+    server_cmd.add_argument("--audio-device", type=str, default=None,
+        help="Audio device index, name, or 'default'")
     server_cmd.set_defaults(func=serve_cmd)
 
     # -- serve (deprecated alias for server) --
@@ -56,6 +66,10 @@ def main():
     serve.add_argument("--model-path", type=str, default=None)
     serve.add_argument("--voice", type=str, default="default")
     serve.add_argument("--cache-dir", type=str, default=None)
+    serve.add_argument("--audio-backend", type=str, default=None,
+        help="Audio playback backend (sounddevice, pygame, pyaudio, playsound, rtmixer, noop)")
+    serve.add_argument("--audio-device", type=str, default=None,
+        help="Audio device index, name, or 'default'")
     serve.set_defaults(func=serve_cmd)
 
     # -- client --

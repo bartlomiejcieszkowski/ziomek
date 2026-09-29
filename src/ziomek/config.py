@@ -47,6 +47,11 @@ class Settings(BaseModel):
         env_device: str | int | None = None,
         cli_backend: str | None = None,
         cli_device: str | int | None = None,
+        *,
+        port: int | None = None,
+        model_path: str | None = None,
+        voice: str | None = None,
+        cache_dir: str | None = None,
     ) -> "Settings":
         """Compose Settings from config sources with precedence: CLI > env > file > defaults."""
         file_settings = cls.load(file_path) if file_path else cls()
@@ -57,8 +62,8 @@ class Settings(BaseModel):
         return cls(
             audio_backend=cli_backend_val,
             audio_device=cli_device_val,
-            port=file_settings.port,
-            model_path=file_settings.model_path,
-            voice=file_settings.voice,
-            cache_dir=file_settings.cache_dir,
+            port=port if port is not None else file_settings.port,
+            model_path=model_path or file_settings.model_path,
+            voice=voice or file_settings.voice,
+            cache_dir=cache_dir or file_settings.cache_dir,
         )

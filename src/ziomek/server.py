@@ -26,7 +26,7 @@ _state_machine: Optional[AvatarStateMachine] = None
 _skin_registry: Optional[SkinRegistry] = None
 
 
-def create_app(settings: Settings = None) -> FastAPI:
+def create_app(settings: Settings | None = None) -> FastAPI:
     global _tts_model, _voice_cache, _audio_player, _state_machine, _skin_registry
     if settings is None:
         settings = Settings()
@@ -50,7 +50,7 @@ def create_app(settings: Settings = None) -> FastAPI:
     # Note: model loading deferred to endpoint initialization
     # _tts_model.load(settings.model_path)
     _voice_cache = VoiceStateCache(_tts_model, settings.cache_dir)
-    _audio_player = AudioPlayer()
+    _audio_player = AudioPlayer(backend_name=settings.audio_backend)
     # Initialize avatar components
     _state_machine = AvatarStateMachine()
     _skin_registry = SkinRegistry()
@@ -63,8 +63,22 @@ def create_app(settings: Settings = None) -> FastAPI:
     return app
 
 
-def run_server(port=5003, model_path=None, voice="default", cache_dir=None):
-    settings = Settings(port=port, model_path=model_path, voice=voice, cache_dir=cache_dir)
+def run_server(
+    port=5003,
+    model_path=None,
+    voice="default",
+    cache_dir=None,
+    audio_backend=None,
+    audio_device=None,
+):
+    settings = Settings.compose(
+        cli_backend=audio_backend,
+        cli_device=audio_device,
+        port=port,
+        model_path=model_path,
+        voice=voice,
+        cache_dir=cache_dir,
+    )
     app = create_app(settings)
     print(f"ziomek server listening on http://localhost:{port}", file=sys.stderr)
     uvicorn.run(app, host="localhost", port=port)
