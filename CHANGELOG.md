@@ -50,4 +50,4 @@ All notable changes to this project are documented here.
 - VS Code extension for gamepad-controlled avatar with TTS
 - Launcher scripts for server management
 - CI build workflow and PyPI publishing workflow
-- Apache 2.0 license
+- MIT license file
