@@ -1,8 +1,11 @@
 """Tests for ziomek config loading and precedence."""
+
 import os
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+from fastapi.testclient import TestClient
 
 from ziomek.config import Settings
 from ziomek.tts.backends.devices import resolve_device
@@ -126,3 +129,21 @@ def test_resolve_device_name_no_match_raises():
     except ValueError as e:
         assert "nonexistent" in str(e)
         assert "default" in str(e)
+
+
+def test_server_with_noop_backend():
+    """Server creates app with noop audio backend."""
+    from ziomek import server
+    from ziomek.config import Settings
+
+    settings = Settings.compose(
+        cli_backend="noop",
+        cli_device=None,
+    )
+    app = server.create_app(settings)
+    client = TestClient(app)
+    resp = client.get("/status")
+    assert resp.status_code == 200
+    # Verify the audio player was created with the noop backend
+    assert server._audio_player is not None
+    assert server._audio_player.supports_mixing() is True
