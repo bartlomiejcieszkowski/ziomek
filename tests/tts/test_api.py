@@ -1,5 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
+
 from ziomek.server import create_app
 
 

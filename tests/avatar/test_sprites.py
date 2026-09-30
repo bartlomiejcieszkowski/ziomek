@@ -1,7 +1,7 @@
 """Tests for ziomek avatar sprite parser."""
 import pytest
 
-from ziomek.avatar.sprites import parse_png_sprite, SpriteMetadata
+from ziomek.avatar.sprites import SpriteMetadata, parse_png_sprite
 
 
 def test_parse_png_sprite():

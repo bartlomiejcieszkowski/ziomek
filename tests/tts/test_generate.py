@@ -1,14 +1,15 @@
-import pytest
 import base64
 import io
-import numpy as np
-import scipy.io.wavfile as wavfile
-import torch  # type: ignore[import-untyped]
 from unittest.mock import MagicMock, patch
 
+import numpy as np
+import pytest
+import scipy.io.wavfile as wavfile
+import torch  # type: ignore[import-untyped]
+
 from ziomek.tts.engine import TTSModelWrapper
-from ziomek.tts.voice import VoiceStateCache
 from ziomek.tts.generate import generate_wav
+from ziomek.tts.voice import VoiceStateCache
 
 
 def test_generate_raises_when_not_ready():

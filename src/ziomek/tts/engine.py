@@ -1,6 +1,7 @@
 """ziomek TTS engine — Pocket TTS model management."""
-import torch  # type: ignore[import-untyped]
 from typing import Optional
+
+import torch  # type: ignore[import-untyped]
 
 
 class TTSModelWrapper:

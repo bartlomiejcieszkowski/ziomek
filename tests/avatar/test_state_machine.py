@@ -1,12 +1,13 @@
 """Tests for ziomek avatar state machine."""
-import pytest
 import time as _time
 
+import pytest
+
 from ziomek.avatar.state_machine import (
-    AvatarStateMachine,
-    AvatarInput,
-    ExpressionState,
     _EXPRESSIONS,
+    AvatarInput,
+    AvatarStateMachine,
+    ExpressionState,
     TriggerType,
 )
 
