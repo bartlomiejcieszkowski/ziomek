@@ -22,5 +22,7 @@ class IBackend(ABC):
         Return [] if device enumeration is not supported.
         """
 
-    supports_mixing: bool  # type: ignore[misc]
-    """Whether this backend supports overlapping (mixing) playback."""
+    @property
+    @abstractmethod
+    def supports_mixing(self) -> bool:
+        """Whether this backend supports overlapping (mixing) playback."""

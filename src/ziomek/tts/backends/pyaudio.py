@@ -14,7 +14,9 @@ logger = logging.getLogger(__name__)
 class PyaudioBackend(IBackend):
     """Audio backend using PyAudio."""
 
-    supports_mixing: bool = True
+    @property
+    def supports_mixing(self) -> bool:
+        return True
 
     def __init__(self) -> None:
         import pyaudio

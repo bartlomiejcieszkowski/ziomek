@@ -13,7 +13,9 @@ logger = logging.getLogger(__name__)
 class PygameMixerBackend(IBackend):
     """Audio backend using pygame.mixer."""
 
-    supports_mixing: bool = True
+    @property
+    def supports_mixing(self) -> bool:
+        return True
 
     def play(self, data: bytes, sr: int) -> None:
         import pygame
