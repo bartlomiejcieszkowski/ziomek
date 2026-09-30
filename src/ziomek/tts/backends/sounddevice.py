@@ -1,4 +1,5 @@
 """ziomek TTS audio backends — Sounddevice (default) backend."""
+
 import gc
 import io
 import threading
@@ -61,9 +62,7 @@ class SounddeviceBackend(IBackend):
                 {
                     "id": i,
                     "name": d["name"] if isinstance(d, dict) else d.name,
-                    "channels": d["channels_out"]
-                    if isinstance(d, dict)
-                    else d.max_output_channels,
+                    "channels": d["channels_out"] if isinstance(d, dict) else d.max_output_channels,
                 }
                 for i, d in enumerate(devices)
             ]

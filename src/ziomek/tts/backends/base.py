@@ -1,4 +1,5 @@
 """ziomek TTS audio backends — IBackend abstract protocol."""
+
 from abc import ABC, abstractmethod
 
 
@@ -21,7 +22,5 @@ class IBackend(ABC):
         Return [] if device enumeration is not supported.
         """
 
-    @property
-    @abstractmethod
-    def supports_mixing(self) -> bool:
-        """Whether this backend supports overlapping (mixing) playback."""
+    supports_mixing: bool  # type: ignore[misc]
+    """Whether this backend supports overlapping (mixing) playback."""

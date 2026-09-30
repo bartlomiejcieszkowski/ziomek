@@ -1,4 +1,5 @@
 """ziomek TTS audio backends — pluggable playback system."""
+
 import importlib
 import logging
 from typing import TYPE_CHECKING
@@ -25,9 +26,7 @@ class BackendRegistry:
     def __init__(self) -> None:
         if not self._backends:
             self._register_backend("noop", "ziomek.tts.backends.noop", "NoopBackend")
-            self._register_backend(
-                "sounddevice", "ziomek.tts.backends.sounddevice", "SounddeviceBackend"
-            )
+            self._register_backend("sounddevice", "ziomek.tts.backends.sounddevice", "SounddeviceBackend")
 
     def _register_backend(self, name: str, module_name: str, class_name: str) -> None:
         try:
