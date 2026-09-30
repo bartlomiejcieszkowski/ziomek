@@ -161,3 +161,24 @@ def test_scaffold_config_creates_file():
         assert "audio_backend" in content
         assert "sounddevice" in content
         assert "audio_device" in content
+
+
+def test_e2e_noop_backend_full_chain():
+    """From Settings.compose → AudioPlayer → backend play call."""
+    from unittest.mock import patch
+
+    from ziomek.config import Settings
+
+    s = Settings.compose(cli_backend="noop", cli_device=None)
+    from ziomek.tts.playback import AudioPlayer
+
+    player = AudioPlayer(backend_name=s.audio_backend)
+    assert player.supports_mixing() is True
+
+    with patch.object(player._backend, "play") as mock_play:
+        player.play(b"data", 24000)
+        mock_play.assert_called_once_with(b"data", 24000)
+
+    with patch.object(player._backend, "mix_play") as mock_mix:
+        player.mix_play(b"data", 24000)
+        mock_mix.assert_called_once_with(b"data", 24000)
