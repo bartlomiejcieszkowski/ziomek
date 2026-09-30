@@ -1,4 +1,5 @@
 """ziomek settings — with config file loading."""
+
 from pathlib import Path
 from typing import Any
 
@@ -67,3 +68,26 @@ class Settings(BaseModel):
             voice=voice or file_settings.voice,
             cache_dir=cache_dir or file_settings.cache_dir,
         )
+
+    @classmethod
+    def scaffold_config(cls, path: str | Path) -> Path:
+        """Create a default YAML config file at the given path."""
+        content = """# ziomek server configuration
+# Generate with: ziomek scaffold-config
+
+# Audio playback backend (sounddevice, pygame, pyaudio, playsound, rtmixer, noop)
+audio_backend: sounddevice
+
+# Audio device (None/default = system default, or int index, or device name string)
+# audio_device:
+
+# Server settings
+# port: 5003
+# model_path:
+# voice: default
+# cache_dir:
+"""
+        p = Path(path).resolve()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(content)
+        return p

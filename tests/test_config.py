@@ -147,3 +147,17 @@ def test_server_with_noop_backend():
     # Verify the audio player was created with the noop backend
     assert server._audio_player is not None
     assert server._audio_player.supports_mixing() is True
+
+
+def test_scaffold_config_creates_file():
+    """Settings.scaffold_config creates a default YAML config file."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "ziomek_server_config.yaml")
+        result = Settings.scaffold_config(path)
+        assert os.path.isfile(path)
+        assert str(result) == os.path.abspath(path)
+        with open(path) as f:
+            content = f.read()
+        assert "audio_backend" in content
+        assert "sounddevice" in content
+        assert "audio_device" in content
