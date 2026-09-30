@@ -1,0 +1,14 @@
+# ziomek server configuration
+# Generate with: ziomek scaffold-config
+
+# Audio playback backend (sounddevice, pygame, pyaudio, playsound, noop)
+audio_backend: sounddevice
+
+# Audio device (None/default = system default, or int index, or device name)
+# audio_device:
+
+# Server settings
+# port: 5003
+# model_path:
+# voice: default
+# cache_dir:

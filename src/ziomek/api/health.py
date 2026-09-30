@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from ziomek import __version__
 from ziomek.server import _tts_model
 
 router = APIRouter(tags=["Health"])
@@ -44,7 +45,7 @@ async def root() -> dict:
     """Server root endpoint."""
     return {
         "name": "ziomek",
-        "version": "0.1.0",
+        "version": __version__,
         "endpoints": {
             "generate": "POST /api/tts/generate",
             "status": "GET /api/status",
