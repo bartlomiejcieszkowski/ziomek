@@ -9,7 +9,7 @@ from ziomek.tts.engine import TTSModelWrapper
 class VoiceStateCache:
     """Cache and load voice states for TTS."""
 
-    def __init__(self, model: TTSModelWrapper, cache_dir: str = None):
+    def __init__(self, model: TTSModelWrapper, cache_dir: str | None = None):
         self._model = model
         self._cache_dir: Path | None = Path(cache_dir) if cache_dir else None
         self._states: dict[str, dict] = {}

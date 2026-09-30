@@ -40,7 +40,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Add CORS middleware for VS Code webviews
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:*"],
+        allow_origin_regex=r"http://localhost:\d+",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
