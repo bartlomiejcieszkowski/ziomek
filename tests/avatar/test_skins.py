@@ -65,10 +65,28 @@ def test_skin_registry_list():
 
 def test_skin_load_sprite_from_file():
     """Verify skin loads sprite from file."""
-    # Create a minimal valid PNG file (1x1 pixel)
-    png_header = b"\x89PNG\r\n\x1a\n" + b"\x00" * 40
+    import struct
+
+    def make_minimal_png(width: int, height: int) -> bytes:
+        """Create a minimal valid PNG with IHDR and a single IDAT chunk."""
+
+        def chunk(ct: bytes, data: bytes) -> bytes:
+            c = ct + data
+            crc = 0x811C9DC5
+            for b in c:
+                crc ^= b
+                for _ in range(8):
+                    crc = (crc << 1) ^ 0x82F63B78 if crc & 0x80000000 else crc << 1
+            return struct.pack(">I", len(data)) + ct + data + struct.pack(">I", crc & 0xFFFFFFFF)
+
+        ihdr_data = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+        return (
+            b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr_data) + chunk(b"IDAT", b"\x00\xff\x00\x00") + chunk(b"IEND", b"")
+        )
+
+    png_data = make_minimal_png(200, 400)
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
-        f.write(png_header)
+        f.write(png_data)
         f.flush()
         temp_path = f.name
 
@@ -78,7 +96,10 @@ def test_skin_load_sprite_from_file():
             _sprite_path=temp_path,
         )
         buffer = skin.getSpriteBuffer()
-        assert buffer == png_header
+        assert len(buffer) == len(png_data)
+        assert skin.spriteWidth == 200
+        assert skin.spriteHeight == 400
+        assert skin.frameHeight == 200  # 400 / 2 rows (ratio 1:2)
     finally:
         os.unlink(temp_path)
 

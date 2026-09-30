@@ -1,4 +1,5 @@
 """ziomek avatar skin registry — ported from TypeScript."""
+
 from __future__ import annotations
 
 import logging
@@ -18,6 +19,7 @@ _ROW_MAP: dict[str, int] = {
     "bored": 3,
     "dying": 4,
     "neutral": 1,
+    "excited": 5,
 }
 
 
