@@ -19,3 +19,4 @@ docs/internal/
 .mypy_cache/
 .ruff_cache/
 
+.coverage
