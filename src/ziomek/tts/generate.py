@@ -1,6 +1,8 @@
 """ziomek TTS generation — text to WAV bytes (base64 response)."""
+
 import base64
 import io
+
 import numpy as np  # type: ignore[import-untyped]
 import scipy.io.wavfile as wavfile  # type: ignore[import-untyped]
 import torch  # type: ignore[import-untyped]
@@ -34,4 +36,4 @@ def generate_wav(
     wav_bytes = wav_buffer.getvalue()
     audio_b64 = base64.b64encode(wav_bytes).decode("utf-8")
     duration = len(audio_np) / sample_rate if hasattr(audio_np, "__len__") else 0
-    return audio_b64, float(duration), sample_rate
+    return audio_b64, duration, sample_rate

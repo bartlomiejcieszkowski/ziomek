@@ -3,13 +3,12 @@
 Implements the same expression system, intensity preemption, and
 cycle tracking as the TypeScript version in src/humanize/avatar/state-machine.ts.
 """
+
 from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Callable
-
-from typing import List, Optional
+from typing import Callable, List
 
 
 class TriggerType:
@@ -48,8 +47,8 @@ class AvatarInput:
 class ExpressionState:
     expressionName: str
     cycleIndex: int
-    message: Optional[str] = None
-    messageExpiry: Optional[float] = None
+    message: str | None = None
+    messageExpiry: float | None = None
 
 
 @dataclass
@@ -65,39 +64,99 @@ class _CurrentState:
 
 _EXPRESSIONS: list[ExpressionDef] = [
     ExpressionDef(
-        name="idle", cycleCount=60, durationMs=999999999, intensity=0,
+        name="idle",
+        cycleCount=60,
+        durationMs=999999999,
+        intensity=0,
         triggers=[Trigger(type=TriggerType.IDLE, condition=lambda inp: True)],
     ),
     ExpressionDef(
-        name="bored", cycleCount=3, durationMs=900, intensity=0,
+        name="bored",
+        cycleCount=3,
+        durationMs=900,
+        intensity=0,
         triggers=[Trigger(type=TriggerType.IDLE, condition=lambda inp: True)],
     ),
     ExpressionDef(
-        name="happy", cycleCount=1, durationMs=500, intensity=1,
-        triggers=[Trigger(type=TriggerType.BUTTON, condition=lambda inp: inp.buttons[0]["pressed"] if len(inp.buttons) > 0 else False)],
+        name="happy",
+        cycleCount=1,
+        durationMs=500,
+        intensity=1,
+        triggers=[
+            Trigger(
+                type=TriggerType.BUTTON,
+                condition=lambda inp: inp.buttons[0]["pressed"] if len(inp.buttons) > 0 else False,
+            )
+        ],
     ),
     ExpressionDef(
-        name="surprised", cycleCount=1, durationMs=300, intensity=2,
-        triggers=[Trigger(type=TriggerType.BUTTON, condition=lambda inp: inp.buttons[1]["pressed"] if len(inp.buttons) > 1 else False)],
+        name="surprised",
+        cycleCount=1,
+        durationMs=300,
+        intensity=2,
+        triggers=[
+            Trigger(
+                type=TriggerType.BUTTON,
+                condition=lambda inp: inp.buttons[1]["pressed"] if len(inp.buttons) > 1 else False,
+            )
+        ],
     ),
     ExpressionDef(
-        name="curious", cycleCount=1, durationMs=400, intensity=1,
-        triggers=[Trigger(type=TriggerType.BUTTON, condition=lambda inp: inp.buttons[2]["pressed"] if len(inp.buttons) > 2 else False)],
+        name="curious",
+        cycleCount=1,
+        durationMs=400,
+        intensity=1,
+        triggers=[
+            Trigger(
+                type=TriggerType.BUTTON,
+                condition=lambda inp: inp.buttons[2]["pressed"] if len(inp.buttons) > 2 else False,
+            )
+        ],
     ),
     ExpressionDef(
-        name="looking", cycleCount=1, durationMs=200, intensity=1,
-        triggers=[Trigger(type=TriggerType.BUTTON, condition=lambda inp: len(inp.buttons) > 15 and (inp.buttons[12]["pressed"] or inp.buttons[13]["pressed"] or inp.buttons[14]["pressed"] or inp.buttons[15]["pressed"]))],
+        name="looking",
+        cycleCount=1,
+        durationMs=200,
+        intensity=1,
+        triggers=[
+            Trigger(
+                type=TriggerType.BUTTON,
+                condition=lambda inp: (
+                    len(inp.buttons) > 15
+                    and (
+                        inp.buttons[12]["pressed"]
+                        or inp.buttons[13]["pressed"]
+                        or inp.buttons[14]["pressed"]
+                        or inp.buttons[15]["pressed"]
+                    )
+                ),
+            )
+        ],
     ),
     ExpressionDef(
-        name="focused", cycleCount=1, durationMs=999999999, intensity=2,
-        triggers=[Trigger(type=TriggerType.AXIS, condition=lambda inp: len(inp.axes) >= 3 and (abs(inp.axes[0]) > 0.3 or abs(inp.axes[2]) > 0.3))],
+        name="focused",
+        cycleCount=1,
+        durationMs=999999999,
+        intensity=2,
+        triggers=[
+            Trigger(
+                type=TriggerType.AXIS,
+                condition=lambda inp: len(inp.axes) >= 3 and (abs(inp.axes[0]) > 0.3 or abs(inp.axes[2]) > 0.3),
+            )
+        ],
     ),
     ExpressionDef(
-        name="thinking", cycleCount=1, durationMs=999999999, intensity=1,
+        name="thinking",
+        cycleCount=1,
+        durationMs=999999999,
+        intensity=1,
         triggers=[Trigger(type=TriggerType.VSCODE, condition=lambda inp: inp.streaming)],
     ),
     ExpressionDef(
-        name="dying", cycleCount=2, durationMs=2000, intensity=3,
+        name="dying",
+        cycleCount=2,
+        durationMs=2000,
+        intensity=3,
         triggers=[Trigger(type=TriggerType.VSCODE, condition=lambda inp: inp.errorState)],
     ),
 ]
@@ -110,17 +169,17 @@ class AvatarStateMachine:
     """Avatar state machine — same logic as TypeScript version."""
 
     def __init__(self) -> None:
-        self._current: Optional[_CurrentState] = None
+        self._current: _CurrentState | None = None
         self._idle_index = 0
         self._prev_buttons: set[int] = set()
         self._prev_axis_active = False
         self._prev_streaming = False
         self._prev_error_state = False
-        self._current_expression_type: Optional[str] = None
-        self._current_message: Optional[str] = None
+        self._current_expression_type: str | None = None
+        self._current_message: str | None = None
         self._message_expiry_timestamp: float = 0
-        self._timed_expression_timer: Optional[object] = None
-        self._message_timer: Optional[object] = None
+        self._timed_expression_timer: object | None = None
+        self._message_timer: object | None = None
 
     def update(self, input: AvatarInput) -> None:
         """Process input — same logic as TS update()."""
@@ -151,10 +210,7 @@ class AvatarStateMachine:
 
         if self._current is None:
             # Check message expiry
-            has_msg = (
-                self._message_expiry_timestamp
-                and time.time() * 1000 < self._message_expiry_timestamp
-            )
+            has_msg = self._message_expiry_timestamp and time.time() * 1000 < self._message_expiry_timestamp
             return ExpressionState(
                 expressionName="idle",
                 cycleIndex=0,
@@ -203,10 +259,7 @@ class AvatarStateMachine:
 
         # Check message expiry
         now_ms = time.time() * 1000
-        has_msg = (
-            self._message_expiry_timestamp
-            and now_ms < self._message_expiry_timestamp
-        )
+        has_msg = self._message_expiry_timestamp and now_ms < self._message_expiry_timestamp
         if not has_msg:
             self._message_expiry_timestamp = 0
 
@@ -245,7 +298,7 @@ class AvatarStateMachine:
     def getDefaultExpression(self) -> str:
         return "idle"
 
-    def setExpression(self, expression_name: str, duration_ms: Optional[float] = None) -> bool:
+    def setExpression(self, expression_name: str, duration_ms: float | None = None) -> bool:
         expr = next((e for e in _EXPRESSIONS if e.name == expression_name), None)
         if not expr:
             return False
@@ -257,9 +310,11 @@ class AvatarStateMachine:
 
         if duration_ms and duration_ms > 0:
             import threading
+
             def _timeout() -> None:
                 self._current_expression_type = None
                 self._timed_expression_timer = None
+
             # In Python we'd use timer threads; simplified here
             self._timed_expression_timer = threading.Timer(duration_ms / 1000, lambda: None)
             self._timed_expression_timer.daemon = True
@@ -267,7 +322,7 @@ class AvatarStateMachine:
 
         return True
 
-    def setMessage(self, text: Optional[str] = None, duration_ms: float = 10000) -> None:
+    def setMessage(self, text: str | None = None, duration_ms: float = 10000) -> None:
         if self._message_timer:
             self._message_timer = None
 
@@ -276,9 +331,11 @@ class AvatarStateMachine:
             if duration_ms > 0:
                 self._message_expiry_timestamp = time.time() * 1000 + duration_ms
                 import threading
+
                 def _clear_msg() -> None:
                     self._current_message = None
                     self._message_expiry_timestamp = 0
+
                 self._message_timer = threading.Timer(duration_ms / 1000, _clear_msg)
                 self._message_timer.daemon = True
                 self._message_timer.start()
@@ -288,7 +345,7 @@ class AvatarStateMachine:
             self._current_message = None
             self._message_expiry_timestamp = 0
 
-    def getMessage(self) -> Optional[str]:
+    def getMessage(self) -> str | None:
         return self._current_message
 
     # ── Private helpers ──────────────────────────────────────────────
@@ -303,9 +360,8 @@ class AvatarStateMachine:
                         return
 
     def _update_level_triggers(self, input: AvatarInput) -> None:
-        axis_active = (
-            len(input.axes) >= 3 and
-            (abs(input.axes[0]) > _AXIS_THRESHOLD or abs(input.axes[2]) > _AXIS_THRESHOLD)
+        axis_active = len(input.axes) >= 3 and (
+            abs(input.axes[0]) > _AXIS_THRESHOLD or abs(input.axes[2]) > _AXIS_THRESHOLD
         )
 
         if axis_active != self._prev_axis_active:

@@ -1,7 +1,8 @@
 """ziomek TTS voice state management."""
+
 import os
 from pathlib import Path
-from typing import Optional
+
 from ziomek.tts.engine import TTSModelWrapper
 
 
@@ -10,7 +11,7 @@ class VoiceStateCache:
 
     def __init__(self, model: TTSModelWrapper, cache_dir: str = None):
         self._model = model
-        self._cache_dir: Optional[Path] = Path(cache_dir) if cache_dir else None
+        self._cache_dir: Path | None = Path(cache_dir) if cache_dir else None
         self._states: dict[str, dict] = {}
 
     def load_voice(self, voice_key: str) -> dict:
