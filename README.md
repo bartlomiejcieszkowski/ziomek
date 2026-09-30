@@ -19,14 +19,12 @@ uv run python -m ziomek.cli serve --port 5003
 
 `uv` auto-creates a `.venv`, downloads dependencies, and installs `ziomek` in development mode from the local package.
 
-`uv` auto-creates a `.venv`, downloads dependencies, and installs `ziomek` in development mode from the local package.
-
 ### Start the client (gamepad + avatar display)
 
 ```bash
 cd python
 uv run python -m ziomek.cli client --port 5004 --server-url http://localhost:5003
-```bash
+```
 
 This opens a browser window with the avatar display and relays gamepad state to the VS Code extension.
 
@@ -47,39 +45,50 @@ npm run compile
 
 Press **F5** in VS Code to launch the extension host. The extension automatically connects to the ziomek client.
 
-Press **F5** in VS Code to launch the extension host. The extension automatically connects to the ziomek client.
-
 ## Architecture
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│                     ziomek client (port 5004)                            │
-│                                                                          │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────┐          │
-│  │ pygame       │───→│ State Machine│───→│ HTML/JS Renderer │          │
-│  │ gamepad poll │    │ (Python)     │    │ (shared)           │          │
-│  └──────────────┘    └──────────────┘    │  Browser/Canvas  │          │
-│                                         └──────────────────┘          │
-│  ┌────────────────────┐     ┌──────────────────┐                      │
-│  │ FastAPI Web Server │───→ │ Local Browser     │                      │
-│  │ :5004              │     │ (auto-opened)     │                      │
-│  │                    │     └──────────────────┘                      │
-│  │ /avatar-view       │                                                │
-│  │ /avatar            │   ┌──────────────────┐                         │
-│  │ /avatar/sprite     │   │ Extension Canvas  │                         │
-│  │ /avatar/state      │   │ (optional relay)  │                         │
-│  └────────────────────┘   └──────────────────┘                         │
-└──────────────────────────────────────────────────────────────────────────┘
-                                                                        │
-                                                                        │ WebSocket relay
-                                                                        ▼
-┌─────────────────────────────┐     └──────────────────────────────────┐
-│  VS Code Extension          │     │  ziomek server (port 5003)       │
-│  • Canvas rendering         │     │  • TTS synthesis                 │
-│  • Copilot Chat integration │     │  • Sprite data                   │
-│  • Fetches HTML from client │     │  • Audio playback                │
-└─────────────────────────────┘     └──────────────────────────────────┘
-```text
+┌───────────────────────────────────────────────────────────────────────┐
+│  ziomek server (port 5003)                                            │
+│  ┌────────────────────┐  ┌──────────────────┐  ┌──────────────────┐   │
+│  │ TTS Synthesis      │  │ Audio Playback   │  │ Avatar           │   │
+│  │ TTSModelWrapper    │  │ BackendRegistry  │  │ State Machine    │   │
+│  │ (Coqui TTS)        │  │ pygame / sound-  │  │                  │   │
+│  │                    │  │ device / py-     │  │ /avatar-view     │   │
+│  │ /tts/synthesize    │  │ audio / playsound│  │ /avatar/sprite   │   │
+│  │ /tts/cancel        │  │ / noop           │  │ /avatar/state    │   │
+│  └────────────────────┘  └──────────────────┘  └──────────────────┘   │
+│  ┌──────────────────────────────────────────────────────────────────┐ │
+│  │ OpenAPI docs at /docs, /redoc                                    │ │
+│  └──────────────────────────────────────────────────────────────────┘ │
+└──────────┬────────────────────────────────────────────────────────────┘
+           │ HTTP (httpx)
+           │ GET /avatar/sprite
+           │ GET /avatar/state
+           ▼
+┌───────────────────────────────────────────────────────────────────────┐
+│  ziomek client (port 5004)                                            │
+│  ┌──────────────┐  ┌──────────────────┐  ┌──────────────────┐         │
+│  │ pygame       │→ │ Avatar           │→ │ HTML/JS Renderer │         │
+│  │ gamepad poll │  │ State Machine    │  │ (served by       │         │
+│  └──────────────┘  └──────────────────┘  │ FastAPI)         │         │
+│                                          └──────────────────┘         │
+│  ┌──────────────────┐       ┌──────────────────┐                      │
+│  │ WebSocket Relay  │       │ /docs, /redoc    │                      │
+│  │ ← Extension      │       │                  │                      │
+│  │ → gamepad state  │       └──────────────────┘                      │
+│  └────────┬─────────┘                                                 │
+└───────────┼───────────────────────────────────────────────────────────┘
+            │ WebSocket
+            ▼
+┌─────────────────────────────┐
+│  VS Code Extension          │
+│  • Canvas rendering         │
+│  • Copilot Chat integration │
+│  • Fetches avatar state     │
+│    & gamepad relay          │
+└─────────────────────────────┘
+```
 
 ## Launch Commands
 
@@ -100,7 +109,7 @@ uv run python -m ziomek.cli serve --port 5003 --voice cosette --cache-dir ./voic
 ```bash
 cd python
 uv run python -m ziomek.cli client --port 5004 --server-url http://localhost:5003
-```bash
+```
 
 | Option | Default | Description |
 |--------|---------|-------------|
@@ -177,9 +186,8 @@ npm install                       # install node modules
 npm run compile                   # compile TypeScript to out/
 npm test                          # run Jest tests
 npm run watch                     # auto-recompile on changes
-```bash
+```
 
-## File Structure
 
 ```text
 .
