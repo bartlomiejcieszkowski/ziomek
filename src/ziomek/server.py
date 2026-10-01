@@ -11,6 +11,7 @@ from ziomek import __version__
 from ziomek.avatar.skins import SkinRegistry
 from ziomek.avatar.state_machine import AvatarStateMachine
 from ziomek.config import Settings
+from ziomek.logging import RequestIDMiddleware, setup_logging
 from ziomek.tts.engine import TTSModelWrapper
 from ziomek.tts.playback import AudioPlayer
 from ziomek.tts.voice import VoiceStateCache
@@ -45,6 +46,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # Add request ID tracing middleware
+    app.add_middleware(RequestIDMiddleware)
     # Initialize TTS model
     _tts_model = TTSModelWrapper()
     # Note: model loading deferred to endpoint initialization
@@ -71,6 +74,7 @@ def run_server(
     audio_backend=None,
     audio_device=None,
     host=None,
+    log_level="INFO",
 ):
     settings = Settings.compose(
         cli_backend=audio_backend,
@@ -81,6 +85,7 @@ def run_server(
         voice=voice,
         cache_dir=cache_dir,
     )
+    setup_logging(level=log_level)
     app = create_app(settings)
     print(f"ziomek server listening on http://{settings.host}:{port}", file=sys.stderr)
     uvicorn.run(app, host=settings.host, port=port)

@@ -31,6 +31,7 @@ def serve_cmd(args):
         audio_backend=args.audio_backend,
         audio_device=args.audio_device,
         host=args.host,
+        log_level=args.log_level,
     )
 
 
@@ -70,6 +71,12 @@ def main():
     )
     server_cmd.add_argument("--audio-device", type=str, default=None, help="Audio device index, name, or 'default'")
     server_cmd.add_argument("--host", type=str, default=None, help="Host to bind (default: localhost)")
+    server_cmd.add_argument(
+        "--log-level",
+        type=str,
+        default="INFO",
+        help="Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
+    )
     server_cmd.set_defaults(func=serve_cmd)
 
     # -- serve (deprecated alias for server) --
@@ -86,6 +93,12 @@ def main():
     )
     serve.add_argument("--audio-device", type=str, default=None, help="Audio device index, name, or 'default'")
     serve.add_argument("--host", type=str, default=None, help="Host to bind (default: localhost)")
+    serve.add_argument(
+        "--log-level",
+        type=str,
+        default="INFO",
+        help="Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
+    )
     serve.set_defaults(func=serve_cmd)
 
     # -- client --
