@@ -70,15 +70,17 @@ def run_server(
     cache_dir=None,
     audio_backend=None,
     audio_device=None,
+    host=None,
 ):
     settings = Settings.compose(
         cli_backend=audio_backend,
         cli_device=audio_device,
+        cli_host=host,
         port=port,
         model_path=model_path,
         voice=voice,
         cache_dir=cache_dir,
     )
     app = create_app(settings)
-    print(f"ziomek server listening on http://localhost:{port}", file=sys.stderr)
-    uvicorn.run(app, host="localhost", port=port)
+    print(f"ziomek server listening on http://{settings.host}:{port}", file=sys.stderr)
+    uvicorn.run(app, host=settings.host, port=port)

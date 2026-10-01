@@ -182,3 +182,33 @@ def test_e2e_noop_backend_full_chain():
     with patch.object(player._backend, "mix_play") as mock_mix:
         player.mix_play(b"data", 24000)
         mock_mix.assert_called_once_with(b"data", 24000)
+
+
+def test_host_default():
+    """Default host should be localhost."""
+    s = Settings()
+    assert s.host == "localhost"
+
+
+def test_host_cli_precedence():
+    """CLI host should override defaults."""
+    s = Settings.compose(cli_host="0.0.0.0")
+    assert s.host == "0.0.0.0"
+
+
+def test_host_env_precedence():
+    """Env host should override file/host defaults but be overridden by CLI."""
+    s = Settings.compose(env_host="127.0.0.1", cli_host=None)
+    assert s.host == "127.0.0.1"
+
+
+def test_host_cli_overrides_env():
+    """CLI host should override env host."""
+    s = Settings.compose(env_host="127.0.0.1", cli_host="0.0.0.0")
+    assert s.host == "0.0.0.0"
+
+
+def test_host_kwarg_takes_precedence():
+    """Host kwarg should override both CLI and env."""
+    s = Settings.compose(env_host="127.0.0.1", cli_host="0.0.0.0", host="192.168.1.1")
+    assert s.host == "192.168.1.1"

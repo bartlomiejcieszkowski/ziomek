@@ -22,11 +22,13 @@ def test_status(client):
 
 def test_root(client):
     """Verify / returns ziomek info."""
+    from ziomek import __version__
+
     resp = client.get("/")
     assert resp.status_code == 200
     data = resp.json()
     assert data["name"] == "ziomek"
-    assert data["version"] == "0.1.3"
+    assert data["version"] == __version__
 
 
 def test_cors(client):

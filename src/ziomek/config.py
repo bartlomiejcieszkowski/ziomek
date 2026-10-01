@@ -15,6 +15,7 @@ class Settings(BaseModel):
     cache_dir: str | None = None
     audio_backend: str = "sounddevice"
     audio_device: str | int | None = None
+    host: str = "localhost"
 
     @classmethod
     def load(cls, config_path: str | Path) -> "Settings":
@@ -46,23 +47,29 @@ class Settings(BaseModel):
         file_path: str | Path | None = None,
         env_backend: str | None = None,
         env_device: str | int | None = None,
+        env_host: str | None = None,
         cli_backend: str | None = None,
         cli_device: str | int | None = None,
+        cli_host: str | None = None,
         *,
         port: int | None = None,
         model_path: str | None = None,
         voice: str | None = None,
         cache_dir: str | None = None,
+        host: str | None = None,
     ) -> "Settings":
         """Compose Settings from config sources with precedence: CLI > env > file > defaults."""
         file_settings = cls.load(file_path) if file_path else cls()
         env_backend_val = env_backend or file_settings.audio_backend
         env_device_val = env_device if env_device is not None else file_settings.audio_device
+        env_host_val = env_host if env_host is not None else file_settings.host
         cli_backend_val = cli_backend or env_backend_val
         cli_device_val = cli_device if cli_device is not None else env_device_val
+        cli_host_val = host if host is not None else (cli_host if cli_host is not None else env_host_val)
         return cls(
             audio_backend=cli_backend_val,
             audio_device=cli_device_val,
+            host=cli_host_val,
             port=port if port is not None else file_settings.port,
             model_path=model_path or file_settings.model_path,
             voice=voice or file_settings.voice,
