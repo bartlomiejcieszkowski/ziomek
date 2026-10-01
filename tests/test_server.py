@@ -36,3 +36,47 @@ def test_cors(client):
     resp = client.get("/api/tts/status", headers={"Origin": "http://localhost:5004"})
     assert resp.status_code == 200
     assert "Access-Control-Allow-Origin" in resp.headers
+
+
+def test_health_status_has_new_fields():
+    """Health endpoint should include uptime, backend, and cache stats."""
+    from fastapi.testclient import TestClient
+    from ziomek.server import create_app
+
+    app = create_app()
+    client = TestClient(app)
+    resp = client.get("/status")
+    assert resp.status_code == 200
+    data = resp.json()
+
+    # Verify new fields exist and have correct types
+    assert "uptime_seconds" in data
+    assert isinstance(data["uptime_seconds"], (int, float))
+    assert data["uptime_seconds"] >= 0
+
+    assert "audio_backend" in data
+    assert isinstance(data["audio_backend"], str)
+
+    assert "audio_device" in data
+    assert data["audio_device"] is None or isinstance(data["audio_device"], (str, int))
+
+    assert "cache_dir" in data
+
+    assert "cache_stats" in data
+    assert isinstance(data["cache_stats"], dict)
+    assert "size_mb" in data["cache_stats"]
+    assert "files" in data["cache_stats"]
+
+
+def test_health_status_null_when_model_not_loaded():
+    """When TTS model is not loaded, model_loaded should be False."""
+    from fastapi.testclient import TestClient
+    from ziomek.server import create_app
+
+    app = create_app()
+    client = TestClient(app)
+    resp = client.get("/status")
+    data = resp.json()
+    # Should not crash even if model is None
+    assert isinstance(data["model_loaded"], bool)
+    assert isinstance(data["ready"], bool)

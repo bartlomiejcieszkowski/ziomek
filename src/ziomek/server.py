@@ -1,6 +1,7 @@
 """ziomek HTTP server — FastAPI application."""
 
 import sys
+import time
 from typing import Optional
 
 import uvicorn
@@ -20,11 +21,17 @@ from ziomek.tts.voice import VoiceStateCache
 _version = __version__
 
 # Global state (initialized at startup)
+_startup_time: float = time.time()
 _tts_model: Optional[TTSModelWrapper] = None
 _voice_cache: Optional[VoiceStateCache] = None
 _audio_player: Optional[AudioPlayer] = None
 _state_machine: Optional[AvatarStateMachine] = None
 _skin_registry: Optional[SkinRegistry] = None
+
+
+def get_uptime() -> float:
+    """Return seconds since server startup."""
+    return time.time() - _startup_time
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:

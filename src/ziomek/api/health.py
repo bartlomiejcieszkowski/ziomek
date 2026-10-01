@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import APIRouter
 
 from ziomek import __version__
-from ziomek.server import _tts_model
+from ziomek.server import _audio_player, _tts_model, _voice_cache, get_uptime
 
 router = APIRouter(tags=["Health"])
 
@@ -18,10 +20,33 @@ router = APIRouter(tags=["Health"])
 async def status():
     """Get server health status."""
     ready = _tts_model is not None and _tts_model.ready
-    model_loaded = _tts_model is not None and _tts_model.ready
+    model_loaded = ready
+
+    # Audio backend info
+    audio_backend = "unknown"
+    audio_device = None
+    if _audio_player is not None:
+        audio_backend = _audio_player.backend_name
+        audio_device = _audio_player.device_name
+
+    # Cache stats
+    cache_stats: dict[str, object] = {"size_mb": 0, "files": 0}
+    if _voice_cache is not None and _voice_cache._cache_dir:
+        cache_dir = Path(_voice_cache._cache_dir)
+        if cache_dir.exists():
+            files = list(cache_dir.glob("*.wav")) + list(cache_dir.glob("*.mp3"))
+            cache_stats["files"] = len(files)
+            total_bytes = sum(f.stat().st_size for f in files)
+            cache_stats["size_mb"] = round(total_bytes / (1024 * 1024), 2)
+
     return {
-        "ready": ready,
+        "uptime_seconds": round(get_uptime(), 2),
         "model_loaded": model_loaded,
+        "ready": ready,
+        "audio_backend": audio_backend,
+        "audio_device": audio_device,
+        "cache_dir": _voice_cache._cache_dir if _voice_cache else None,
+        "cache_stats": cache_stats,
         "endpoints": {
             "tts": ["POST /api/tts/generate", "POST /api/tts/speak", "GET /api/tts/status", "GET /api/tts/voices"],
             "avatar": [

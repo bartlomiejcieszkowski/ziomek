@@ -15,7 +15,9 @@ class AudioPlayer:
     def __init__(self, backend_name: str = "sounddevice") -> None:
         from .backends import BackendRegistry
 
+        self.backend_name = backend_name
         self._backend: "IBackend" = BackendRegistry().get(backend_name)
+        self.device_name: str | None = None
 
     def play(self, wav_bytes: bytes, sample_rate: int) -> None:
         """Single-shot playback."""
