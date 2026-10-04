@@ -95,14 +95,16 @@ Press **F5** in VS Code to launch the extension host. The extension automaticall
 ### ziomek server (TTS backend)
 
 ```bash
-uv run python -m ziomek.cli serve --port 5003 --voice cosette --cache-dir ./voices
+uv run python -m ziomek.cli serve --host 0.0.0.0 --port 5003 --log-level INFO --voice cosette --cache-dir ./voices
 ```
 
 | Option | Default | Description |
 |--------|---------|-------------|
+| `--host` | localhost | Host to bind (0.0.0.0 for remote/Docker) |
 | `--port` | 5003 | HTTP port |
 | `--voice` | default | Voice name (cosette) |
 | `--cache-dir` | ~ | Voice cache directory |
+| `--log-level` | INFO | Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL) |
 
 ### ziomek client (gamepad + avatar display)
 

@@ -41,6 +41,7 @@ def test_cors(client):
 def test_health_status_has_new_fields():
     """Health endpoint should include uptime, backend, and cache stats."""
     from fastapi.testclient import TestClient
+
     from ziomek.server import create_app
 
     app = create_app()
@@ -71,6 +72,7 @@ def test_health_status_has_new_fields():
 def test_health_status_null_when_model_not_loaded():
     """When TTS model is not loaded, model_loaded should be False."""
     from fastapi.testclient import TestClient
+
     from ziomek.server import create_app
 
     app = create_app()
