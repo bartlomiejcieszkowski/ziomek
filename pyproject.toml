@@ -51,6 +51,9 @@ path = "src/ziomek/__init__.py"
 [tool.pytest.ini_options]
 log_cli = true
 log_level = "NOTSET"
+markers = [
+    "integration: marks tests that start a real uvicorn server process (deselect with '-m \"not integration\"')",
+]
 
 [dependency-groups]
 dev = [
