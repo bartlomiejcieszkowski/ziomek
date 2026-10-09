@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+      changed: ${{ steps.check.outputs.changed }}
+
+    steps:
+      - uses: actions/checkout@4
+        with:
+          fetch-depth: 0
+
+      - name: Get version
+        id: get-version
+        run: |
+          VERSION=$(cat VERSION)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version from VERSION file: $VERSION"
+
+      - name: Check if version changed
+        id: check
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          VERSION="${{ steps.get-version.outputs.version }}"
+          if [ "$LATEST_TAG" = "v$VERSION" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Version $VERSION already tagged. Skipping."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Version $VERSION is new (latest: $LATEST_TAG)."
+          fi
+
+      - name: Setup Node.js
+        if: steps.check.outputs.changed == 'true'
+        uses: actions/setup-node@4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: steps.check.outputs.changed == 'true'
+        run: npm ci
+        working-directory: vscode_extension
+
+      - name: Compile TypeScript
+        if: steps.check.outputs.changed == 'true'
+        run: npm run compile
+        working-directory: vscode_extension
+
+      - name: Run tests
+        if: steps.check.outputs.changed == 'true'
+        run: npm test
+        working-directory: vscode_extension
+
+      - name: Build .vsix package
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          npm install -g vsce
+          vsce package --out dist/
+
+      - name: Extract changelog
+        if: steps.check.outputs.changed == 'true'
+        id: changelog
+        run: |
+          VERSION="${{ steps.get-version.outputs.version }}"
+          python scripts/extract-changelog.py "$VERSION" > release-notes.md
+
+      - name: Create GitHub Release
+        if: steps.check.outputs.changed == 'true'
+        uses: softprops/action-gh-release@2
+        with:
+          tag_name: v${{ steps.get-version.outputs.version }}
+          name: Version ${{ steps.get-version.outputs.version }}
+          body_path: release-notes.md
+          files: dist/*.vsix
+          draft: false
+          prerelease: false

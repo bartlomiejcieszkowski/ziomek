@@ -46,7 +46,8 @@ line-length = 120
 select = ["I"]
 
 [tool.hatch.version]
-path = "src/ziomek/__init__.py"
+path = "VERSION"
+pattern = "(?P<version>[0-9]+\\.[0-9]+\\.[0-9]+)"
 
 [tool.pytest.ini_options]
 log_cli = true

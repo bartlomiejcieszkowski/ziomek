@@ -2,7 +2,7 @@
   "name": "ziomek.humanize-ai",
   "displayName": "Ziomek — Humanize AI",
   "description": "Ziomek Humanize AI — gamepad-controlled avatar with TTS. Connect to a locally running ziomek server.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -86,10 +86,10 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "node ../scripts/read-version.js && npm run compile",
     "compile": "tsc -p ./tsconfig.json",
     "watch": "tsc -watch -p ./tsconfig.json",
-    "pretest": "npm run compile",
+    "pretest": "node ../scripts/read-version.js && npm run compile",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --forceExit"
   },
   "dependencies": {},
