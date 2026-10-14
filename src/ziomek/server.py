@@ -74,15 +74,37 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
 
 def run_server(
-    port=5003,
-    model_path=None,
-    voice="default",
-    cache_dir=None,
-    audio_backend=None,
-    audio_device=None,
-    host=None,
-    log_level="INFO",
+    port: int | None = None,
+    model_path: str | None = None,
+    voice: str = "default",
+    cache_dir: str | None = None,
+    audio_backend: str | None = None,
+    audio_device: str | int | None = None,
+    host: str | None = None,
+    log_level: str = "INFO",
+    no_vscode: bool = False,
+    no_browser: bool = False,
+    stt_engine: str | None = None,
+    stt_model: str | None = None,
+    stt_model_dir: str | None = None,
 ):
+    """Run the ziomek TTS server.
+
+    Args:
+        port: Server port (default: 5003).
+        model_path: Path to TTS model file.
+        voice: Voice identifier (default: "default").
+        cache_dir: Directory for TTS cache.
+        audio_backend: Audio playback backend.
+        audio_device: Audio device index, name, or "default".
+        host: Host to bind (default: localhost).
+        log_level: Logging level.
+        no_vscode: Disable VS Code WebSocket relay.
+        no_browser: Do not open local browser.
+        stt_engine: STT engine name (whisper_cpp, faster_whisper).
+        stt_model: STT model name.
+        stt_model_dir: STT model download directory.
+    """
     settings = Settings.compose(
         cli_backend=audio_backend,
         cli_device=audio_device,
@@ -91,8 +113,17 @@ def run_server(
         model_path=model_path,
         voice=voice,
         cache_dir=cache_dir,
+        no_browser=no_browser,
+        no_vscode=no_vscode,
+        stt_engine=stt_engine,
+        stt_model=stt_model,
+        stt_model_dir=stt_model_dir,
     )
     setup_logging(level=log_level)
     app = create_app(settings)
-    print(f"ziomek server listening on http://{settings.host}:{port}", file=sys.stderr)
-    uvicorn.run(app, host=settings.host, port=port)
+    effective_port = port if port is not None else settings.port
+    print(
+        f"ziomek server listening on http://{settings.host}:{effective_port}",
+        file=sys.stderr,
+    )
+    uvicorn.run(app, host=settings.host, port=effective_port)

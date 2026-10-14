@@ -6,7 +6,7 @@ dynamic = ["version"]
 author = [
     {name = "Bartlomiej Cieszkowski", email = "bartlomiej.cieszkowski@gmail.com"}
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 keywords = ["llm", "ai", "agent", "skill"]
 license = { file = "LICENSE" }
 classifiers = [
@@ -56,10 +56,16 @@ markers = [
     "integration: marks tests that start a real uvicorn server process (deselect with '-m \"not integration\"')",
 ]
 
+[project.optional-dependencies]
+stt = ["RealtimeSTT[faster-whisper]>=0.4"]
+
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=0.21",
+    "pytest-timeout>=2.3",
     "httpx2>=2.0",
     "ruff>=0.1",
+    "RealtimeSTT[faster-whisper]>=0.4",
+    "pyright>=1.1.414",
 ]

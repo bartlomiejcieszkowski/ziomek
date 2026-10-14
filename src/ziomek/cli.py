@@ -1,9 +1,10 @@
-"""ziomek CLI — command-line interface.
+"""ziomek CLI — unified command-line interface.
 
 Usage:
-    ziomek server      Start TTS server (port 5003)
-    ziomek client      Start ziomek client (port 5004, gamepad + avatar display)
-    ziomek             Start ziomek client (default)
+    ziomek                           Start ziomek client (default)
+    ziomek --server                  Start TTS server
+    ziomek --client                  Start ziomek client
+    ziomek --scaffold-config         Create default ziomek_config.yaml and exit
 """
 
 import argparse
@@ -32,13 +33,18 @@ def serve_cmd(args):
         audio_device=args.audio_device,
         host=args.host,
         log_level=args.log_level,
+        no_vscode=args.no_vscode,
+        no_browser=args.no_browser,
+        stt_engine=args.stt_engine,
+        stt_model=args.stt_model,
+        stt_model_dir=args.stt_model_dir,
     )
 
 
 def scaffold_cmd(args):
     from ziomek.config import Settings
 
-    path = Settings.scaffold_config("ziomek_server_config.yaml")
+    path = Settings.scaffold_config("ziomek_config.yaml")
     print(f"Config file created at {path}")
 
 
@@ -55,78 +61,77 @@ def _default_main():
 def main():
     parser = argparse.ArgumentParser(prog="ziomek", description="Humanize AI backend")
     parser.add_argument("--version", action="version", version=f"%(prog)s {get_version('ziomek')}")
-    sub = parser.add_subparsers(dest="command", help="Available commands")
 
-    # -- server (primary) --
-    server_cmd = sub.add_parser("server", help="Start TTS server (port 5003)")
-    server_cmd.add_argument("--port", type=int, default=5003)
-    server_cmd.add_argument("--model-path", type=str, default=None)
-    server_cmd.add_argument("--voice", type=str, default="default")
-    server_cmd.add_argument("--cache-dir", type=str, default=None)
-    server_cmd.add_argument(
+    # Top-level mode flags
+    parser.add_argument("--server", action="store_true", help="Start TTS server (default port: 5003)")
+    parser.add_argument("--client", action="store_true", help="Start ziomek client (default port: 5004)")
+
+    # -- server args --
+    parser.add_argument("--port", type=int, default=None, help="Port (5003 for server, 5004 for client)")
+    parser.add_argument("--model-path", type=str, default=None, help="Path to TTS model")
+    parser.add_argument("--voice", type=str, default="default", help="Voice to use (default: default)")
+    parser.add_argument("--cache-dir", type=str, default=None, help="Cache directory for TTS")
+    parser.add_argument(
         "--audio-backend",
         type=str,
         default=None,
         help="Audio playback backend (sounddevice, pygame, pyaudio, playsound, rtmixer, noop)",
     )
-    server_cmd.add_argument("--audio-device", type=str, default=None, help="Audio device index, name, or 'default'")
-    server_cmd.add_argument("--host", type=str, default=None, help="Host to bind (default: localhost)")
-    server_cmd.add_argument(
+    parser.add_argument("--audio-device", type=str, default=None, help="Audio device index, name, or 'default'")
+    parser.add_argument("--host", type=str, default=None, help="Host to bind (default: localhost)")
+    parser.add_argument(
         "--log-level",
         type=str,
         default="INFO",
         help="Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
     )
-    server_cmd.set_defaults(func=serve_cmd)
 
-    # -- serve (deprecated alias for server) --
-    serve = sub.add_parser("serve", help="Start TTS server (port 5003) [deprecated, use 'server']")
-    serve.add_argument("--port", type=int, default=5003)
-    serve.add_argument("--model-path", type=str, default=None)
-    serve.add_argument("--voice", type=str, default="default")
-    serve.add_argument("--cache-dir", type=str, default=None)
-    serve.add_argument(
-        "--audio-backend",
-        type=str,
-        default=None,
-        help="Audio playback backend (sounddevice, pygame, pyaudio, playsound, rtmixer, noop)",
-    )
-    serve.add_argument("--audio-device", type=str, default=None, help="Audio device index, name, or 'default'")
-    serve.add_argument("--host", type=str, default=None, help="Host to bind (default: localhost)")
-    serve.add_argument(
-        "--log-level",
-        type=str,
-        default="INFO",
-        help="Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
-    )
-    serve.set_defaults(func=serve_cmd)
-
-    # -- client --
-    client = sub.add_parser("client", help="Start ziomek client (gamepad + avatar display, port 5004)")
-    client.add_argument("--port", type=int, default=5004)
-    client.add_argument("--no-vscode", action="store_true", help="Disable VS Code WebSocket relay")
-    client.add_argument("--no-browser", action="store_true", help="Do not open local browser")
-    client.add_argument(
+    # -- client args --
+    parser.add_argument("--no-vscode", action="store_true", help="Disable VS Code WebSocket relay")
+    parser.add_argument("--no-browser", action="store_true", help="Do not open local browser")
+    parser.add_argument(
         "--server-url",
         type=str,
         default="http://localhost:5003",
         help="ziomek TTS server URL (default: http://localhost:5003)",
     )
-    client.set_defaults(func=client_cmd)
 
-    # -- scaffold-config --
-    scaffold = sub.add_parser(
-        "scaffold-config",
-        help="Create a default ziomek_server_config.yaml in the current directory",
+    # -- STT args --
+    parser.add_argument(
+        "--stt-engine",
+        type=str,
+        default=None,
+        help="STT engine (whisper_cpp, faster_whisper)",
     )
-    scaffold.set_defaults(func=scaffold_cmd)
+    parser.add_argument(
+        "--stt-model",
+        type=str,
+        default=None,
+        help="STT model (tiny.en, base.en, small.en)",
+    )
+    parser.add_argument(
+        "--stt-model-dir",
+        type=str,
+        default=None,
+        help="STT model download directory",
+    )
+
+    # -- config --
+    parser.add_argument(
+        "--scaffold-config",
+        action="store_true",
+        help="Create a default ziomek_config.yaml and exit",
+    )
 
     args = parser.parse_args()
-    if args.command in ("server", "serve", "client", "scaffold-config"):
-        args.func(args)
+
+    if args.scaffold_config:
+        scaffold_cmd(args)
+    elif args.server or not args.client:
+        # Default to server unless --client is explicitly set
+        serve_cmd(args)
     else:
-        # No subcommand — default to client
-        _default_main()
+        client_cmd(args)
 
 
 if __name__ == "__main__":
