@@ -1,21 +1,30 @@
-"""ziomek HTTP server — FastAPI application."""
+"""ziomek HTTP server — FastAPI application (unified TTS + avatar + STT)."""
 
+import asyncio
+import logging
 import sys
+import threading
 import time
+from pathlib import Path
 from typing import Optional
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
 from ziomek import __version__
 from ziomek.avatar.skins import SkinRegistry
-from ziomek.avatar.state_machine import AvatarStateMachine
+from ziomek.avatar.state_machine import AvatarInput, AvatarStateMachine
 from ziomek.config import Settings
+from ziomek.gamepad import GamepadManager
 from ziomek.logging import RequestIDMiddleware, setup_logging
+from ziomek.stt import STTEngine, STTState
 from ziomek.tts.engine import TTSModelWrapper
 from ziomek.tts.playback import AudioPlayer
 from ziomek.tts.voice import VoiceStateCache
+
+_logger = logging.getLogger(__name__)
 
 # Import version at module level
 _version = __version__
@@ -27,11 +36,58 @@ _voice_cache: Optional[VoiceStateCache] = None
 _audio_player: Optional[AudioPlayer] = None
 _state_machine: Optional[AvatarStateMachine] = None
 _skin_registry: Optional[SkinRegistry] = None
+_stt_engine: Optional[STTEngine] = None
+_gamepad_manager: Optional[GamepadManager] = None
+_gamepad_thread: Optional[threading.Thread] = None
 
 
 def get_uptime() -> float:
     """Return seconds since server startup."""
     return time.time() - _startup_time
+
+
+def _start_gamepad_thread(state_machine: AvatarStateMachine) -> None:
+    """Start background gamepad polling thread."""
+    global _gamepad_manager, _gamepad_thread
+
+    gm = GamepadManager()
+    gm.start()
+    _gamepad_manager = gm
+
+    def poll_loop() -> None:
+        while True:
+            try:
+                state = _gamepad_manager.poll()  # pyright: ignore[reportPossiblyUnboundVariable]
+                if state.connected:
+                    buttons = [
+                        {"pressed": bool(b), "value": 0.0} for b in state.buttons
+                    ]
+                    inp = AvatarInput(
+                        buttons=buttons,
+                        axes=state.axes,
+                        connected=state.connected,
+                        streaming=False,
+                        chatFocused=False,
+                        errorState=False,
+                    )
+                    state_machine.update(inp)
+            except Exception:
+                _logger.exception("gamepad poll loop: unexpected error")
+            time.sleep(0.01)  # 100Hz
+
+    _gamepad_thread = threading.Thread(target=poll_loop, daemon=True)
+    _gamepad_thread.start()
+
+
+def _stop_gamepad_thread() -> None:
+    """Stop the gamepad polling thread."""
+    global _gamepad_manager, _gamepad_thread
+    if _gamepad_thread:
+        _gamepad_thread.join(timeout=2)
+        _gamepad_thread = None
+    if _gamepad_manager:
+        _gamepad_manager.stop()
+        _gamepad_manager = None
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -41,7 +97,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(
         title="ziomek",
         version=_version,
-        description="Humanize AI — TTS speech synthesis, avatar state machine, and gamepad integration.",
+        description="Humanize AI — TTS speech synthesis, avatar state machine, gamepad, and STT.",
         docs_url="/docs",
         redoc_url="/redoc",
     )
@@ -64,12 +120,68 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Initialize avatar components
     _state_machine = AvatarStateMachine()
     _skin_registry = SkinRegistry()
+    # Initialize STT engine (optional, can be disabled)
+    if not settings.no_vscode:
+        _stt_engine = STTEngine(
+            engine_name=settings.stt_engine,
+            model_name=settings.stt_model,
+            model_dir=settings.stt_model_dir,
+        )
+        _stt_engine.start()
+        _logger.info(
+            "STT engine started: %s model=%s",
+            settings.stt_engine,
+            settings.stt_model,
+        )
+    # Start gamepad thread if not in VS Code mode
+    if not settings.no_vscode:
+        _start_gamepad_thread(_state_machine)
+        _logger.info("Gamepad polling thread started")
+
     # Include routers
     from ziomek.api import avatar, health, tts
 
     app.include_router(tts.router)
     app.include_router(avatar.router)
     app.include_router(health.router)
+
+    # HTML avatar view (merged from client)
+    @app.get("/")
+    async def avatar_view() -> HTMLResponse:
+        html_path = Path(__file__).parent / "client" / "resources" / "renderer.html"
+        return HTMLResponse(content=html_path.read_text())
+
+    # WebSocket relay for real-time avatar state updates
+    @app.websocket("/api/avatar/ws")
+    async def avatar_ws(websocket: WebSocket) -> None:
+        await websocket.accept()
+        try:
+            last_expr = ""
+            last_cycle = -1
+            while True:
+                if _state_machine is None:
+                    await websocket.close(code=4000, reason="State machine not initialized")
+                    break
+                state = _state_machine.tick(16)
+                if state.expressionName != last_expr or state.cycleIndex != last_cycle:
+                    msg = {
+                        "expression": state.expressionName,
+                        "cycleIndex": state.cycleIndex,
+                    }
+                    await websocket.send_json(msg)
+                    last_expr = state.expressionName
+                    last_cycle = state.cycleIndex
+                await asyncio.sleep(0.01)  # pyright: ignore[reportAttributeAccessIssue]
+        except WebSocketDisconnect:
+            _logger.debug("Avatar WebSocket disconnected")
+        except Exception:
+            _logger.exception("avatar_ws: error in WebSocket loop")
+        finally:
+            try:
+                await websocket.close()
+            except Exception:
+                pass
+
     return app
 
 
@@ -88,7 +200,10 @@ def run_server(
     stt_model: str | None = None,
     stt_model_dir: str | None = None,
 ):
-    """Run the ziomek TTS server.
+    """Run the unified ziomek server.
+
+    Serves TTS, avatar state machine, gamepad polling, WebSocket relay,
+    and STT transcription in a single process.
 
     Args:
         port: Server port (default: 5003).
@@ -99,9 +214,9 @@ def run_server(
         audio_device: Audio device index, name, or "default".
         host: Host to bind (default: localhost).
         log_level: Logging level.
-        no_vscode: Disable VS Code WebSocket relay.
+        no_vscode: Disable VS Code WebSocket relay and gamepad polling.
         no_browser: Do not open local browser.
-        stt_engine: STT engine name (whisper_cpp, faster_whisper).
+        stt_engine: STT engine name (faster_whisper).
         stt_model: STT model name.
         stt_model_dir: STT model download directory.
     """
@@ -127,3 +242,12 @@ def run_server(
         file=sys.stderr,
     )
     uvicorn.run(app, host=settings.host, port=effective_port)
+
+
+def shutdown_server() -> None:
+    """Clean up server resources (gamepad thread, STT engine)."""
+    global _stt_engine
+    _stop_gamepad_thread()
+    if _stt_engine:
+        _stt_engine.stop()
+        _stt_engine = None

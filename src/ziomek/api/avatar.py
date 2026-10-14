@@ -16,6 +16,16 @@ router = APIRouter(tags=["Avatar"])
 # Path to the shared HTML renderer
 _renderer_html = Path(__file__).parent.parent / "client" / "resources" / "renderer.html"
 
+# Path to the gamepad module (moved from client/ to root package)
+_gamepad_module = None
+
+
+def _import_gamepad():
+    global _gamepad_module
+    if _gamepad_module is None:
+        from ziomek import gamepad as _gamepad_module
+    return _gamepad_module
+
 
 def _not_initialized(msg: str) -> JSONResponse:
     return JSONResponse(status_code=503, content={"error": msg})

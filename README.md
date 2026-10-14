@@ -2,38 +2,28 @@
 
 Humanize AI interaction by making it more natural. Work in progress.
 
-**Two processes:**
-- **ziomek server** — TTS synthesis, sprite data, voice caching (port 5003)
-- **ziomek client** — gamepad polling, avatar state machine, HTML display (port 5004)
+**One process:**
+- **ziomek server** — TTS synthesis, avatar state machine, gamepad polling, WebSocket relay, STT (port 5003)
 
 **One extension:**
 - **Ziomek — Humanize AI** — thin canvas renderer + Copilot Chat integration
 
 ## Quick Start
 
-### Start the TTS server
+### Start the server
 
 ```bash
-uv run python -m ziomek.cli serve --port 5003
+uv run ziomek --port 5003
 ```
 
 `uv` auto-creates a `.venv`, downloads dependencies, and installs `ziomek` in development mode from the local package.
-
-### Start the client (gamepad + avatar display)
-
-```bash
-cd python
-uv run python -m ziomek.cli client --port 5004 --server-url http://localhost:5003
-```
-
-This opens a browser window with the avatar display and relays gamepad state to the VS Code extension.
 
 **Alternative launch scripts:**
 
 | Command | What runs |
 |---------|-----------|
-| `run-ziomek.sh 5003` | TTS server (Linux/macOS) |
-| `run-ziomek.bat 5003` | TTS server (Windows) |
+| `run-ziomek.sh 5003` | ziomek server (Linux/macOS) |
+| `run-ziomek.bat 5003` | ziomek server (Windows) |
 
 ### Install and launch the VS Code extension
 
@@ -43,7 +33,7 @@ npm install
 npm run compile
 ```
 
-Press **F5** in VS Code to launch the extension host. The extension automatically connects to the ziomek client.
+Press **F5** in VS Code to launch the extension host. The extension automatically connects to the ziomek server.
 
 ## Architecture
 
@@ -54,33 +44,22 @@ Press **F5** in VS Code to launch the extension host. The extension automaticall
 │  │ TTS Synthesis      │  │ Audio Playback   │  │ Avatar           │   │
 │  │ TTSModelWrapper    │  │ BackendRegistry  │  │ State Machine    │   │
 │  │ (Coqui TTS)        │  │ pygame / sound-  │  │                  │   │
-│  │                    │  │ device / py-     │  │ /avatar-view     │   │
-│  │ /tts/synthesize    │  │ audio / playsound│  │ /avatar/sprite   │   │
-│  │ /tts/cancel        │  │ / noop           │  │ /avatar/state    │   │
-│  └────────────────────┘  └──────────────────┘  └──────────────────┘   │
-│  ┌──────────────────────────────────────────────────────────────────┐ │
-│  │ OpenAPI docs at /docs, /redoc                                    │ │
-│  └──────────────────────────────────────────────────────────────────┘ │
-└──────────┬────────────────────────────────────────────────────────────┘
-           │ HTTP (httpx)
-           │ GET /avatar/sprite
-           │ GET /avatar/state
+│  │                    │  │ device / py-     │  │ /                │   │
+│  │ /tts/synthesize    │  │ audio / playsound│  │ HTML/JS Renderer │   │
+│  │ /tts/cancel        │  │ / noop           │  │ (served by       │   │
+│  └────────────────────┘  └──────────────────┘  │ FastAPI)         │   │
+│  ┌──────────────────┐  ┌──────────────────┐  └──────────────────┘   │
+│  │ pygame           │→ │ Avatar           │  ┌──────────────────┐   │
+│  │ gamepad poll     │  │ State Machine    │  │ WebSocket Relay  │   │
+│  └──────────────────┘  └──────────────────┘  │ ← Extension      │   │
+│  ┌──────────────────┐       ┌──────────────────┐  │ → gamepad state│   │
+│  │ STT (Speech-to-  │       │ /docs, /redoc    │  └──────────────────┘   │
+│  │ Text)            │       └──────────────────┘                      │
+│  │ faster_whisper   │                                              │
+│  └──────────────────┘                                              │
+└──────────┬──────────────────────────────────────────────────────────┘
+           │ WebSocket
            ▼
-┌───────────────────────────────────────────────────────────────────────┐
-│  ziomek client (port 5004)                                            │
-│  ┌──────────────┐  ┌──────────────────┐  ┌──────────────────┐         │
-│  │ pygame       │→ │ Avatar           │→ │ HTML/JS Renderer │         │
-│  │ gamepad poll │  │ State Machine    │  │ (served by       │         │
-│  └──────────────┘  └──────────────────┘  │ FastAPI)         │         │
-│                                          └──────────────────┘         │
-│  ┌──────────────────┐       ┌──────────────────┐                      │
-│  │ WebSocket Relay  │       │ /docs, /redoc    │                      │
-│  │ ← Extension      │       │                  │                      │
-│  │ → gamepad state  │       └──────────────────┘                      │
-│  └────────┬─────────┘                                                 │
-└───────────┼───────────────────────────────────────────────────────────┘
-            │ WebSocket
-            ▼
 ┌─────────────────────────────┐
 │  VS Code Extension          │
 │  • Canvas rendering         │
@@ -92,10 +71,10 @@ Press **F5** in VS Code to launch the extension host. The extension automaticall
 
 ## Launch Commands
 
-### ziomek server (TTS backend)
+### ziomek server (unified)
 
 ```bash
-uv run python -m ziomek.cli serve --host 0.0.0.0 --port 5003 --log-level INFO --voice cosette --cache-dir ./voices
+uv run ziomek --host 0.0.0.0 --port 5003 --log-level INFO --voice cosette --cache-dir ./voices
 ```
 
 | Option | Default | Description |
@@ -105,36 +84,26 @@ uv run python -m ziomek.cli serve --host 0.0.0.0 --port 5003 --log-level INFO --
 | `--voice` | default | Voice name (cosette) |
 | `--cache-dir` | ~ | Voice cache directory |
 | `--log-level` | INFO | Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL) |
-
-### ziomek client (gamepad + avatar display)
-
-```bash
-cd python
-uv run python -m ziomek.cli client --port 5004 --server-url http://localhost:5003
-```
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--port` | 5004 | Client HTTP/WebSocket port |
-| `--no-vscode` | false | Disable VS Code WebSocket relay |
+| `--no-vscode` | false | Disable VS Code WebSocket relay and gamepad polling |
 | `--no-browser` | false | Disable local browser view |
-| `--server-url` | localhost:5003 | TTS server URL |
+| `--stt-engine` | faster_whisper | STT engine (faster_whisper) |
+| `--stt-model` | tiny.en | STT model (tiny.en, base.en, small.en) |
 
 **Usage modes:**
 
 | Command | What runs |
 |---------|-----------|
-| `uv run python -m ziomek.cli client` | Browser view + VS Code relay (default) |
-| `uv run python -m ziomek.cli client --no-vscode` | Browser view only (no extension needed) |
-| `uv run python -m ziomek.cli client --no-browser` | VS Code relay only (headless) |
-| `uv run python -m ziomek.cli client --no-browser --no-vscode` | Standalone display only |
+| `uv run ziomek` | Full server (browser + VS Code relay + gamepad + STT) |
+| `uv run ziomek --no-vscode` | Browser view only (no extension needed) |
+| `uv run ziomek --no-browser` | VS Code relay only (headless) |
+| `uv run ziomek --no-browser --no-vscode` | Standalone API only |
 
 ## VS Code Extension Configuration
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `ziomek.enabled` | true | Enable gamepad input for Ziomek Humanize AI |
-| `ziomek.client.url` | http://localhost:5004 | URL of the ziomek client (gamepad relay) |
+| `ziomek.client.url` | http://localhost:5003 | URL of the ziomek server (merged) |
 | `ziomek.tts.url` | http://localhost:5003 | URL of the ziomek TTS server |
 | `ziomek.tts.voice` | cosette | Voice identifier for TTS |
 | `ziomek.tts.backend` | stub | TTS backend ('stub' or 'ziomek') |
@@ -175,7 +144,7 @@ uv run python -m ziomek.cli client --port 5004 --server-url http://localhost:500
 
 ```bash
 uv sync                           # install dependencies and .venv
-uv run python -m ziomek.cli serve # run the TTS server
+uv run ziomek                     # run the unified server
 uv run pytest tests/              # run tests
 uv run ruff check .               # linting
 ```
@@ -194,9 +163,11 @@ npm run watch                     # auto-recompile on changes
 ```text
 .
 ├── src/ziomek/                  # ziomek package (src layout)
-│   ├── cli.py                   # Server & client CLI
-│   ├── server.py                # TTS server (port 5003)
+│   ├── cli.py                   # Unified CLI
+│   ├── server.py                # Unified server (TTS + avatar + STT)
 │   ├── config.py                # Settings
+│   ├── stt.py                   # STT engine (faster_whisper)
+│   ├── gamepad.py               # Pygame gamepad polling
 │   ├── tts/                     # TTS module
 │   │   ├── engine.py            # Pocket TTS model wrapper
 │   │   ├── voice.py             # Voice state cache
@@ -210,10 +181,9 @@ npm run watch                     # auto-recompile on changes
 │   │   ├── tts.py               # /api/tts/*
 │   │   ├── avatar.py            # /api/avatar/* + /avatar (WS)
 │   │   └── health.py            # /status, /
-│   └── client/                  # ziomek client module
-│       ├── cli.py               # ziomek-client CLI
-│       ├── server.py            # Client HTTP server (port 5004)
-│       └── gamepad.py           # Pygame gamepad polling
+│   └── client/                  # Client resources (HTML renderer)
+│       └── resources/
+│           └── renderer.html    # Avatar HTML/JS renderer
 ├── tests/                       # Python tests
 ├── pyproject.toml               # Package config (hatchling)
 ├── uv.lock                      # Dependency lockfile

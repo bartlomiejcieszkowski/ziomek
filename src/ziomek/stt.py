@@ -112,6 +112,8 @@ class STTEngine:
             )
         except Exception:
             logger.exception("Failed to initialize RealtimeSTT recorder")
+            with self._lock:
+                self._stats.state = STTState.IDLE
             return
 
         self._running = True
