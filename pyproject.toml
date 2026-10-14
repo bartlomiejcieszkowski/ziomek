@@ -57,7 +57,7 @@ markers = [
 ]
 
 [project.optional-dependencies]
-stt = ["RealtimeSTT[faster-whisper]>=0.4"]
+stt = ["RealtimeSTT[faster-whisper]>=0.4", "silero-vad>=6.0"]
 
 [dependency-groups]
 dev = [
@@ -67,5 +67,6 @@ dev = [
     "httpx2>=2.0",
     "ruff>=0.1",
     "RealtimeSTT[faster-whisper]>=0.4",
+    "silero-vad>=6.0",
     "pyright>=1.1.414",
 ]

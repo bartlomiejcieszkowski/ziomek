@@ -108,6 +108,7 @@ class STTEngine:
                 realtime_model_type="tiny.en",
                 beam_size_realtime=1,
                 download_root=self._model_dir or "",
+                silero_backend=None,
             )
         except Exception:
             logger.exception("Failed to initialize RealtimeSTT recorder")

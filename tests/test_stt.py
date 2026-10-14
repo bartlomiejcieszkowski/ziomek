@@ -30,39 +30,17 @@ class TestSTTEngineStartStop:
         assert engine.state == STTState.IDLE
 
     def test_start_stop_with_realtime(self):
-        """Test start/stop cycle when RealtimeSTT is installed.
-
-        Uses subprocess to avoid segfaults in whisper.cpp on Windows
-        crashing the pytest process.
-        """
+        """Test start/stop cycle when RealtimeSTT is installed."""
         try:
             from RealtimeSTT import AudioToTextRecorder
         except ImportError:
             pytest.skip("RealtimeSTT not installed")
 
-        import subprocess
-        import sys
-
-        code = """
-import sys
-sys.path.insert(0, "src")
-from ziomek.stt import STTEngine, STTState
-engine = STTEngine()
-engine.start()
-assert engine.state == STTState.LISTENING
-engine.stop()
-assert engine.state == STTState.IDLE
-print("OK")
-"""
-        result = subprocess.run(
-            [sys.executable, "-c", code],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if result.returncode != 0:
-            pytest.skip(f"RealtimeSTT initialization failed: {result.stderr[:200]}")
-        assert result.stdout.strip() == "OK"
+        engine = STTEngine()
+        engine.start()
+        assert engine.state == STTState.LISTENING
+        engine.stop()
+        assert engine.state == STTState.IDLE
 
 
 class TestSTTEngineStats:
