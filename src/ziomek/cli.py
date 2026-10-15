@@ -26,6 +26,8 @@ def serve_cmd(args):
         stt_engine=args.stt_engine,
         stt_model=args.stt_model,
         stt_model_dir=args.stt_model_dir,
+        dev_mode=args.dev,
+        verbose=args.verbose,
     )
 
 
@@ -82,6 +84,18 @@ def main():
         type=str,
         default=None,
         help="STT model download directory",
+    )
+
+    # Debug flags
+    parser.add_argument(
+        "--dev",
+        action="store_true",
+        help="Enable debug mode: debug endpoints (/api/debug/*) and debug page (/debug)",
+    )
+    parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Enable verbose logging (DEBUG level)",
     )
 
     # Config

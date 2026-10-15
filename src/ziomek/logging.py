@@ -7,7 +7,9 @@ import logging
 import sys
 import time
 import uuid
+from collections import deque
 from datetime import datetime, timezone
+from typing import Any
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -30,6 +32,44 @@ class JSONFormatter(logging.Formatter):
         if record.exc_info and record.exc_info[0] is not None:
             log_data["exception"] = self.formatException(record.exc_info)
         return json.dumps(log_data)
+
+
+class _LogRingBuffer(logging.Handler):
+    """A logging handler that keeps the last N log entries in memory."""
+
+    def __init__(self, maxlen: int = 200) -> None:
+        super().__init__()
+        self._buffer: deque[dict[str, Any]] = deque(maxlen=maxlen)
+        self._formatter = logging.Formatter()
+
+    def emit(self, record: logging.LogRecord) -> None:
+        entry = {
+            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        if record.exc_info and record.exc_info[0] is not None:
+            entry["exception"] = self._formatter.formatException(record.exc_info)
+        self._buffer.append(entry)
+
+    def get_entries(self) -> list[dict[str, Any]]:
+        return list(self._buffer)
+
+    def clear(self) -> None:
+        self._buffer.clear()
+
+
+# Global log buffer singleton
+_log_buffer: _LogRingBuffer | None = None
+
+
+def get_log_buffer() -> _LogRingBuffer:
+    """Return the global log ring buffer, creating it if needed."""
+    global _log_buffer
+    if _log_buffer is None:
+        _log_buffer = _LogRingBuffer()
+    return _log_buffer
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
@@ -55,8 +95,13 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         return response
 
 
-def setup_logging(level: str = "INFO") -> None:
-    """Configure structured logging for the ziomek application."""
+def setup_logging(level: str = "INFO", enable_buffer: bool = False) -> None:
+    """Configure structured logging for the ziomek application.
+
+    Args:
+        level: Log level string (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+        enable_buffer: If True, attach a ring buffer handler for debug endpoints.
+    """
     numeric_level = getattr(logging, level.upper(), logging.INFO)
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(JSONFormatter())
@@ -65,3 +110,8 @@ def setup_logging(level: str = "INFO") -> None:
     logger.addHandler(handler)
     # Prevent duplicate handlers on repeated calls
     logger.propagate = False
+    if enable_buffer:
+        buf = _LogRingBuffer()
+        buf.setLevel(logging.DEBUG)
+        buf.setFormatter(JSONFormatter())
+        logger.addHandler(buf)

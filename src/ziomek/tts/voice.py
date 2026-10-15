@@ -14,6 +14,11 @@ class VoiceStateCache:
         self._cache_dir: Path | None = Path(cache_dir) if cache_dir else None
         self._states: dict[str, dict] = {}
 
+    @property
+    def cache_dir(self) -> Path | None:
+        """Return the cache directory path."""
+        return self._cache_dir
+
     def load_voice(self, voice_key: str) -> dict:
         """Load or retrieve cached voice state.
 

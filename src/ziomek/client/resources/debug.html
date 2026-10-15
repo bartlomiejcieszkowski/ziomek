@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ziomek Debug</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      padding: 20px;
+    }
+    h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+      color: #58a6ff;
+    }
+    h2 {
+      font-size: 16px;
+      margin-bottom: 12px;
+      color: #79c0ff;
+      border-bottom: 1px solid #30363d;
+      padding-bottom: 6px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .card label {
+      display: block;
+      font-size: 12px;
+      color: #8b949e;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+    .card select, .card input[type="text"], .card input[type="range"] {
+      width: 100%;
+      padding: 6px 10px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 4px;
+      color: #c9d1d9;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+    .card select:focus, .card input:focus {
+      outline: none;
+      border-color: #58a6ff;
+    }
+    .card input[type="range"] {
+      padding: 0;
+      margin-top: 8px;
+    }
+    .btn {
+      padding: 8px 16px;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      background: #21262d;
+      color: #c9d1d9;
+      cursor: pointer;
+      font-size: 13px;
+      margin-right: 6px;
+      margin-bottom: 6px;
+    }
+    .btn:hover { background: #30363d; }
+    .btn.primary { background: #238636; border-color: #238636; }
+    .btn.primary:hover { background: #2ea043; }
+    .btn.danger { background: #da3633; border-color: #da3633; }
+    .btn.danger:hover { background: #f85149; }
+    .btn.active { background: #1f6feb; border-color: #1f6feb; }
+    .btn-group { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+    .value {
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 13px;
+      background: #0d1117;
+      border: 1px solid #21262d;
+      border-radius: 4px;
+      padding: 8px 12px;
+      margin-bottom: 8px;
+      min-height: 20px;
+      word-break: break-all;
+    }
+    .value-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid #21262d;
+      font-size: 13px;
+    }
+    .value-row .key { color: #8b949e; }
+    .value-row .val { color: #58a6ff; font-family: monospace; }
+    #transcription-output {
+      min-height: 80px;
+      max-height: 150px;
+      overflow-y: auto;
+      background: #0d1117;
+      border: 1px solid #21262d;
+      border-radius: 4px;
+      padding: 8px 12px;
+      font-family: monospace;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    #transcription-output .entry { margin-bottom: 4px; }
+    #transcription-output .entry .time { color: #484f58; }
+    #log-output {
+      min-height: 100px;
+      max-height: 200px;
+      overflow-y: auto;
+      background: #0d1117;
+      border: 1px solid #21262d;
+      border-radius: 4px;
+      padding: 8px 12px;
+      font-family: monospace;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    .status-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    .status-indicator.green { background: #3fb950; }
+    .status-indicator.red { background: #f85149; }
+    .status-indicator.yellow { background: #d29922; }
+    .status-indicator.gray { background: #484f58; }
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .slider-row input[type="range"] { flex: 1; }
+    .slider-row .slider-val {
+      font-family: monospace;
+      min-width: 30px;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+  <h1>ziomek Debug Dashboard</h1>
+
+  <div class="grid">
+    <!-- TTS Section -->
+    <div class="card">
+      <h2>TTS</h2>
+      <label>Voice</label>
+      <select id="tts-voice">
+        <option value="default">default</option>
+        <option value="cosette">cosette</option>
+      </select>
+      <label>Text</label>
+      <input type="text" id="tts-text" placeholder="Type text to speak...">
+      <div class="btn-group">
+        <button class="btn primary" onclick="ttsSpeak()">Speak</button>
+        <button class="btn danger" onclick="ttsCancel()">Cancel</button>
+      </div>
+      <label>Result</label>
+      <div class="value" id="tts-result">—</div>
+    </div>
+
+    <!-- Avatar Section -->
+    <div class="card">
+      <h2>Avatar</h2>
+      <label>Expression</label>
+      <select id="avatar-expression">
+        <option value="neutral">neutral</option>
+        <option value="happy">happy</option>
+        <option value="surprised">surprised</option>
+        <option value="curious">curious</option>
+        <option value="thinking">thinking</option>
+        <option value="focused">focused</option>
+        <option value="bored">bored</option>
+        <option value="dying">dying</option>
+        <option value="excited">excited</option>
+      </select>
+      <div class="btn-group">
+        <button class="btn primary" onclick="avatarSetExpression()">Set Expression</button>
+      </div>
+      <label>Current State</label>
+      <div class="value" id="avatar-state">—</div>
+    </div>
+
+    <!-- STT Section -->
+    <div class="card">
+      <h2>STT</h2>
+      <div class="btn-group">
+        <button class="btn" id="stt-start-btn" onclick="sttStart()">Start</button>
+        <button class="btn danger" id="stt-stop-btn" onclick="sttStop()" disabled>Stop</button>
+      </div>
+      <label>Engine</label>
+      <select id="stt-engine">
+        <option value="faster_whisper" selected>faster_whisper</option>
+        <option value="whisper_cpp">whisper_cpp ⚠️</option>
+      </select>
+      <label>Model</label>
+      <select id="stt-model">
+        <option value="tiny.en" selected>tiny.en</option>
+        <option value="base.en">base.en</option>
+        <option value="small.en">small.en</option>
+      </select>
+      <label>VAD</label>
+      <div class="btn-group">
+        <button class="btn" id="vad-toggle" onclick="toggleVAD()">Enable</button>
+      </div>
+      <div class="slider-row">
+        <label style="font-size:12px;color:#8b949e;">Sensitivity</label>
+        <input type="range" id="vad-sensitivity" min="0" max="2" step="0.1" value="0.5">
+        <span class="slider-val" id="vad-sensitivity-val">0.5</span>
+      </div>
+      <label>Live Transcription</label>
+      <div id="transcription-output"></div>
+      <label>Stats</label>
+      <div id="stt-stats"></div>
+    </div>
+
+    <!-- Gamepad Section -->
+    <div class="card">
+      <h2>Gamepad</h2>
+      <label>Status</label>
+      <div class="value" id="gamepad-status">—</div>
+      <label>Buttons</label>
+      <div id="gamepad-buttons" class="value">—</div>
+      <label>Axes</label>
+      <div id="gamepad-axes" class="value">—</div>
+    </div>
+
+    <!-- Server Section -->
+    <div class="card">
+      <h2>Server</h2>
+      <label>Uptime</label>
+      <div class="value" id="server-uptime">—</div>
+      <label>Log Level</label>
+      <div class="btn-group" id="log-level-btns">
+        <button class="btn" onclick="setLogLevel('DEBUG')">DEBUG</button>
+        <button class="btn active" onclick="setLogLevel('INFO')">INFO</button>
+        <button class="btn" onclick="setLogLevel('WARNING')">WARNING</button>
+        <button class="btn" onclick="setLogLevel('ERROR')">ERROR</button>
+      </div>
+      <label>Recent Logs</label>
+      <div id="log-output"></div>
+      <div class="btn-group">
+        <button class="btn" onclick="refreshLogs()">Refresh</button>
+        <button class="btn danger" onclick="clearLogs()">Clear</button>
+      </div>
+    </div>
+
+    <!-- Cache Section -->
+    <div class="card">
+      <h2>Cache</h2>
+      <div id="cache-info"></div>
+      <div class="btn-group">
+        <button class="btn" onclick="refreshCache()">Refresh</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = '';
+
+    // ── Helpers ──
+    async function api(path, opts = {}) {
+      const resp = await fetch(API + path, opts);
+      return resp.json();
+    }
+
+    function setStatus(el, text, color) {
+      el.innerHTML = `<span class="status-indicator ${color}"></span>${text}`;
+    }
+
+    // ── TTS ──
+    async function ttsSpeak() {
+      const voice = document.getElementById('tts-voice').value;
+      const text = document.getElementById('tts-text').value;
+      try {
+        const resp = await api('/api/tts/synthesize', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({text, voice}),
+        });
+        const data = await resp.json();
+        document.getElementById('tts-result').textContent = JSON.stringify(data);
+      } catch (e) {
+        document.getElementById('tts-result').textContent = 'Error: ' + e.message;
+      }
+    }
+
+    async function ttsCancel() {
+      try {
+        const resp = await api('/api/tts/cancel', {method: 'POST'});
+        const data = await resp.json();
+        document.getElementById('tts-result').textContent = JSON.stringify(data);
+      } catch (e) {
+        document.getElementById('tts-result').textContent = 'Error: ' + e.message;
+      }
+    }
+
+    // ── Avatar ──
+    async function avatarSetExpression() {
+      const expr = document.getElementById('avatar-expression').value;
+      try {
+        const resp = await api('/api/avatar/expression', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({name: expr}),
+        });
+        const data = await resp.json();
+        refreshAvatarState();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function refreshAvatarState() {
+      try {
+        const data = await api('/api/avatar/state');
+        document.getElementById('avatar-state').textContent =
+          `expression: ${data.expression}, cycle: ${data.cycleIndex}`;
+      } catch (e) {
+        document.getElementById('avatar-state').textContent = 'Error: ' + e.message;
+      }
+    }
+
+    // ── STT ──
+    let sttRunning = false;
+
+    async function sttStart() {
+      sttRunning = true;
+      document.getElementById('stt-start-btn').disabled = true;
+      document.getElementById('stt-stop-btn').disabled = false;
+      addTranscriptionEntry('STT started...', 'info');
+    }
+
+    async function sttStop() {
+      sttRunning = false;
+      document.getElementById('stt-start-btn').disabled = false;
+      document.getElementById('stt-stop-btn').disabled = true;
+      addTranscriptionEntry('STT stopped', 'info');
+    }
+
+    function toggleVAD() {
+      const btn = document.getElementById('vad-toggle');
+      if (btn.textContent === 'Enable') {
+        btn.textContent = 'Disable';
+        btn.classList.add('active');
+      } else {
+        btn.textContent = 'Enable';
+        btn.classList.remove('active');
+      }
+    }
+
+    function addTranscriptionEntry(text, type) {
+      const el = document.getElementById('transcription-output');
+      const time = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.className = 'entry';
+      div.innerHTML = `<span class="time">[${time}]</span> ${text}`;
+      el.appendChild(div);
+      el.scrollTop = el.scrollHeight;
+    }
+
+    async function refreshSTTState() {
+      try {
+        const data = await api('/api/debug/state');
+        if (data.stt_engine_initialized) {
+          setStatus(document.getElementById('gamepad-status'), 'STT initialized', 'green');
+          const stats = data.stt_stats;
+          if (stats) {
+            document.getElementById('stt-stats').innerHTML =
+              `<div class="value-row"><span class="key">State</span><span class="val">${stats.state}</span></div>` +
+              `<div class="value-row"><span class="key">Engine</span><span class="val">${stats.engine_name}</span></div>` +
+              `<div class="value-row"><span class="key">Model</span><span class="val">${stats.model_name}</span></div>` +
+              `<div class="value-row"><span class="key">Transcriptions</span><span class="val">${stats.transcription_count}</span></div>` +
+              `<div class="value-row"><span class="key">Last Text</span><span class="val">${stats.last_text || '—'}</span></div>`;
+          }
+        } else {
+          setStatus(document.getElementById('gamepad-status'), 'STT not initialized', 'gray');
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // ── Gamepad ──
+    async function refreshGamepad() {
+      try {
+        const data = await api('/api/debug/state');
+        const gp = data.gamepad_manager_initialized;
+        if (gp) {
+          setStatus(document.getElementById('gamepad-status'), 'Gamepad polling active', 'green');
+        } else {
+          setStatus(document.getElementById('gamepad-status'), 'Gamepad polling disabled', 'gray');
+        }
+        // Get current state from avatar endpoint
+        const state = await api('/api/avatar/state');
+        document.getElementById('avatar-state').textContent =
+          `expression: ${state.expression}, cycle: ${state.cycleIndex}`;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // ── Server ──
+    async function refreshServer() {
+      try {
+        const data = await api('/api/debug/state');
+        const secs = data.uptime_seconds || 0;
+        const m = Math.floor(secs / 60);
+        const s = Math.floor(secs % 60);
+        document.getElementById('server-uptime').textContent = `${m}m ${s}s`;
+
+        // TTS status
+        const ttsReady = data.tts_model_ready ? 'Ready' : 'Not ready';
+        const ttsColor = data.tts_model_ready ? 'green' : 'red';
+        document.getElementById('tts-result').textContent = `Model: ${ttsReady}`;
+
+        // Audio info
+        const audioInfo = `${data.audio_backend || '—'} / ${data.audio_device || 'default'}`;
+        // We can display this somewhere useful
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function setLogLevel(level) {
+      try {
+        await api('/api/debug/config/reload');
+        // Update button states
+        document.querySelectorAll('#log-level-btns .btn').forEach(btn => {
+          btn.classList.toggle('active', btn.textContent === level);
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function refreshLogs() {
+      try {
+        const data = await api('/api/debug/logs?limit=50');
+        const el = document.getElementById('log-output');
+        el.innerHTML = data.entries.map(e =>
+          `<div style="margin-bottom:2px"><span style="color:${
+            e.level === 'ERROR' ? '#f85149' : e.level === 'WARNING' ? '#d29922' : '#8b949e'
+          }">[${e.level}]</span> ${e.message}</div>`
+        ).join('');
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function clearLogs() {
+      try {
+        await api('/api/debug/logs/clear', {method: 'POST'});
+        refreshLogs();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // ── Cache ──
+    async function refreshCache() {
+      try {
+        const data = await api('/api/debug/cache');
+        if (data.cache_dir) {
+          document.getElementById('cache-info').innerHTML =
+            `<div class="value-row"><span class="key">Directory</span><span class="val">${data.cache_dir}</span></div>` +
+            `<div class="value-row"><span class="key">Size</span><span class="val">${data.size_mb} MB</span></div>` +
+            `<div class="value-row"><span class="key">Files</span><span class="val">${data.files}</span></div>` +
+            (data.files_list ? `<div class="value-row"><span class="key">Files</span><span class="val">${data.files_list.join(', ')}</span></div>` : '');
+        } else {
+          document.getElementById('cache-info').innerHTML = '<div class="value">No cache directory configured</div>';
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // ── VAD Sensitivity Slider ──
+    const vadSlider = document.getElementById('vad-sensitivity');
+    vadSlider.addEventListener('input', () => {
+      document.getElementById('vad-sensitivity-val').textContent = vadSlider.value;
+    });
+
+    // ── Auto-refresh ──
+    setInterval(refreshServer, 2000);
+    setInterval(refreshAvatarState, 2000);
+    setInterval(refreshSTTState, 2000);
+    setInterval(refreshGamepad, 2000);
+    setInterval(refreshLogs, 5000);
+    setInterval(refreshCache, 10000);
+
+    // Initial load
+    refreshServer();
+    refreshAvatarState();
+    refreshSTTState();
+    refreshGamepad();
+    refreshLogs();
+    refreshCache();
+  </script>
+</body>
+</html>

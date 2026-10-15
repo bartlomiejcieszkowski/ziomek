@@ -18,7 +18,7 @@ from ziomek.avatar.skins import SkinRegistry
 from ziomek.avatar.state_machine import AvatarInput, AvatarStateMachine
 from ziomek.config import Settings
 from ziomek.gamepad import GamepadManager
-from ziomek.logging import RequestIDMiddleware, setup_logging
+from ziomek.logging import RequestIDMiddleware, get_log_buffer, setup_logging
 from ziomek.stt import STTEngine, STTState
 from ziomek.tts.engine import TTSModelWrapper
 from ziomek.tts.playback import AudioPlayer
@@ -39,6 +39,7 @@ _skin_registry: Optional[SkinRegistry] = None
 _stt_engine: Optional[STTEngine] = None
 _gamepad_manager: Optional[GamepadManager] = None
 _gamepad_thread: Optional[threading.Thread] = None
+_dev_mode: bool = False
 
 
 def get_uptime() -> float:
@@ -90,10 +91,11 @@ def _stop_gamepad_thread() -> None:
         _gamepad_manager = None
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, dev_mode: bool = False) -> FastAPI:
     global _tts_model, _voice_cache, _audio_player, _state_machine, _skin_registry
     if settings is None:
         settings = Settings()
+
     app = FastAPI(
         title="ziomek",
         version=_version,
@@ -139,48 +141,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         _logger.info("Gamepad polling thread started")
 
     # Include routers
-    from ziomek.api import avatar, health, tts
+    from ziomek.api import avatar, debug, health, tts
 
     app.include_router(tts.router)
     app.include_router(avatar.router)
     app.include_router(health.router)
 
-    # HTML avatar view (merged from client)
-    @app.get("/")
-    async def avatar_view() -> HTMLResponse:
-        html_path = Path(__file__).parent / "client" / "resources" / "renderer.html"
-        return HTMLResponse(content=html_path.read_text())
+    # Debug endpoints (only in dev mode)
+    if dev_mode:
+        app.include_router(debug.router)
+        _dev_mode = True
 
-    # WebSocket relay for real-time avatar state updates
-    @app.websocket("/api/avatar/ws")
-    async def avatar_ws(websocket: WebSocket) -> None:
-        await websocket.accept()
-        try:
-            last_expr = ""
-            last_cycle = -1
-            while True:
-                if _state_machine is None:
-                    await websocket.close(code=4000, reason="State machine not initialized")
-                    break
-                state = _state_machine.tick(16)
-                if state.expressionName != last_expr or state.cycleIndex != last_cycle:
-                    msg = {
-                        "expression": state.expressionName,
-                        "cycleIndex": state.cycleIndex,
-                    }
-                    await websocket.send_json(msg)
-                    last_expr = state.expressionName
-                    last_cycle = state.cycleIndex
-                await asyncio.sleep(0.01)  # pyright: ignore[reportAttributeAccessIssue]
-        except WebSocketDisconnect:
-            _logger.debug("Avatar WebSocket disconnected")
-        except Exception:
-            _logger.exception("avatar_ws: error in WebSocket loop")
-        finally:
-            try:
-                await websocket.close()
-            except Exception:
-                pass
+        # Debug page HTML
+        @app.get("/debug")
+        async def debug_page() -> HTMLResponse:
+            html_path = Path(__file__).parent / "client" / "resources" / "debug.html"
+            return HTMLResponse(content=html_path.read_text(encoding="utf-8"))
 
     return app
 
@@ -199,6 +175,8 @@ def run_server(
     stt_engine: str | None = None,
     stt_model: str | None = None,
     stt_model_dir: str | None = None,
+    dev_mode: bool = False,
+    verbose: bool = False,
 ):
     """Run the unified ziomek server.
 
@@ -219,7 +197,14 @@ def run_server(
         stt_engine: STT engine name (faster_whisper).
         stt_model: STT model name.
         stt_model_dir: STT model download directory.
+        dev_mode: Enable debug endpoints and debug page.
+        verbose: Enable DEBUG logging.
     """
+    # Determine effective log level
+    effective_level = log_level
+    if verbose:
+        effective_level = "DEBUG"
+
     settings = Settings.compose(
         cli_backend=audio_backend,
         cli_device=audio_device,
@@ -234,13 +219,17 @@ def run_server(
         stt_model=stt_model,
         stt_model_dir=stt_model_dir,
     )
-    setup_logging(level=log_level)
-    app = create_app(settings)
+    setup_logging(level=effective_level, enable_buffer=dev_mode)
+    app = create_app(settings, dev_mode=dev_mode)
     effective_port = port if port is not None else settings.port
     print(
         f"ziomek server listening on http://{settings.host}:{effective_port}",
         file=sys.stderr,
     )
+    if dev_mode:
+        print("  Debug mode enabled: /debug page and /api/debug/* endpoints", file=sys.stderr)
+    if verbose:
+        print("  Verbose mode enabled: DEBUG logging", file=sys.stderr)
     uvicorn.run(app, host=settings.host, port=effective_port)
 
 
