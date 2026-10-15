@@ -20,3 +20,6 @@ docs/internal/
 .ruff_cache/
 
 .coverage
+
+# Runtime logs
+realtimesst.log
