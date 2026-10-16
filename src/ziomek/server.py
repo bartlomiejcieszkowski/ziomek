@@ -91,7 +91,7 @@ def _stop_gamepad_thread() -> None:
         _gamepad_manager = None
 
 
-def create_app(settings: Settings | None = None, dev_mode: bool = False) -> FastAPI:
+def create_app(settings: Settings | None = None, dev_mode: bool = False, verbose: bool = False) -> FastAPI:
     global _tts_model, _voice_cache, _audio_player, _state_machine, _skin_registry
     if settings is None:
         settings = Settings()
@@ -128,6 +128,7 @@ def create_app(settings: Settings | None = None, dev_mode: bool = False) -> Fast
             engine_name=settings.stt_engine,
             model_name=settings.stt_model,
             model_dir=settings.stt_model_dir,
+            verbose=verbose,
         )
         _stt_engine.start()
         _logger.info(
@@ -220,7 +221,7 @@ def run_server(
         stt_model_dir=stt_model_dir,
     )
     setup_logging(level=effective_level, enable_buffer=dev_mode)
-    app = create_app(settings, dev_mode=dev_mode)
+    app = create_app(settings, dev_mode=dev_mode, verbose=verbose)
     effective_port = port if port is not None else settings.port
     print(
         f"ziomek server listening on http://{settings.host}:{effective_port}",

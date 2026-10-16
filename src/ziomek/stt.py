@@ -5,6 +5,7 @@ from __future__ import annotations
 import enum
 import logging
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
@@ -50,6 +51,7 @@ class STTEngine:
         model_name: Model identifier (e.g. ``"tiny.en"``, ``"base.en"``).
         model_dir: Optional download root / model directory.
         on_transcription: Callback invoked with each :class:`STTResult`.
+        verbose: Enable detailed logging of STT events (VAD, recording, transcription).
     """
 
     def __init__(
@@ -58,11 +60,13 @@ class STTEngine:
         model_name: str = "tiny.en",
         model_dir: str | None = None,
         on_transcription: Callable[[STTResult], None] | None = None,
+        verbose: bool = False,
     ) -> None:
         self._engine_name = engine_name
         self._model_name = model_name
         self._model_dir = model_dir
         self._on_transcription = on_transcription
+        self._verbose = verbose
         self._recorder = None
         self._thread: threading.Thread | None = None
         self._running = False
@@ -71,6 +75,8 @@ class STTEngine:
             model_name=model_name,
         )
         self._lock = threading.Lock()
+        self._recording_start_time: float = 0.0
+        self._recording_active = False
 
     @property
     def stats(self) -> STTStats:
@@ -80,6 +86,64 @@ class STTEngine:
     @property
     def state(self) -> STTState:
         return self._stats.state
+
+    def _on_recording_start(self) -> None:
+        """Callback: audio recording started."""
+        self._recording_start_time = time.time()
+        self._recording_active = True
+        if self._verbose:
+            logger.info("STT recording started")
+
+    def _on_recording_stop(self) -> None:
+        """Callback: audio recording stopped."""
+        if self._recording_active and self._verbose:
+            duration = time.time() - self._recording_start_time
+            logger.info("STT recording stopped (duration: %.2fs)", duration)
+        self._recording_active = False
+
+    def _on_vad_start(self) -> None:
+        """Callback: voice activity detected."""
+        if self._verbose:
+            logger.info("STT voice activity detected (VAD start)")
+
+    def _on_vad_stop(self) -> None:
+        """Callback: voice activity ended."""
+        if self._verbose:
+            logger.info("STT voice activity ended (VAD stop)")
+
+    def _on_vad_detect_start(self) -> None:
+        """Callback: VAD detection began."""
+        if self._verbose:
+            logger.info("STT VAD detection started")
+
+    def _on_vad_detect_stop(self) -> None:
+        """Callback: VAD detection ended."""
+        if self._verbose:
+            logger.info("STT VAD detection ended")
+
+    def _on_transcription_start(self, audio_data: bytes | None = None) -> None:
+        """Callback: transcription began."""
+        if self._verbose:
+            duration = 0.0
+            if audio_data:
+                duration = len(audio_data) / (16000 * 2)  # 16kHz, 16-bit
+            logger.info("STT transcription started (audio duration: %.2fs)", duration)
+
+    def _on_realtime_transcription_update(self, text: str) -> None:
+        """Callback: realtime transcription partial update."""
+        if self._verbose:
+            logger.debug("STT realtime update: '%s'", text)
+
+    def _on_realtime_transcription_stabilized(self, text: str) -> None:
+        """Callback: realtime transcription stabilized (finalized)."""
+        if self._verbose:
+            logger.info("STT realtime stabilized: '%s'", text)
+
+    def _on_recorded_chunk(self, audio_data: bytes) -> None:
+        """Callback: audio chunk recorded."""
+        if self._verbose:
+            duration = len(audio_data) / (16000 * 2)  # 16kHz, 16-bit
+            logger.debug("STT audio chunk: %d bytes (%.2fs)", len(audio_data), duration)
 
     def start(self) -> None:
         """Start the STT engine (blocking call — runs in background thread)."""
@@ -109,6 +173,20 @@ class STTEngine:
                 beam_size_realtime=1,
                 download_root=self._model_dir or "",
                 silero_backend=None,
+                # Disable halo spinner — we use our own logging
+                spinner=False,
+                level=logging.WARNING,
+                # Hook up verbose callbacks
+                on_recording_start=self._on_recording_start,
+                on_recording_stop=self._on_recording_stop,
+                on_vad_start=self._on_vad_start,
+                on_vad_stop=self._on_vad_stop,
+                on_vad_detect_start=self._on_vad_detect_start,
+                on_vad_detect_stop=self._on_vad_detect_stop,
+                on_transcription_start=self._on_transcription_start,
+                on_realtime_transcription_update=self._on_realtime_transcription_update,
+                on_realtime_transcription_stabilized=self._on_realtime_transcription_stabilized,
+                on_recorded_chunk=self._on_recorded_chunk,
             )
         except Exception:
             logger.exception("Failed to initialize RealtimeSTT recorder")
