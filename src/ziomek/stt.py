@@ -141,9 +141,10 @@ class STTEngine:
 
     def _on_recorded_chunk(self, audio_data: bytes) -> None:
         """Callback: audio chunk recorded."""
-        if self._verbose:
-            duration = len(audio_data) / (16000 * 2)  # 16kHz, 16-bit
-            logger.debug("STT audio chunk: %d bytes (%.2fs)", len(audio_data), duration)
+        # Commented out — too verbose (fires every ~30ms)
+        # if self._verbose:
+        #     duration = len(audio_data) / (16000 * 2)  # 16kHz, 16-bit
+        #     logger.debug("STT audio chunk: %d bytes (%.2fs)", len(audio_data), duration)
 
     def start(self) -> None:
         """Start the STT engine (blocking call — runs in background thread)."""
