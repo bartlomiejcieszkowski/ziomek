@@ -95,21 +95,46 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         return response
 
 
-def setup_logging(level: str = "INFO", enable_buffer: bool = False) -> None:
+def setup_logging(level: str = "INFO", enable_buffer: bool = False, log_file: str | None = None) -> None:
     """Configure structured logging for the ziomek application.
 
     Args:
         level: Log level string (DEBUG, INFO, WARNING, ERROR, CRITICAL).
         enable_buffer: If True, attach a ring buffer handler for debug endpoints.
+        log_file: Optional file path for JSON log output. Stdout uses colored text.
     """
+    from uvicorn.logging import ColourizedFormatter
+    
     numeric_level = getattr(logging, level.upper(), logging.INFO)
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(JSONFormatter())
+    
+    # Stdout: colored format (like uvicorn)
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setFormatter(ColourizedFormatter(
+        "%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+        datefmt="%H:%M:%S",
+    ))
     logger = logging.getLogger("ziomek")
     logger.setLevel(numeric_level)
-    logger.addHandler(handler)
-    # Prevent duplicate handlers on repeated calls
+    logger.addHandler(stdout_handler)
     logger.propagate = False
+    
+    # Log file: JSON format (if specified)
+    if log_file:
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setFormatter(JSONFormatter())
+        logger.addHandler(file_handler)
+    
+    # Configure uvicorn to use colored format on stdout too
+    for uvicorn_logger in ["uvicorn", "uvicorn.access", "uvicorn.error"]:
+        uv_logger = logging.getLogger(uvicorn_logger)
+        uv_logger.handlers.clear()
+        uv_handler = logging.StreamHandler(sys.stdout)
+        uv_handler.setFormatter(ColourizedFormatter(
+            "%(message)s",
+        ))
+        uv_logger.addHandler(uv_handler)
+        uv_logger.propagate = False
+    
     if enable_buffer:
         buf = _LogRingBuffer()
         buf.setLevel(logging.DEBUG)
