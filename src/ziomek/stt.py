@@ -125,7 +125,7 @@ class STTEngine:
         """Callback: transcription began."""
         if self._verbose:
             duration = 0.0
-            if audio_data:
+            if audio_data is not None and len(audio_data) > 0:
                 duration = len(audio_data) / (16000 * 2)  # 16kHz, 16-bit
             logger.info("STT transcription started (audio duration: %.2fs)", duration)
 
