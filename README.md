@@ -3,7 +3,7 @@
 Humanize AI interaction by making it more natural. Work in progress.
 
 **One process:**
-- **ziomek server** — TTS synthesis, avatar state machine, gamepad polling, WebSocket relay, STT (port 5003)
+- **ziomek** — TTS synthesis, STT, avatar state machine, gamepad polling, WebSocket relay (port 5004)
 
 **One extension:**
 - **Ziomek — Humanize AI** — thin canvas renderer + Copilot Chat integration
@@ -13,7 +13,7 @@ Humanize AI interaction by making it more natural. Work in progress.
 ### Start the server
 
 ```bash
-uv run ziomek --port 5003
+uv run ziomek --port 5004
 ```
 
 `uv` auto-creates a `.venv`, downloads dependencies, and installs `ziomek` in development mode from the local package.
@@ -22,8 +22,8 @@ uv run ziomek --port 5003
 
 | Command | What runs |
 |---------|-----------|
-| `run-ziomek.sh 5003` | ziomek server (Linux/macOS) |
-| `run-ziomek.bat 5003` | ziomek server (Windows) |
+| `run-ziomek.sh 5004` | ziomek (Linux/macOS) |
+| `run-ziomek.bat 5004` | ziomek (Windows) |
 
 ### Install and launch the VS Code extension
 
@@ -39,7 +39,7 @@ Press **F5** in VS Code to launch the extension host. The extension automaticall
 
 ```text
 ┌───────────────────────────────────────────────────────────────────────┐
-│  ziomek server (port 5003)                                            │
+│  ziomek (port 5004)                                                   │
 │  ┌────────────────────┐  ┌──────────────────┐  ┌──────────────────┐   │
 │  │ TTS Synthesis      │  │ Audio Playback   │  │ Avatar           │   │
 │  │ TTSModelWrapper    │  │ BackendRegistry  │  │ State Machine    │   │
@@ -71,16 +71,16 @@ Press **F5** in VS Code to launch the extension host. The extension automaticall
 
 ## Launch Commands
 
-### ziomek server (unified)
+### ziomek (unified)
 
 ```bash
-uv run ziomek --host 0.0.0.0 --port 5003 --log-level INFO --voice cosette --cache-dir ./voices
+uv run ziomek --host 0.0.0.0 --port 5004 --log-level INFO --voice cosette --cache-dir ./voices
 ```
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--host` | localhost | Host to bind (0.0.0.0 for remote/Docker) |
-| `--port` | 5003 | HTTP port |
+| `--port` | 5004 | HTTP port |
 | `--voice` | default | Voice name (cosette) |
 | `--cache-dir` | ~ | Voice cache directory |
 | `--log-level` | INFO | Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL) |
@@ -103,8 +103,8 @@ uv run ziomek --host 0.0.0.0 --port 5003 --log-level INFO --voice cosette --cach
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `ziomek.enabled` | true | Enable gamepad input for Ziomek Humanize AI |
-| `ziomek.client.url` | http://localhost:5003 | URL of the ziomek server (merged) |
-| `ziomek.tts.url` | http://localhost:5003 | URL of the ziomek TTS server |
+| `ziomek.client.url` | http://localhost:5004 | URL of the ziomek server |
+| `ziomek.tts.url` | http://localhost:5004 | URL of the ziomek TTS server |
 | `ziomek.tts.voice` | cosette | Voice identifier for TTS |
 | `ziomek.tts.backend` | stub | TTS backend ('stub' or 'ziomek') |
 | `ziomek.debounceMs` | 80 | Minimum time between repeated actions (ms) |

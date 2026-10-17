@@ -2,6 +2,39 @@
 
 All notable changes to this project are documented here.
 
+## [0.3.0] - 2026-10-17
+
+### Added
+
+- Merged server and client into single process (port 5004)
+- STT streaming endpoint via WebSocket (`/api/stt/stream`) for live transcription
+- STT HTTP API: status, start, stop, transcribe, reconfigure, models endpoints
+- STT engine reconfiguration at runtime (engine/model switching)
+- Debug mode (`--dev`) with debug endpoints and debug webpage
+- Verbose logging (`--verbose`/`-v`) with STT event logging
+- Colored stdout logging (uvicorn-style) with JSON log files
+- Log ring buffer with `/api/debug/logs` and `/api/debug/logs/clear` endpoints
+- Version centralization via single `VERSION` file at repo root
+- Automated release workflow on VERSION bump
+- Health endpoint enriched with STT info, audio backend/device, cache stats
+- Request ID middleware for structured logging
+- `conftest.py` with STT engine cleanup fixture for test isolation
+
+### Changed
+
+- Default port changed from 5003 to 5004 (merged server/client)
+- CLI unified: `ziomek` instead of `ziomek server`/`ziomek client`
+- Config file renamed: `ziomek_server_config.yaml` → `ziomek_config.yaml` (backward compatible)
+- Default STT engine changed from whisper_cpp to faster_whisper (whisper_cpp segfaults on Windows)
+- STT engine starts recording immediately on startup
+
+### Fixed
+
+- Async transcription callback handling via `asyncio.run_coroutine_threadsafe`
+- `transcribe_chunk` timeout to avoid blocking on RealtimeSTT.text()
+- Debug endpoint JSON serialization for STTState enum
+- WebSocket tests with proper mock engine setup
+
 ## [0.2.0] - 2026-09-30
 
 ### Added
