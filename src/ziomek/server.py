@@ -228,7 +228,7 @@ def run_server(
         file=sys.stderr,
     )
     if dev_mode:
-        print("  Debug mode enabled: /debug page and /api/debug/* endpoints", file=sys.stderr)
+        print(f"  Debug mode enabled: http://{settings.host}:{effective_port}/debug", file=sys.stderr)
     if verbose:
         print("  Verbose mode enabled: DEBUG logging", file=sys.stderr)
     uvicorn.run(app, host=settings.host, port=effective_port)
