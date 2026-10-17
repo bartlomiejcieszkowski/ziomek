@@ -41,6 +41,7 @@ def _run_benchmark(
     voice: str,
     texts: list[str],
     iterations: int,
+    output_dir: str | None = None,
 ) -> list[dict[str, Any]]:
     """Run benchmark for a single voice across multiple texts and iterations."""
     results: list[dict[str, Any]] = []
@@ -79,6 +80,12 @@ def _run_benchmark(
                 "sample_rate": sample_rate,
             })
 
+            # Optionally save WAV file
+            if output_dir:
+                wav_path = Path(output_dir) / f"{voice}_{text[:20].replace(' ', '_')}_{i+1:02d}.wav"
+                wavfile.write(wav_path, sample_rate, audio_np)
+                logger.info("  WAV saved to: %s", wav_path)
+
             logger.info(
                 "  voice=%s text=%r iter=%d gen=%.1fms dur=%.3fs rms=%.4f peak=%.4f",
                 voice, text[:30], i + 1, elapsed_ms, duration, rms, peak,
@@ -115,6 +122,7 @@ def main() -> None:
     parser.add_argument("--voices", nargs="+", default=["cosette", "default"], help="Voices to benchmark")
     parser.add_argument("--iterations", type=int, default=3, help="Iterations per text per voice")
     parser.add_argument("--output", type=str, default=None, help="CSV output file path")
+    parser.add_argument("--output-dir", type=str, default=None, help="Directory to save WAV files (default: no WAV output)")
     parser.add_argument("--log-level", default="INFO", help="Log level")
     args = parser.parse_args()
 
@@ -127,6 +135,8 @@ def main() -> None:
     print(f"Benchmarking voices: {', '.join(args.voices)}")
     print(f"Iterations: {args.iterations} per text")
     print(f"Sample texts: {len(SAMPLE_TEXTS)}")
+    if args.output_dir:
+        print(f"WAV output directory: {args.output_dir}")
     print()
 
     all_results: list[dict[str, Any]] = []
@@ -134,7 +144,7 @@ def main() -> None:
     for voice in args.voices:
         print(f"\nBenchmarking voice: {voice}")
         try:
-            results = _run_benchmark(model, voice_cache, voice, SAMPLE_TEXTS, args.iterations)
+            results = _run_benchmark(model, voice_cache, voice, SAMPLE_TEXTS, args.iterations, args.output_dir)
             all_results.extend(results)
         except Exception as e:
             logger.warning("Voice %s benchmark failed: %s", voice, e)

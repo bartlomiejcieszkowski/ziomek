@@ -95,7 +95,7 @@ class TestBenchmarkMock:
             "capabilities and solve complex global challenges becomes increasingly apparent."
         )
 
-        results = _run_benchmark(mock_model, voice_cache, "cosette", [long_text], 2)
+        results = _run_benchmark(mock_model, voice_cache, "cosette", [long_text], 2, output_dir=None)
 
         assert len(results) == 2  # 2 iterations
         for r in results:
@@ -142,7 +142,7 @@ class TestBenchmarkReal:
         voice_cache = VoiceStateCache(model)
 
         # Benchmark a short text
-        results = _run_benchmark(model, voice_cache, "cosette", ["Hello world"], 1)
+        results = _run_benchmark(model, voice_cache, "cosette", ["Hello world"], 1, output_dir=None)
 
         assert len(results) == 1
         r = results[0]
@@ -152,3 +152,30 @@ class TestBenchmarkReal:
         assert r["rms"] > 0  # Real audio has non-zero RMS
         assert r["peak"] > 0  # Real audio has non-zero peak
         assert r["sample_rate"] == 24000
+
+    def test_benchmark_wav_output(self):
+        """Benchmark saves WAV files when output_dir is specified."""
+        from ziomek.tts.benchmark import _run_benchmark
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir) / "wav"
+            output_dir.mkdir()
+
+            model = TTSModelWrapper()
+            model.load()
+            voice_cache = VoiceStateCache(model)
+
+            results = _run_benchmark(
+                model, voice_cache, "cosette",
+                ["Hello world"], 1,
+                output_dir=str(output_dir),
+            )
+
+            assert len(results) == 1
+            # Check WAV file was created
+            wav_files = list(output_dir.glob("*.wav"))
+            assert len(wav_files) == 1
+            assert wav_files[0].name.startswith("cosette")
+            assert wav_files[0].name.endswith(".wav")
+            # Verify file is non-empty
+            assert wav_files[0].stat().st_size > 0
