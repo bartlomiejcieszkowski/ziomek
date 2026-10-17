@@ -1,0 +1,34 @@
+name: Python Tests & Coverage
+
+on:
+  push:
+    branches: [master, ziomek-server-split]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run tests with coverage
+        run: uv run pytest --cov=ziomek --cov-report=term-missing --cov-fail-under=70 -q
+
+      - name: Run linting
+        run: uv run ruff check .
