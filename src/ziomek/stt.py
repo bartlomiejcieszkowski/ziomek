@@ -10,6 +10,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
+# Import RealtimeSTT at module level so tests can patch it
+try:
+    import RealtimeSTT  # noqa: F401
+except ImportError:
+    pass  # Optional dependency
+
 logger = logging.getLogger(__name__)
 
 
@@ -180,7 +186,7 @@ class STTEngine:
     def start(self) -> None:
         """Start the STT engine (blocking call — runs in background thread)."""
         try:
-            from RealtimeSTT import AudioToTextRecorder  # noqa: F401
+            import RealtimeSTT  # noqa: F401
         except ImportError:
             logger.error(
                 "RealtimeSTT not installed. Install with: "
@@ -196,7 +202,7 @@ class STTEngine:
             )
 
         try:
-            self._recorder = AudioToTextRecorder(
+            self._recorder = RealtimeSTT.AudioToTextRecorder(
                 transcription_engine=self._engine_name,
                 model=self._model_name,
                 device="cpu",
@@ -298,7 +304,7 @@ class STTEngine:
 
             # Try to recreate recorder
             try:
-                self._recorder = AudioToTextRecorder(
+                self._recorder = RealtimeSTT.AudioToTextRecorder(
                     transcription_engine=self._engine_name,
                     model=self._model_name,
                     device="cpu",
@@ -320,19 +326,17 @@ class STTEngine:
                     on_realtime_transcription_stabilized=self._on_realtime_transcription_stabilized,
                     on_recorded_chunk=self._on_recorded_chunk,
                 )
-                with self._lock:
-                    self._stats.engine_name = engine_name
-                    self._stats.model_name = model_name
-                    self._stats.state = STTState.IDLE
+                self._stats.engine_name = engine_name
+                self._stats.model_name = model_name
+                self._stats.state = STTState.IDLE
                 return True, f"Reconfigured to {engine_name}/{model_name}"
             except Exception:
                 logger.exception("Failed to recreate recorder with new config")
                 # Rollback
                 self._engine_name = prev_engine
                 self._model_name = prev_model
-                with self._lock:
-                    self._stats.engine_name = prev_engine
-                    self._stats.model_name = prev_model
+                self._stats.engine_name = prev_engine
+                self._stats.model_name = prev_model
                 return False, f"Failed to reconfigure to {engine_name}/{model_name}"
 
     def stop(self) -> None:
