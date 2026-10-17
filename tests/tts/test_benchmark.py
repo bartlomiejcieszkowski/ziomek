@@ -4,6 +4,8 @@ import pytest
 import csv
 import tempfile
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+import numpy as np
 
 
 class TestBenchmark:
@@ -18,13 +20,12 @@ class TestBenchmark:
         assert callable(_print_summary)
 
     def test_benchmark_csv_output(self):
-        """Benchmark produces valid CSV output."""
+        """Benchmark produces valid CSV output with mocked model."""
         from ziomek.tts.benchmark import main
 
         with tempfile.TemporaryDirectory() as tmpdir:
             csv_path = Path(tmpdir) / "test_benchmark.csv"
             import sys
-            from unittest.mock import patch
 
             # Mock sys.argv to avoid argparse errors
             sys.argv = [
@@ -35,17 +36,47 @@ class TestBenchmark:
                 "--log-level", "ERROR",
             ]
 
-            try:
-                main()
-            except SystemExit:
-                pass  # argparse may exit
+            # Create a mock TTSModelWrapper with a ready model
+            mock_model = MagicMock()
+            mock_model.ready = True
+            mock_model.sample_rate = 24000
+            # Return a simple sine wave tensor
+            mock_audio = MagicMock()
+            mock_audio.detach.return_value.cpu.return_value.numpy.return_value = np.sin(np.linspace(0, 10, 24000)).astype(np.float32)
+            mock_model.generate_audio.return_value = mock_audio
+
+            with patch("ziomek.tts.benchmark.TTSModelWrapper", return_value=mock_model):
+                try:
+                    main()
+                except SystemExit:
+                    pass  # argparse may exit
 
             # Check CSV was created with headers
             assert csv_path.exists()
             with open(csv_path) as f:
                 reader = csv.DictReader(f)
                 rows = list(reader)
-                # CSV should have headers
+                # CSV should have headers and rows
                 assert reader.fieldnames is not None
                 assert "voice" in reader.fieldnames
                 assert "gen_time_ms" in reader.fieldnames
+                assert len(rows) == 3  # 3 sample texts × 1 iteration
+
+    def test_benchmark_print_summary(self):
+        """Benchmark summary prints correctly."""
+        from ziomek.tts.benchmark import _print_summary
+
+        results = [
+            {
+                "voice": "cosette",
+                "text": "Hello",
+                "iteration": 1,
+                "duration_s": 1.0,
+                "gen_time_ms": 100.0,
+                "rms": 0.5,
+                "peak": 1.0,
+                "sample_rate": 24000,
+            },
+        ]
+        # Should not raise
+        _print_summary(results)
