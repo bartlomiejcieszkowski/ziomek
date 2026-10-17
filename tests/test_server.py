@@ -6,7 +6,9 @@ from ziomek.server import create_app
 
 @pytest.fixture
 def client():
-    app = create_app()
+    from ziomek.config import Settings
+    settings = Settings(no_vscode=True)
+    app = create_app(settings)
     return TestClient(app)
 
 
@@ -42,9 +44,11 @@ def test_health_status_has_new_fields():
     """Health endpoint should include uptime, backend, and cache stats."""
     from fastapi.testclient import TestClient
 
+    from ziomek.config import Settings
     from ziomek.server import create_app
 
-    app = create_app()
+    settings = Settings(no_vscode=True)
+    app = create_app(settings)
     client = TestClient(app)
     resp = client.get("/status")
     assert resp.status_code == 200
@@ -73,9 +77,11 @@ def test_health_status_null_when_model_not_loaded():
     """When TTS model is not loaded, model_loaded should be False."""
     from fastapi.testclient import TestClient
 
+    from ziomek.config import Settings
     from ziomek.server import create_app
 
-    app = create_app()
+    settings = Settings(no_vscode=True)
+    app = create_app(settings)
     client = TestClient(app)
     resp = client.get("/status")
     data = resp.json()

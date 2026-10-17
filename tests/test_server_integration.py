@@ -25,7 +25,7 @@ def real_server():
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         port = s.getsockname()[1]
 
-    settings = Settings.compose(cli_backend="noop")
+    settings = Settings.compose(cli_backend="noop", no_vscode=True)
     app = create_app(settings)
 
     config = uvicorn.Config(
@@ -126,10 +126,13 @@ class TestRealServerEndpoints:
         resp = httpx.get(f"{real_server}/api/tts/voices")
         assert resp.status_code == 200
 
-    def test_tts_generate_returns_503_without_model(self, real_server):
-        """Verify /api/tts/generate returns 503 when model not loaded."""
-        resp = httpx.post(f"{real_server}/api/tts/generate")
-        assert resp.status_code == 503
+    def test_tts_generate_loads_model_and_returns_200(self, real_server):
+        """Verify /api/tts/generate loads model lazily and returns audio."""
+        resp = httpx.post(f"{real_server}/api/tts/generate", json={"text": "test"}, timeout=60.0)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "audio_b64" in data
+        assert "duration" in data
 
     def test_avatar_state_endpoint(self, real_server):
         """Verify /api/avatar/state returns 200."""
@@ -164,13 +167,16 @@ class TestRealServerEndpoints:
         resp = httpx.get(f"{real_server}/api/avatar/sprite")
         assert resp.status_code == 200
 
-    def test_avatar_speak_returns_503_without_tts(self, real_server):
-        """Verify /api/avatar/speak returns 503 without TTS."""
+    def test_avatar_speak_returns_200_with_tts(self, real_server):
+        """Verify /api/avatar/speak works when TTS model is loaded."""
         resp = httpx.post(
             f"{real_server}/api/avatar/speak",
-            json={"text": "hello"}
+            json={"text": "hello"},
+            timeout=60.0
         )
-        assert resp.status_code == 503
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "playing"
 
     def test_openapi_docs_available(self, real_server):
         """Verify /docs (Swagger UI) is accessible."""

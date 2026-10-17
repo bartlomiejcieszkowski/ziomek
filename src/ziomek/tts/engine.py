@@ -1,7 +1,11 @@
 """ziomek TTS engine — Pocket TTS model management."""
+
+import logging
 from typing import Optional
 
 import torch  # type: ignore[import-untyped]
+
+logger = logging.getLogger(__name__)
 
 
 class TTSModelWrapper:
@@ -16,13 +20,26 @@ class TTSModelWrapper:
         """Expose the underlying TTS model instance."""
         return self._tts_model
 
-    def load(self, model_path: str = None) -> None:
+    def load(self, model_path: str | None = None) -> None:
         """Load the Pocket TTS model."""
         from pocket_tts import TTSModel  # type: ignore[import-untyped]
+
         if model_path:
-            self._tts_model = TTSModel.load_from_path(model_path)
+            self._tts_model = TTSModel.load_model(config=model_path)
         else:
             self._tts_model = TTSModel.load_model()
+
+    def ensure_loaded(self) -> bool:
+        """Ensure model is loaded, return False if it fails."""
+        if self._tts_model is not None:
+            return True
+        try:
+            self.load()
+            return True
+        except Exception:
+            logger = logging.getLogger(__name__)
+            logger.exception("Failed to load TTS model")
+            return False
 
     @property
     def ready(self) -> bool:

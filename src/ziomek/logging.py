@@ -112,6 +112,7 @@ def setup_logging(level: str = "INFO", enable_buffer: bool = False, log_file: st
     stdout_handler.setFormatter(ColourizedFormatter(
         "%(asctime)s [%(levelname)s] %(name)s - %(message)s",
         datefmt="%H:%M:%S",
+        use_colors=True,
     ))
     logger = logging.getLogger("ziomek")
     logger.setLevel(numeric_level)
@@ -131,6 +132,7 @@ def setup_logging(level: str = "INFO", enable_buffer: bool = False, log_file: st
         uv_handler = logging.StreamHandler(sys.stdout)
         uv_handler.setFormatter(ColourizedFormatter(
             "%(message)s",
+            use_colors=True,
         ))
         uv_logger.addHandler(uv_handler)
         uv_logger.propagate = False

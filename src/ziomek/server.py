@@ -60,9 +60,7 @@ def _start_gamepad_thread(state_machine: AvatarStateMachine) -> None:
             try:
                 state = _gamepad_manager.poll()  # pyright: ignore[reportPossiblyUnboundVariable]
                 if state.connected:
-                    buttons = [
-                        {"pressed": bool(b), "value": 0.0} for b in state.buttons
-                    ]
+                    buttons = [{"pressed": bool(b), "value": 0.0} for b in state.buttons]
                     inp = AvatarInput(
                         buttons=buttons,
                         axes=state.axes,
@@ -91,10 +89,14 @@ def _stop_gamepad_thread() -> None:
         _gamepad_manager = None
 
 
+_settings: Settings | None = None
+
+
 def create_app(settings: Settings | None = None, dev_mode: bool = False, verbose: bool = False) -> FastAPI:
-    global _tts_model, _voice_cache, _audio_player, _state_machine, _skin_registry
+    global _tts_model, _voice_cache, _audio_player, _state_machine, _skin_registry, _settings
     if settings is None:
         settings = Settings()
+    _settings = settings
 
     app = FastAPI(
         title="ziomek",
@@ -113,10 +115,8 @@ def create_app(settings: Settings | None = None, dev_mode: bool = False, verbose
     )
     # Add request ID tracing middleware
     app.add_middleware(RequestIDMiddleware)
-    # Initialize TTS model
+    # Initialize TTS model (lazy load on first endpoint call)
     _tts_model = TTSModelWrapper()
-    # Note: model loading deferred to endpoint initialization
-    # _tts_model.load(settings.model_path)
     _voice_cache = VoiceStateCache(_tts_model, settings.cache_dir)
     _audio_player = AudioPlayer(backend_name=settings.audio_backend)
     # Initialize avatar components

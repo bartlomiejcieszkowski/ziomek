@@ -71,8 +71,10 @@ async def list_voices() -> dict:
 )
 async def tts_generate(request: Request) -> dict:
     """Generate WAV audio from text."""
-    from ziomek.server import _tts_model, _voice_cache
+    from ziomek.server import _tts_model, _voice_cache, _settings
 
+    if _tts_model is None or not _tts_model.ready:
+        _tts_model.load(_settings.model_path if _settings else None)  # type: ignore[arg-type]
     if _tts_model is None or not _tts_model.ready:
         return JSONResponse(status_code=503, content={"error": "TTS model not loaded"})
     body = await request.json()
@@ -98,8 +100,10 @@ async def tts_generate(request: Request) -> dict:
 )
 async def tts_speak(request: Request) -> dict:
     """Generate and play audio."""
-    from ziomek.server import _audio_player, _tts_model, _voice_cache
+    from ziomek.server import _audio_player, _tts_model, _voice_cache, _settings
 
+    if _tts_model is None or not _tts_model.ready:
+        _tts_model.load(_settings.model_path if _settings else None)  # type: ignore[arg-type]
     if _tts_model is None or not _tts_model.ready:
         return JSONResponse(status_code=503, content={"error": "TTS not ready"})
     body = await request.json()

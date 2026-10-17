@@ -12,7 +12,9 @@ from ziomek import server
 @pytest.fixture
 def client_with_dev():
     """Create a test client with dev mode enabled."""
-    app = server.create_app(dev_mode=True)
+    from ziomek.config import Settings
+    settings = Settings(no_vscode=True)
+    app = server.create_app(settings, dev_mode=True)
     with TestClient(app) as c:
         yield c
 

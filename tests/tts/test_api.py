@@ -6,7 +6,9 @@ from ziomek.server import create_app
 
 @pytest.fixture
 def client():
-    app = create_app()
+    from ziomek.config import Settings
+    settings = Settings(no_vscode=True)
+    app = create_app(settings)
     return TestClient(app)
 
 
@@ -28,9 +30,11 @@ def test_list_voices(client):
     assert data["default"] == "cosette"
 
 
-def test_generate_returns_503_without_model(client):
-    """Verify /api/tts/generate returns 503 when model not loaded."""
+def test_generate_loads_model_and_returns_200(client):
+    """Verify /api/tts/generate loads model lazily and returns audio."""
     resp = client.post("/api/tts/generate", json={"text": "test"})
-    assert resp.status_code == 503
+    assert resp.status_code == 200
     data = resp.json()
-    assert "error" in data
+    assert "audio_b64" in data
+    assert "duration" in data
+    assert "sample_rate" in data

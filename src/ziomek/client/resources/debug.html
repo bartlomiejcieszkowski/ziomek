@@ -163,8 +163,7 @@
       <label>Text</label>
       <input type="text" id="tts-text" placeholder="Type text to speak...">
       <div class="btn-group">
-        <button class="btn primary" onclick="ttsSpeak()">Speak</button>
-        <button class="btn danger" onclick="ttsCancel()">Cancel</button>
+        <button class="btn primary" onclick="ttsSpeakAndPlay()">Generate & Play</button>
       </div>
       <label>Result</label>
       <div class="value" id="tts-result">—</div>
@@ -276,7 +275,10 @@
     }
 
     function setStatus(el, text, color) {
-      el.innerHTML = `<span class="status-indicator ${color}"></span>${text}`;
+      const indicator = document.createElement('span');
+      indicator.className = `status-indicator ${color}`;
+      el.textContent = text;
+      el.insertBefore(indicator, el.firstChild);
     }
 
     // ── TTS ──
@@ -284,7 +286,7 @@
       const voice = document.getElementById('tts-voice').value;
       const text = document.getElementById('tts-text').value;
       try {
-        const resp = await api('/api/tts/synthesize', {
+        const resp = await api('/api/tts/generate', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({text, voice}),
@@ -296,9 +298,15 @@
       }
     }
 
-    async function ttsCancel() {
+    async function ttsSpeakAndPlay() {
+      const voice = document.getElementById('tts-voice').value;
+      const text = document.getElementById('tts-text').value;
       try {
-        const resp = await api('/api/tts/cancel', {method: 'POST'});
+        const resp = await api('/api/tts/speak', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({text, voice}),
+        });
         const data = await resp.json();
         document.getElementById('tts-result').textContent = JSON.stringify(data);
       } catch (e) {
