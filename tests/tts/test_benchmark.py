@@ -3,6 +3,7 @@
 import pytest
 import csv
 import tempfile
+import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 import numpy as np
@@ -40,10 +41,14 @@ class TestBenchmark:
             mock_model = MagicMock()
             mock_model.ready = True
             mock_model.sample_rate = 24000
-            # Return a simple sine wave tensor
-            mock_audio = MagicMock()
-            mock_audio.detach.return_value.cpu.return_value.numpy.return_value = np.sin(np.linspace(0, 10, 24000)).astype(np.float32)
-            mock_model.generate_audio.return_value = mock_audio
+            # Return a real numpy array (short sine wave)
+            mock_audio_np = np.sin(np.linspace(0, 10, 24000)).astype(np.float32)
+
+            def generate_with_delay(voice_state, text):
+                time.sleep(0.01)  # Simulate 10ms generation time
+                return mock_audio_np
+
+            mock_model.generate_audio.side_effect = generate_with_delay
 
             with patch("ziomek.tts.benchmark.TTSModelWrapper", return_value=mock_model):
                 try:
@@ -61,6 +66,41 @@ class TestBenchmark:
                 assert "voice" in reader.fieldnames
                 assert "gen_time_ms" in reader.fieldnames
                 assert len(rows) == 3  # 3 sample texts × 1 iteration
+
+    def test_benchmark_long_text(self):
+        """Benchmark handles longer paragraphs correctly."""
+        from ziomek.tts.benchmark import _run_benchmark
+
+        mock_model = MagicMock()
+        mock_model.ready = True
+        mock_model.sample_rate = 24000
+        # Return a real numpy array (longer sine wave for longer text)
+        mock_audio_np = np.sin(np.linspace(0, 10, 72000)).astype(np.float32)
+        mock_model.generate_audio.return_value = mock_audio_np
+
+        voice_cache = MagicMock()
+        voice_cache.load_voice.return_value = {"prompt": "cosette"}
+
+        long_text = (
+            "The concept of artificial intelligence has evolved dramatically over the past "
+            "decade. From simple rule-based systems to sophisticated deep learning models, "
+            "AI has transformed industries ranging from healthcare to finance. Machine learning "
+            "algorithms can now process vast amounts of data, recognize patterns in images and "
+            "speech, and even generate creative content. The integration of natural language "
+            "processing has made human-computer interaction more intuitive than ever before. "
+            "As these technologies continue to advance, the potential for AI to augment human "
+            "capabilities and solve complex global challenges becomes increasingly apparent."
+        )
+
+        results = _run_benchmark(mock_model, voice_cache, "cosette", [long_text], 2)
+
+        assert len(results) == 2  # 2 iterations
+        for r in results:
+            assert r["voice"] == "cosette"
+            assert r["duration_s"] > 0  # Should have audio duration (72000 / 24000 = 3s)
+            assert r["gen_time_ms"] >= 0  # Should have generation time
+            assert r["rms"] > 0  # Should have non-zero RMS
+            assert r["peak"] > 0  # Should have non-zero peak
 
     def test_benchmark_print_summary(self):
         """Benchmark summary prints correctly."""
