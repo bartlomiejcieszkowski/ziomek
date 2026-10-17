@@ -8,9 +8,12 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 import numpy as np
 
+from ziomek.tts.engine import TTSModelWrapper
+from ziomek.tts.voice import VoiceStateCache
 
-class TestBenchmark:
-    """Tests for TTS benchmark module."""
+
+class TestBenchmarkMock:
+    """Tests for TTS benchmark module using mocked model."""
 
     def test_benchmark_imports(self):
         """Benchmark module imports successfully."""
@@ -120,3 +123,32 @@ class TestBenchmark:
         ]
         # Should not raise
         _print_summary(results)
+
+
+class TestBenchmarkReal:
+    """Tests for TTS benchmark module using real TTS model."""
+
+    def test_benchmark_real_generation(self):
+        """Benchmark generates actual WAV from real TTS model."""
+        from ziomek.tts.benchmark import _run_benchmark
+
+        model = TTSModelWrapper()
+        assert not model.ready, "Model should start unloaded"
+
+        # Load the model
+        model.load()
+        assert model.ready, "Model should be ready after load()"
+
+        voice_cache = VoiceStateCache(model)
+
+        # Benchmark a short text
+        results = _run_benchmark(model, voice_cache, "cosette", ["Hello world"], 1)
+
+        assert len(results) == 1
+        r = results[0]
+        assert r["voice"] == "cosette"
+        assert r["duration_s"] > 0  # Real audio has duration
+        assert r["gen_time_ms"] > 0  # Real generation takes time
+        assert r["rms"] > 0  # Real audio has non-zero RMS
+        assert r["peak"] > 0  # Real audio has non-zero peak
+        assert r["sample_rate"] == 24000
