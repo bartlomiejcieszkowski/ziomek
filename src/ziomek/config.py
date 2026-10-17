@@ -19,7 +19,7 @@ class Settings(BaseModel):
     no_vscode: bool = False
     no_browser: bool = False
     stt_engine: str = "faster_whisper"
-    stt_model: str = "tiny.en"
+    stt_model: str = "tiny"
     stt_model_dir: str | None = None
 
     @classmethod
@@ -141,7 +141,7 @@ class Settings(BaseModel):
 
 # STT (Speech-to-Text) settings
 # stt_engine: faster_whisper
-# stt_model: tiny.en
+# stt_model: tiny
 # stt_model_dir:
 """
         p = Path(path).resolve()

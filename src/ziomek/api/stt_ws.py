@@ -129,7 +129,7 @@ async def stt_stream(websocket: WebSocket) -> None:
                     await websocket.send_json({"type": "error", "message": "STT engine not initialized"})
                     continue
                 engine = data.get("engine", "faster_whisper")
-                model = data.get("model", "tiny.en")
+                model = data.get("model", "tiny")
                 success, message = _stt_engine.reconfigure(engine, model)
                 await websocket.send_json({
                     "type": "reconfigured",

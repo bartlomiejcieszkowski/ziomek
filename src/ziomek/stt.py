@@ -38,7 +38,7 @@ class STTStats:
     """Runtime stats for the STT engine."""
     state: STTState = STTState.IDLE
     engine_name: str = "faster_whisper"
-    model_name: str = "tiny.en"
+    model_name: str = "tiny"
     last_text: str = ""
     last_is_final: bool = False
     transcription_count: int = 0
@@ -54,7 +54,7 @@ class STTEngine:
     Args:
         engine_name: RealtimeSTT transcription engine name.
             ``"faster_whisper"`` (default, recommended) or ``"whisper_cpp"``.
-        model_name: Model identifier (e.g. ``"tiny.en"``, ``"base.en"``).
+        model_name: Model identifier (e.g. ``"tiny"``, ``"base"``).
         model_dir: Optional download root / model directory.
         on_transcription: Callback invoked with each :class:`STTResult`.
         verbose: Enable detailed logging of STT events (VAD, recording, transcription).
@@ -63,7 +63,7 @@ class STTEngine:
     def __init__(
         self,
         engine_name: str = "faster_whisper",
-        model_name: str = "tiny.en",
+        model_name: str = "tiny",
         model_dir: str | None = None,
         on_transcription: Callable[[STTResult], None] | None = None,
         verbose: bool = False,
@@ -207,7 +207,7 @@ class STTEngine:
                 model=self._model_name,
                 device="cpu",
                 enable_realtime_transcription=True,
-                realtime_model_type="tiny.en",
+                realtime_model_type="tiny",
                 beam_size_realtime=1,
                 download_root=self._model_dir or "",
                 silero_backend=None,
@@ -309,7 +309,7 @@ class STTEngine:
                     model=self._model_name,
                     device="cpu",
                     enable_realtime_transcription=True,
-                    realtime_model_type="tiny.en",
+                    realtime_model_type="tiny",
                     beam_size_realtime=1,
                     download_root=self._model_dir or "",
                     silero_backend=None,
@@ -419,11 +419,11 @@ class STTEngine:
         self.stop()
 
 
-def download_model(model_name: str = "tiny.en", download_root: str | None = None) -> Path:
+def download_model(model_name: str = "tiny", download_root: str | None = None) -> Path:
     """Download a faster-whisper model file. Returns path to downloaded model.
 
     Args:
-        model_name: Model identifier (e.g. ``"tiny.en"``, ``"base.en"``).
+        model_name: Model identifier (e.g. ``"tiny"``, ``"base"``).
         download_root: Directory to download the model to. Defaults to cache dir.
 
     Returns:

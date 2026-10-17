@@ -87,7 +87,7 @@ uv run ziomek --host 0.0.0.0 --port 5004 --log-level INFO --voice cosette --cach
 | `--no-vscode` | false | Disable VS Code WebSocket relay and gamepad polling |
 | `--no-browser` | false | Disable local browser view |
 | `--stt-engine` | faster_whisper | STT engine (faster_whisper) |
-| `--stt-model` | tiny.en | STT model (tiny.en, base.en, small.en) |
+| `--stt-model` | tiny | STT model (tiny, base, small, medium) |
 | `--dev` | false | Enable debug endpoints and debug page |
 | `-v, --verbose` | false | Enable DEBUG logging |
 

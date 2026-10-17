@@ -77,7 +77,7 @@ def main():
         "--stt-model",
         type=str,
         default=None,
-        help="STT model (tiny.en, base.en, small.en)",
+        help="STT model (tiny, base, small, medium)",
     )
     parser.add_argument(
         "--stt-model-dir",

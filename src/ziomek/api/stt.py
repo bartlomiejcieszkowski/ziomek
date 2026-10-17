@@ -16,10 +16,10 @@ router = APIRouter(prefix="/api/stt", tags=["STT"])
 
 # Available faster-whisper models
 AVAILABLE_MODELS = [
-    "tiny.en",
-    "base.en",
-    "small.en",
-    "medium.en",
+    "tiny",
+    "base",
+    "small",
+    "medium",
     "large-v3",
 ]
 
@@ -35,7 +35,7 @@ class ReconfigureRequest(BaseModel):
     """Request body for engine/model reconfiguration."""
 
     engine: str = "faster_whisper"
-    model: str = "tiny.en"
+    model: str = "tiny"
 
 
 @router.get(
@@ -169,5 +169,5 @@ async def stt_models() -> dict:
     """List available faster-whisper models."""
     return {
         "models": AVAILABLE_MODELS,
-        "default": "tiny.en",
+        "default": "tiny",
     }

@@ -84,7 +84,7 @@ class TestSTTWebSocket:
         import ziomek.server as server_module
         mock_engine = MagicMock()
         mock_engine.stats.engine_name = "faster_whisper"
-        mock_engine.stats.model_name = "tiny.en"
+        mock_engine.stats.model_name = "tiny"
         mock_engine.stats.state = STTState.IDLE
         mock_engine.stats.transcription_count = 42
         server_module._stt_engine = mock_engine
@@ -96,7 +96,7 @@ class TestSTTWebSocket:
                 data = ws.receive_json()
                 assert data["type"] == "status"
                 assert data["engine"] == "faster_whisper"
-                assert data["model"] == "tiny.en"
+                assert data["model"] == "tiny"
                 assert data["transcription_count"] == 42
         finally:
             server_module._stt_engine = None

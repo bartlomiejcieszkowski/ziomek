@@ -10,7 +10,7 @@ class TestSTTEngineInitialization:
         engine = STTEngine()
         assert engine.state == STTState.IDLE
         assert engine.stats.engine_name == "faster_whisper"
-        assert engine.stats.model_name == "tiny.en"
+        assert engine.stats.model_name == "tiny"
 
     def test_custom_initialization(self):
         engine = STTEngine(
@@ -62,7 +62,7 @@ class TestDownloadModel:
 
         # This may fail if faster_whisper not installed, which is OK
         try:
-            result = download_model("tiny.en")
+            result = download_model("tiny")
             assert isinstance(result, (str, Path))
         except ImportError:
             pytest.skip("faster_whisper not installed")

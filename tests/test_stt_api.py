@@ -81,15 +81,15 @@ class TestSTTModels:
         assert resp.status_code == 200
         data = resp.json()
         assert "models" in data
-        assert "tiny.en" in data["models"]
-        assert "base.en" in data["models"]
-        assert "small.en" in data["models"]
+        assert "tiny" in data["models"]
+        assert "base" in data["models"]
+        assert "small" in data["models"]
 
     def test_models_has_default(self, client):
         """Models endpoint includes default."""
         resp = client.get("/api/stt/models")
         data = resp.json()
-        assert data["default"] == "tiny.en"
+        assert data["default"] == "tiny"
 
 
 class TestSTTTranscribe:

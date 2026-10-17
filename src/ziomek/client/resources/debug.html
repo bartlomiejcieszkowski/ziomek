@@ -205,7 +205,7 @@
       </select>
       <label>Model</label>
       <select id="stt-model" onchange="reconfigureSTT()">
-        <option value="tiny.en" selected>tiny.en</option>
+        <option value="tiny" selected>tiny</option>
         <option value="base.en">base.en</option>
         <option value="small.en">small.en</option>
       </select>
@@ -413,7 +413,7 @@
 
     function reconfigureSTT() {
       const engine = document.getElementById('stt-engine')?.value || 'faster_whisper';
-      const model = document.getElementById('stt-model')?.value || 'tiny.en';
+      const model = document.getElementById('stt-model')?.value || 'tiny';
       sendSTTCommand('reconfigure', { engine, model });
     }
 
