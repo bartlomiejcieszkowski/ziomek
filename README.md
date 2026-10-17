@@ -88,6 +88,8 @@ uv run ziomek --host 0.0.0.0 --port 5004 --log-level INFO --voice cosette --cach
 | `--no-browser` | false | Disable local browser view |
 | `--stt-engine` | faster_whisper | STT engine (faster_whisper) |
 | `--stt-model` | tiny.en | STT model (tiny.en, base.en, small.en) |
+| `--dev` | false | Enable debug endpoints and debug page |
+| `-v, --verbose` | false | Enable DEBUG logging |
 
 **Usage modes:**
 
@@ -97,6 +99,67 @@ uv run ziomek --host 0.0.0.0 --port 5004 --log-level INFO --voice cosette --cach
 | `uv run ziomek --no-vscode` | Browser view only (no extension needed) |
 | `uv run ziomek --no-browser` | VS Code relay only (headless) |
 | `uv run ziomek --no-browser --no-vscode` | Standalone API only |
+| `uv run ziomek --dev` | Full server with debug page at `/debug` |
+| `uv run ziomek -v` | Full server with verbose DEBUG logging |
+
+### STT (Speech-to-Text)
+
+**HTTP endpoints:**
+
+```bash
+# Check STT status
+curl http://localhost:5004/api/stt/status
+
+# Start recording
+curl -X POST http://localhost:5004/api/stt/start
+
+# Stop recording
+curl -X POST http://localhost:5004/api/stt/stop
+
+# One-shot transcription (base64 WAV audio)
+curl -X POST http://localhost:5004/api/stt/transcribe \
+  -H "Content-Type: application/json" \
+  -d '{"audio_b64": "<base64>", "sample_rate": 16000}'
+
+# Reconfigure engine/model
+curl -X POST http://localhost:5004/api/stt/reconfigure \
+  -H "Content-Type: application/json" \
+  -d '{"engine": "faster_whisper", "model": "base.en"}'
+
+# List available models
+curl http://localhost:5004/api/stt/models
+```
+
+**WebSocket streaming:**
+
+```bash
+# Live transcription via WebSocket
+wscat -c ws://localhost:5004/api/stt/stream
+
+# Send commands:
+# { "action": "start" }   # Start recording
+# { "action": "stop" }    # Stop recording
+# { "action": "status" }  # Get status
+# { "action": "reconfigure", "engine": "faster_whisper", "model": "base.en" }
+```
+
+**Debug page:**
+
+```bash
+# Start with debug mode
+uv run ziomek --dev
+
+# Open debug page in browser
+open http://localhost:5004/debug
+```
+
+The debug page provides interactive controls for:
+- TTS: voice selection, text input, speak/cancel buttons
+- Avatar: expression selection, state display
+- STT: engine/model switching, VAD toggle, live transcription, stats
+- Gamepad: connection status, button/axis state
+- Server: uptime, log level toggle, recent log entries
+- Cache: directory, size, file list
 
 ## VS Code Extension Configuration
 
@@ -108,6 +171,73 @@ uv run ziomek --host 0.0.0.0 --port 5004 --log-level INFO --voice cosette --cach
 | `ziomek.tts.voice` | cosette | Voice identifier for TTS |
 | `ziomek.tts.backend` | stub | TTS backend ('stub' or 'ziomek') |
 | `ziomek.debounceMs` | 80 | Minimum time between repeated actions (ms) |
+
+## API Endpoints
+
+### TTS (Text-to-Speech)
+
+```bash
+# Synthesize speech (returns WAV file)
+curl -X POST http://localhost:5004/api/tts/generate \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Hello, this is a test"}' \
+  -o speech.wav
+
+# List available voices
+curl http://localhost:5004/api/tts/voices
+```
+
+### STT (Speech-to-Text)
+
+```bash
+# Check STT status
+curl http://localhost:5004/api/stt/status
+
+# Start/stop recording
+curl -X POST http://localhost:5004/api/stt/start
+curl -X POST http://localhost:5004/api/stt/stop
+
+# One-shot transcription
+curl -X POST http://localhost:5004/api/stt/transcribe \
+  -H "Content-Type: application/json" \
+  -d '{"audio_b64": "<base64>", "sample_rate": 16000}'
+
+# Reconfigure engine/model
+curl -X POST http://localhost:5004/api/stt/reconfigure \
+  -H "Content-Type: application/json" \
+  -d '{"engine": "faster_whisper", "model": "base.en"}'
+
+# List available models
+curl http://localhost:5004/api/stt/models
+```
+
+**WebSocket streaming:**
+
+```bash
+wscat -c ws://localhost:5004/api/stt/stream
+```
+
+### Avatar
+
+```bash
+# Get current state
+curl http://localhost:5004/api/avatar/state
+
+# Set expression
+curl -X POST http://localhost:5004/api/avatar/expression \
+  -H "Content-Type: application/json" \
+  -d '{"expression": "happy"}'
+
+# List available expressions
+curl http://localhost:5004/api/avatar/expressions
+```
+
+### Health
+
+```bash
+# Server status (uptime, audio backend, STT info)
+curl http://localhost:5004/status
+```
 
 ## Default Gamepad Mapping
 
