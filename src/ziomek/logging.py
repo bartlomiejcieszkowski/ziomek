@@ -107,21 +107,23 @@ def setup_logging(level: str = "INFO", enable_buffer: bool = False, log_file: st
     
     numeric_level = getattr(logging, level.upper(), logging.INFO)
     
-    # Stdout: colored format (like uvicorn)
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.setFormatter(ColourizedFormatter(
+    # Stdout: force UTF-8 encoding to handle non-ASCII characters in logs
+    # (e.g., RealtimeSTT transcription text with accents, emojis, etc.)
+    utf8_stdout = logging.StreamHandler(sys.stdout)
+    utf8_stdout.stream.reconfigure(encoding="utf-8", errors="replace")
+    utf8_stdout.setFormatter(ColourizedFormatter(
         "%(asctime)s [%(levelname)s] %(name)s - %(message)s",
         datefmt="%H:%M:%S",
         use_colors=True,
     ))
     logger = logging.getLogger("ziomek")
     logger.setLevel(numeric_level)
-    logger.addHandler(stdout_handler)
+    logger.addHandler(utf8_stdout)
     logger.propagate = False
     
     # Log file: JSON format (if specified)
     if log_file:
-        file_handler = logging.FileHandler(log_file)
+        file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setFormatter(JSONFormatter())
         logger.addHandler(file_handler)
     
@@ -130,12 +132,27 @@ def setup_logging(level: str = "INFO", enable_buffer: bool = False, log_file: st
         uv_logger = logging.getLogger(uvicorn_logger)
         uv_logger.handlers.clear()
         uv_handler = logging.StreamHandler(sys.stdout)
+        uv_handler.stream.reconfigure(encoding="utf-8", errors="replace")
         uv_handler.setFormatter(ColourizedFormatter(
             "%(message)s",
             use_colors=True,
         ))
         uv_logger.addHandler(uv_handler)
         uv_logger.propagate = False
+    
+    # Also configure all third-party loggers (RealtimeSTT, whisper, etc.)
+    # to use UTF-8 stdout so they don't crash on non-ASCII characters
+    for third_party in ["realtimestt", "RealtimeSTT", "whisper", "ctranslate2", "torch"]:
+        tp_logger = logging.getLogger(third_party)
+        tp_logger.handlers.clear()
+        tp_handler = logging.StreamHandler(sys.stdout)
+        tp_handler.stream.reconfigure(encoding="utf-8", errors="replace")
+        tp_handler.setFormatter(logging.Formatter(
+            "%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+            datefmt="%H:%M:%S",
+        ))
+        tp_logger.addHandler(tp_handler)
+        tp_logger.propagate = False
     
     if enable_buffer:
         buf = _LogRingBuffer()
