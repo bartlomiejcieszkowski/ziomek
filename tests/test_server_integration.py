@@ -141,10 +141,7 @@ class TestRealServerEndpoints:
 
     def test_avatar_expression_endpoint(self, real_server):
         """Verify /api/avatar/expression returns 200."""
-        resp = httpx.post(
-            f"{real_server}/api/avatar/expression",
-            json={"name": "bored"}
-        )
+        resp = httpx.post(f"{real_server}/api/avatar/expression", json={"name": "bored"})
         assert resp.status_code == 200
 
     def test_avatar_input_endpoint(self, real_server):
@@ -158,7 +155,7 @@ class TestRealServerEndpoints:
                 "streaming": False,
                 "chatFocused": False,
                 "errorState": False,
-            }
+            },
         )
         assert resp.status_code == 200
 
@@ -169,11 +166,7 @@ class TestRealServerEndpoints:
 
     def test_avatar_speak_returns_200_with_tts(self, real_server):
         """Verify /api/avatar/speak works when TTS model is loaded."""
-        resp = httpx.post(
-            f"{real_server}/api/avatar/speak",
-            json={"text": "hello"},
-            timeout=60.0
-        )
+        resp = httpx.post(f"{real_server}/api/avatar/speak", json={"text": "hello"}, timeout=60.0)
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "playing"

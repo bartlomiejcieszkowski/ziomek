@@ -66,6 +66,8 @@ class STTEngine:
         self._model_name = model_name
         self._model_dir = model_dir
         self._on_transcription = on_transcription
+        self._transcription_queue: list[STTResult] = []
+        self._queue_lock = threading.Lock()
         self._verbose = verbose
         self._recorder = None
         self._thread: threading.Thread | None = None
@@ -77,6 +79,35 @@ class STTEngine:
         self._lock = threading.Lock()
         self._recording_start_time: float = 0.0
         self._recording_active = False
+
+    def _notify_transcription(self, result: STTResult) -> None:
+        """Notify transcription callback (handles async callbacks safely)."""
+        # Store in queue for sync access
+        with self._queue_lock:
+            self._transcription_queue.append(result)
+        # Call callback if provided
+        if self._on_transcription:
+            try:
+                import asyncio
+                loop = None
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    pass
+                if loop and loop.is_running():
+                    asyncio.run_coroutine_threadsafe(
+                        self._on_transcription(result), loop
+                    )
+                else:
+                    # No running loop — call directly (sync callback)
+                    import inspect
+                    if inspect.iscoroutinefunction(self._on_transcription):
+                        # Can't run async without a loop — skip
+                        logger.warning("Async transcription callback but no event loop")
+                    else:
+                        self._on_transcription(result)
+            except Exception:
+                logger.exception("Failed to notify transcription callback")
 
     @property
     def stats(self) -> STTStats:
@@ -199,6 +230,111 @@ class STTEngine:
         self._thread = threading.Thread(target=self._listen_loop, daemon=True)
         self._thread.start()
 
+    def start_recording(self) -> None:
+        """Start audio recording for transcription (non-blocking)."""
+        if self._recorder is None:
+            raise RuntimeError("STT engine not initialized. Call start() first.")
+        if self._recording_active:
+            raise RuntimeError("Already recording")
+        try:
+            self._recorder.start()  # type: ignore[union-attr]
+            with self._lock:
+                self._stats.state = STTState.LISTENING
+        except Exception:
+            logger.exception("Failed to start recording")
+            raise RuntimeError("Failed to start recording")
+
+    def stop_recording(self) -> None:
+        """Stop audio recording (non-blocking). Engine remains ready."""
+        if self._recorder is None:
+            raise RuntimeError("STT engine not initialized")
+        if not self._recording_active:
+            raise RuntimeError("Not currently recording")
+        try:
+            self._recorder.stop()  # type: ignore[union-attr]
+            with self._lock:
+                self._stats.state = STTState.IDLE
+        except Exception:
+            logger.exception("Failed to stop recording")
+            raise RuntimeError("Failed to stop recording")
+
+    def reconfigure(self, engine_name: str, model_name: str) -> tuple[bool, str]:
+        """Reconfigure STT engine with new engine/model.
+
+        Stops recording, shuts down recorder, recreates with new params,
+        restarts engine in idle state.
+
+        Args:
+            engine_name: New engine name (e.g. "faster_whisper").
+            model_name: New model name (e.g. "base.en").
+
+        Returns:
+            (success, message) tuple.
+        """
+        with self._lock:
+            # Save previous config for rollback
+            prev_engine = self._engine_name
+            prev_model = self._model_name
+
+            # Stop recording if active
+            if self._recording_active and self._recorder:
+                try:
+                    self._recorder.stop()  # type: ignore[union-attr]
+                except Exception:
+                    pass
+                self._recording_active = False
+
+            # Shut down recorder
+            if self._recorder:
+                try:
+                    self._recorder.shutdown()
+                except Exception:
+                    pass
+                self._recorder = None
+
+            # Update config
+            self._engine_name = engine_name
+            self._model_name = model_name
+
+            # Try to recreate recorder
+            try:
+                self._recorder = AudioToTextRecorder(
+                    transcription_engine=self._engine_name,
+                    model=self._model_name,
+                    device="cpu",
+                    enable_realtime_transcription=True,
+                    realtime_model_type="tiny.en",
+                    beam_size_realtime=1,
+                    download_root=self._model_dir or "",
+                    silero_backend=None,
+                    spinner=False,
+                    level=logging.WARNING,
+                    on_recording_start=self._on_recording_start,
+                    on_recording_stop=self._on_recording_stop,
+                    on_vad_start=self._on_vad_start,
+                    on_vad_stop=self._on_vad_stop,
+                    on_vad_detect_start=self._on_vad_detect_start,
+                    on_vad_detect_stop=self._on_vad_detect_stop,
+                    on_transcription_start=self._on_transcription_start,
+                    on_realtime_transcription_update=self._on_realtime_transcription_update,
+                    on_realtime_transcription_stabilized=self._on_realtime_transcription_stabilized,
+                    on_recorded_chunk=self._on_recorded_chunk,
+                )
+                with self._lock:
+                    self._stats.engine_name = engine_name
+                    self._stats.model_name = model_name
+                    self._stats.state = STTState.IDLE
+                return True, f"Reconfigured to {engine_name}/{model_name}"
+            except Exception:
+                logger.exception("Failed to recreate recorder with new config")
+                # Rollback
+                self._engine_name = prev_engine
+                self._model_name = prev_model
+                with self._lock:
+                    self._stats.engine_name = prev_engine
+                    self._stats.model_name = prev_model
+                return False, f"Failed to reconfigure to {engine_name}/{model_name}"
+
     def stop(self) -> None:
         """Stop the STT engine."""
         self._running = False
@@ -212,13 +348,35 @@ class STTEngine:
             self._stats.state = STTState.IDLE
 
     def transcribe_chunk(self, audio_data: bytes, sample_rate: int = 16000) -> STTResult:
-        """Transcribe a single audio chunk (non-streaming mode)."""
+        """Transcribe a single audio chunk (non-streaming mode).
+
+        Note: RealtimeSTT's text() method blocks in streaming mode.
+        This method uses a timeout to avoid hanging.
+        """
         if self._recorder is None:
             return STTResult(text="", is_final=True, realtime=False)
         try:
             self._recorder.feed_audio(audio_data, sample_rate)
+            # Use a short timeout to avoid blocking indefinitely
+            import threading
+            result = [None]
+            event = threading.Event()
+
+            def get_text():
+                try:
+                    result[0] = self._recorder.text()  # type: ignore[union-attr]
+                except Exception:
+                    result[0] = ""
+                event.set()
+
+            thread = threading.Thread(target=get_text, daemon=True)
+            thread.start()
+            event.wait(timeout=2.0)
+
+            if result[0] is None:
+                return STTResult(text="", is_final=True, realtime=False)
             return STTResult(
-                text=self._recorder.text(),
+                text=result[0] or "",
                 is_final=True,
                 realtime=False,
             )
@@ -240,7 +398,7 @@ class STTEngine:
                         self._stats.last_is_final = True
                         self._stats.transcription_count += 1
                     if self._on_transcription:
-                        self._on_transcription(STTResult(
+                        self._notify_transcription(STTResult(
                             text=text,
                             is_final=True,
                             realtime=False,

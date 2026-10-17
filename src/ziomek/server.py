@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
 from ziomek import __version__
+from ziomek.api.stt_ws import router as stt_ws_router
 from ziomek.avatar.skins import SkinRegistry
 from ziomek.avatar.state_machine import AvatarInput, AvatarStateMachine
 from ziomek.config import Settings
@@ -124,10 +125,14 @@ def create_app(settings: Settings | None = None, dev_mode: bool = False, verbose
     _skin_registry = SkinRegistry()
     # Initialize STT engine (optional, can be disabled)
     if not settings.no_vscode:
+        global _stt_engine
+        from ziomek.api.stt_ws import _stt_callback
+
         _stt_engine = STTEngine(
             engine_name=settings.stt_engine,
             model_name=settings.stt_model,
             model_dir=settings.stt_model_dir,
+            on_transcription=_stt_callback,
             verbose=verbose,
         )
         _stt_engine.start()
@@ -142,11 +147,13 @@ def create_app(settings: Settings | None = None, dev_mode: bool = False, verbose
         _logger.info("Gamepad polling thread started")
 
     # Include routers
-    from ziomek.api import avatar, debug, health, tts
+    from ziomek.api import avatar, debug, health, stt, tts
 
     app.include_router(tts.router)
+    app.include_router(stt.router)
     app.include_router(avatar.router)
     app.include_router(health.router)
+    app.include_router(stt_ws_router)
 
     # Debug endpoints (only in dev mode)
     if dev_mode:

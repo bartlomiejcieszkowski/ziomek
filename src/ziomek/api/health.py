@@ -29,6 +29,18 @@ async def status():
         audio_backend = _audio_player.backend_name
         audio_device = _audio_player.device_name
 
+    # STT info
+    stt_info: dict[str, object] = {"engine": None, "model": None, "state": None}
+    from ziomek.server import _stt_engine
+
+    if _stt_engine is not None:
+        stats = _stt_engine.stats
+        stt_info = {
+            "engine": stats.engine_name,
+            "model": stats.model_name,
+            "state": stats.state.value,
+        }
+
     # Cache stats
     cache_stats: dict[str, object] = {"size_mb": 0, "files": 0}
     if _voice_cache is not None and _voice_cache._cache_dir:
@@ -49,6 +61,7 @@ async def status():
         "cache_stats": cache_stats,
         "endpoints": {
             "tts": ["POST /api/tts/generate", "POST /api/tts/speak", "GET /api/tts/status", "GET /api/tts/voices"],
+            "stt": ["GET /api/stt/status", "POST /api/stt/start", "POST /api/stt/stop", "POST /api/stt/transcribe", "WS /api/stt/stream"],
             "avatar": [
                 "POST /api/avatar/input",
                 "GET /api/avatar/state",
@@ -58,6 +71,7 @@ async def status():
                 "GET /api/avatar/view",
             ],
         },
+        "stt": stt_info,
     }
 
 

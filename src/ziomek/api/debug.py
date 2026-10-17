@@ -39,7 +39,12 @@ def _get_server_globals() -> dict[str, Any]:
         "state_machine_initialized": _state_machine is not None,
         "stt_engine_initialized": _stt_engine is not None,
         "stt_engine_state": _stt_engine.state.value if _stt_engine else None,
-        "stt_stats": asdict(_stt_engine.stats) if _stt_engine else None,
+        "stt_stats": {
+            "state": _stt_engine.stats.state.value if _stt_engine else None,
+            "engine_name": _stt_engine.stats.engine_name if _stt_engine else None,
+            "model_name": _stt_engine.stats.model_name if _stt_engine else None,
+            "transcription_count": _stt_engine.stats.transcription_count if _stt_engine else 0,
+        } if _stt_engine else None,
         "gamepad_manager_initialized": _gamepad_manager is not None,
     }
     return state

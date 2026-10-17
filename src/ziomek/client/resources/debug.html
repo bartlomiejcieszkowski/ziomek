@@ -199,16 +199,19 @@
         <button class="btn danger" id="stt-stop-btn" onclick="sttStop()" disabled>Stop</button>
       </div>
       <label>Engine</label>
-      <select id="stt-engine">
+      <select id="stt-engine" onchange="reconfigureSTT()">
         <option value="faster_whisper" selected>faster_whisper</option>
         <option value="whisper_cpp">whisper_cpp ⚠️</option>
       </select>
       <label>Model</label>
-      <select id="stt-model">
+      <select id="stt-model" onchange="reconfigureSTT()">
         <option value="tiny.en" selected>tiny.en</option>
         <option value="base.en">base.en</option>
         <option value="small.en">small.en</option>
       </select>
+      <div class="btn-group">
+        <button class="btn" onclick="reconfigureSTT()">Apply</button>
+      </div>
       <label>VAD</label>
       <div class="btn-group">
         <button class="btn" id="vad-toggle" onclick="toggleVAD()">Enable</button>
@@ -340,64 +343,92 @@
       }
     }
 
-    // ── STT ──
-    let sttRunning = false;
+    // ── STT (WebSocket) ──
+    let sttWs: WebSocket | null = null;
+    let sttConnected = false;
 
-    async function sttStart() {
-      sttRunning = true;
+    function connectSTTWebSocket() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/api/stt/stream`;
+      sttWs = new WebSocket(wsUrl);
+
+      sttWs.onopen = () => {
+        sttConnected = true;
+        addTranscriptionEntry('STT WebSocket connected', 'info');
+        document.getElementById('stt-start-btn').disabled = false;
+        refreshSTTStatus();
+      };
+
+      sttWs.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'transcription') {
+          addTranscriptionEntry(
+            `${data.text}${data.is_final ? ' ✓' : '...'}`,
+            data.is_final ? 'success' : 'info'
+          );
+          updateSTTStats(data);
+        } else if (data.type === 'status') {
+          updateSTTStats(data);
+        } else if (data.type === 'reconfigured') {
+          addTranscriptionEntry(
+            `Reconfigured: ${data.engine}/${data.model}`,
+            data.success ? 'success' : 'error'
+          );
+        } else if (data.type === 'error') {
+          addTranscriptionEntry(`STT error: ${data.message}`, 'error');
+        }
+      };
+
+      sttWs.onclose = () => {
+        sttConnected = false;
+        addTranscriptionEntry('STT WebSocket disconnected', 'error');
+        document.getElementById('stt-start-btn').disabled = true;
+        setTimeout(connectSTTWebSocket, 3000); // Reconnect
+      };
+
+      sttWs.onerror = (error) => {
+        addTranscriptionEntry('STT WebSocket error', 'error');
+      };
+    }
+
+    function sendSTTCommand(action: string, extra: Record<string, string> = {}) {
+      if (!sttWs || sttWs.readyState !== WebSocket.OPEN) {
+        addTranscriptionEntry('STT not connected', 'error');
+        return;
+      }
+      sttWs.send(JSON.stringify({ action, ...extra }));
+    }
+
+    function sttStart() {
+      sendSTTCommand('start');
       document.getElementById('stt-start-btn').disabled = true;
       document.getElementById('stt-stop-btn').disabled = false;
-      addTranscriptionEntry('STT started...', 'info');
     }
 
-    async function sttStop() {
-      sttRunning = false;
+    function sttStop() {
+      sendSTTCommand('stop');
       document.getElementById('stt-start-btn').disabled = false;
       document.getElementById('stt-stop-btn').disabled = true;
-      addTranscriptionEntry('STT stopped', 'info');
     }
 
-    function toggleVAD() {
-      const btn = document.getElementById('vad-toggle');
-      if (btn.textContent === 'Enable') {
-        btn.textContent = 'Disable';
-        btn.classList.add('active');
-      } else {
-        btn.textContent = 'Enable';
-        btn.classList.remove('active');
-      }
+    function reconfigureSTT() {
+      const engine = document.getElementById('stt-engine')?.value || 'faster_whisper';
+      const model = document.getElementById('stt-model')?.value || 'tiny.en';
+      sendSTTCommand('reconfigure', { engine, model });
     }
 
-    function addTranscriptionEntry(text, type) {
-      const el = document.getElementById('transcription-output');
-      const time = new Date().toLocaleTimeString();
-      const div = document.createElement('div');
-      div.className = 'entry';
-      div.innerHTML = `<span class="time">[${time}]</span> ${text}`;
-      el.appendChild(div);
-      el.scrollTop = el.scrollHeight;
+    function updateSTTStats(data: any) {
+      const statsEl = document.getElementById('stt-stats');
+      if (!statsEl) return;
+      statsEl.innerHTML =
+        `<div class="value-row"><span class="key">State</span><span class="val">${data.state || '—'}</span></div>` +
+        `<div class="value-row"><span class="key">Engine</span><span class="val">${data.engine || '—'}</span></div>` +
+        `<div class="value-row"><span class="key">Model</span><span class="val">${data.model || '—'}</span></div>` +
+        `<div class="value-row"><span class="key">Transcriptions</span><span class="val">${data.transcription_count || 0}</span></div>`;
     }
 
-    async function refreshSTTState() {
-      try {
-        const data = await api('/api/debug/state');
-        if (data.stt_engine_initialized) {
-          setStatus(document.getElementById('gamepad-status'), 'STT initialized', 'green');
-          const stats = data.stt_stats;
-          if (stats) {
-            document.getElementById('stt-stats').innerHTML =
-              `<div class="value-row"><span class="key">State</span><span class="val">${stats.state}</span></div>` +
-              `<div class="value-row"><span class="key">Engine</span><span class="val">${stats.engine_name}</span></div>` +
-              `<div class="value-row"><span class="key">Model</span><span class="val">${stats.model_name}</span></div>` +
-              `<div class="value-row"><span class="key">Transcriptions</span><span class="val">${stats.transcription_count}</span></div>` +
-              `<div class="value-row"><span class="key">Last Text</span><span class="val">${stats.last_text || '—'}</span></div>`;
-          }
-        } else {
-          setStatus(document.getElementById('gamepad-status'), 'STT not initialized', 'gray');
-        }
-      } catch (e) {
-        console.error(e);
-      }
+    async function refreshSTTStatus() {
+      sendSTTCommand('status');
     }
 
     // ── Gamepad ──
@@ -503,7 +534,7 @@
     // ── Auto-refresh ──
     setInterval(refreshServer, 2000);
     setInterval(refreshAvatarState, 2000);
-    setInterval(refreshSTTState, 2000);
+    setInterval(refreshSTTStatus, 2000);
     setInterval(refreshGamepad, 2000);
     setInterval(refreshLogs, 5000);
     setInterval(refreshCache, 10000);
@@ -511,7 +542,9 @@
     // Initial load
     refreshServer();
     refreshAvatarState();
-    refreshSTTState();
+    connectSTTWebSocket();
+    refreshSTTStatus();
+    refreshSTTStatus();
     refreshGamepad();
     refreshLogs();
     refreshCache();
