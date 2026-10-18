@@ -28,13 +28,20 @@ SAMPLE_TEXTS = [
     ("numbers", "The current time is 14:30 and the temperature is 22 degrees."),
     ("names", "My name is John Smith and I live in New York City."),
     ("technical", "The API endpoint returns a JSON response with a status code of 200."),
-    ("complex", "Despite the heavy rain, the team managed to complete the project on time and deliver a high quality product."),
-    ("long", "The quick brown fox jumps over the lazy dog. This sentence contains every letter of the English alphabet and is commonly used for testing purposes. It has been a staple of typography and font testing for over a century."),
+    (
+        "complex",
+        "Despite the heavy rain, the team managed to complete the project on time and deliver a high quality product.",
+    ),
+    (
+        "long",
+        "The quick brown fox jumps over the lazy dog. This sentence contains every letter of the English alphabet and is commonly used for testing purposes. It has been a staple of typography and font testing for over a century.",
+    ),
 ]
 
 DEFAULT_MODELS = ["tiny", "tiny.en", "base", "base.en", "small", "small.en"]
 
 # ── Metrics ─────────────────────────────────────────────────────────────────
+
 
 def levenshtein_ratio(s1: str, s2: str) -> float:
     """Character-level Levenshtein similarity ratio (0.0–1.0)."""
@@ -86,9 +93,11 @@ def word_error_rate(s1: str, s2: str) -> float:
 
 # ── Benchmark runner ────────────────────────────────────────────────────────
 
+
 @dataclass
 class BenchmarkResult:
     """Single benchmark run result."""
+
     engine: str
     model: str
     category: str
@@ -194,7 +203,11 @@ def run_benchmark(
                     count += 1
                     logger.info(
                         "Running %d/%d: engine=%s model=%s category=%s",
-                        count, total, engine_name, model_name, cat_name,
+                        count,
+                        total,
+                        engine_name,
+                        model_name,
+                        cat_name,
                     )
 
                     # Create engine with config
@@ -215,7 +228,9 @@ def run_benchmark(
                     except Exception:
                         logger.exception(
                             "Failed to benchmark engine=%s model=%s category=%s",
-                            engine_name, model_name, cat_name,
+                            engine_name,
+                            model_name,
+                            cat_name,
                         )
                     finally:
                         engine.shutdown()
@@ -229,11 +244,21 @@ def run_benchmark(
         csv_path = output_path / "benchmark_results.csv"
         try:
             with open(csv_path, "w", newline="") as f:
-                writer = csv.DictWriter(f, fieldnames=[
-                    "engine", "model", "category", "original_text",
-                    "transcribed_text", "levenshtein", "wer",
-                    "gen_time_ms", "transcribe_time_ms", "duration_s",
-                ])
+                writer = csv.DictWriter(
+                    f,
+                    fieldnames=[
+                        "engine",
+                        "model",
+                        "category",
+                        "original_text",
+                        "transcribed_text",
+                        "levenshtein",
+                        "wer",
+                        "gen_time_ms",
+                        "transcribe_time_ms",
+                        "duration_s",
+                    ],
+                )
                 writer.writeheader()
                 for r in results:
                     writer.writerow(asdict(r))
@@ -296,27 +321,50 @@ def main() -> list[BenchmarkResult]:
 
     parser = argparse.ArgumentParser(description="STT Quality Benchmark")
     parser.add_argument(
-        "--engines", nargs="+", default=None,
+        "--engines",
+        nargs="+",
+        default=None,
         help="STT engines to test (default: faster_whisper)",
     )
     parser.add_argument(
-        "--models", nargs="+", default=None,
+        "--models",
+        nargs="+",
+        default=None,
         help=f"STT models to test (default: {DEFAULT_MODELS})",
     )
     parser.add_argument(
-        "--categories", nargs="+", default=None,
+        "--categories",
+        nargs="+",
+        default=None,
         help="Category names to test (default: all)",
     )
     parser.add_argument(
-        "--iterations", type=int, default=1,
+        "--iterations",
+        type=int,
+        default=1,
         help="Number of runs per config (default: 1)",
     )
     parser.add_argument(
-        "--output-dir", type=str, default=None,
+        "--output-dir",
+        type=str,
+        default=None,
         help="Directory for CSV/JSON output",
     )
     parser.add_argument(
-        "--log-level", type=str, default="WARNING",
+        "--store",
+        action="store_true",
+        help="Save benchmark results to store.py",
+    )
+    parser.add_argument(
+        "--store-dir",
+        type=str,
+        default="benchmarks",
+        help="Benchmark store directory (default: benchmarks)",
+    )
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="WARNING",
         help="Logging level (default: WARNING)",
     )
 
@@ -337,6 +385,30 @@ def main() -> list[BenchmarkResult]:
     )
 
     print_summary(results)
+
+    # Save to benchmark store
+    if args.store:
+        from ziomek.benchmark.store import create_run, save_run
+
+        stt_models = list(set(r.model for r in results))
+        engines = list(set(r.engine for r in results))
+
+        run = create_run(
+            results=[
+                {
+                    "model": r.model,
+                    "category": r.category,
+                    "levenshtein": r.levenshtein,
+                    "wer": r.wer,
+                }
+                for r in results
+            ],
+            stt_models=stt_models,
+            stt_engines=engines,
+        )
+        path = save_run(run, store_dir=args.store_dir)
+        print(f"\nBenchmark result saved to: {path}")
+
     return results
 
 
