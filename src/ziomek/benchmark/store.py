@@ -33,7 +33,7 @@ class BenchmarkRun:
     cpu_count: int = 0
     cpu_brand: str = ""
     os_release: str = ""
-    hostname: str = ""
+    # hostname: str = ""  # Identifiable — comment out for shared reports
     # Model info
     stt_models: list[str] = field(default_factory=list)
     stt_engines: list[str] = field(default_factory=list)
@@ -48,9 +48,9 @@ class BenchmarkRun:
     audio_device: str = ""
     audio_device_count: int = 0
     audio_default_dtype: str = ""
-    memory_total_gb: float = 0.0
-    disk_total_gb: float = 0.0
-    disk_free_gb: float = 0.0
+    # memory_total_gb: float = 0.0  # Environment detail — comment out for shared reports
+    # disk_total_gb: float = 0.0  # Environment detail — comment out for shared reports
+    # disk_free_gb: float = 0.0  # Environment detail — comment out for shared reports
     # Git info
     git_commit: str = ""
     git_branch: str = ""
@@ -119,6 +119,7 @@ def _get_cpu_info() -> tuple[str, str, int]:
     count = 0
     try:
         import platform
+
         processor = platform.processor() or ""
         if processor:
             cpu_brand = processor.split(",")[0].strip()
@@ -127,6 +128,7 @@ def _get_cpu_info() -> tuple[str, str, int]:
         pass
     try:
         import multiprocessing
+
         count = multiprocessing.cpu_count()
     except (ImportError, OSError):
         pass
@@ -137,11 +139,13 @@ def _get_memory_info() -> float:
     """Get total memory in GB."""
     try:
         import psutil
+
         return psutil.virtual_memory().total / 1e9
     except (ImportError, OSError):
         try:
             import ctypes
             import os
+
             class MEMORYSTATUSEX(ctypes.Structure):
                 _fields_ = [
                     ("dwLength", ctypes.c_ulong),
@@ -154,6 +158,7 @@ def _get_memory_info() -> float:
                     ("ullAvailVirtual", ctypes.c_ulonglong),
                     ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
                 ]
+
             memInfo = MEMORYSTATUSEX()
             memInfo.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
             ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(memInfo))
@@ -166,12 +171,14 @@ def _get_disk_info() -> tuple[float, float]:
     """Get total and free disk space in GB."""
     try:
         import psutil
+
         d = psutil.disk_usage("/")
         return d.total / 1e9, d.free / 1e9
     except (ImportError, OSError):
         try:
             import ctypes
             import os
+
             # Windows: use GetDiskFreeSpaceEx
             free_bytes = ctypes.c_ulonglong(0)
             total_bytes = ctypes.c_ulonglong(0)
@@ -193,6 +200,7 @@ def _get_audio_info(backend: str = "", device: str = "") -> dict[str, Any]:
         return info
     try:
         import sounddevice as sd
+
         devices = sd.query_devices()
         if devices:
             info["device_count"] = len(devices)
@@ -242,7 +250,7 @@ def create_run(
         cpu_count=cpu_count,
         cpu_brand=cpu_brand,
         os_release=platform.release(),
-        hostname=socket.gethostname(),
+        # hostname=socket.gethostname(),  # Identifiable
         stt_models=stt_models or [],
         stt_engines=stt_engines or [],
         tts_voices=tts_voices or [],
@@ -255,9 +263,9 @@ def create_run(
         audio_device=audio_device,
         audio_device_count=audio_info.get("device_count", 0),
         audio_default_dtype=str(audio_info.get("default_dtype", "")),
-        memory_total_gb=round(mem_total, 2),
-        disk_total_gb=round(disk_total, 2),
-        disk_free_gb=round(disk_free, 2),
+        # memory_total_gb=round(mem_total, 2),
+        # disk_total_gb=round(disk_total, 2),
+        # disk_free_gb=round(disk_free, 2),
         git_commit=_get_git_info()[0],
         git_branch=_get_git_info()[1],
         results=results,
