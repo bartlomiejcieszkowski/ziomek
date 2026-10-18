@@ -19,17 +19,38 @@ class BenchmarkRun:
 
     run_id: str  # ISO timestamp
     timestamp: str  # ISO 8601
-    python_version: str
-    platform: str
     # Library versions
+    ziomek_version: str = ""
     pocket_tts_version: str = ""
     faster_whisper_version: str = ""
     realtimestt_version: str = ""
     torch_version: str = ""
+    # System info
+    python_version: str = ""
+    platform: str = ""
+    machine: str = ""
+    processor: str = ""
+    cpu_count: int = 0
+    cpu_brand: str = ""
+    os_release: str = ""
+    hostname: str = ""
     # Model info
     stt_models: list[str] = field(default_factory=list)
     stt_engines: list[str] = field(default_factory=list)
     tts_voices: list[str] = field(default_factory=list)
+    # Config flags
+    stt_engine_name: str = ""
+    stt_model_name: str = ""
+    stt_vad_enabled: bool = False
+    stt_sample_rate: int = 0
+    tts_sample_rate: int = 0
+    audio_backend: str = ""
+    audio_device: str = ""
+    audio_device_count: int = 0
+    audio_default_dtype: str = ""
+    memory_total_gb: float = 0.0
+    disk_total_gb: float = 0.0
+    disk_free_gb: float = 0.0
     # Git info
     git_commit: str = ""
     git_branch: str = ""
@@ -91,26 +112,152 @@ def _get_package_version(name: str) -> str:
             return "unknown"
 
 
+def _get_cpu_info() -> tuple[str, str, int]:
+    """Get CPU brand, architecture, and core count."""
+    cpu_brand = ""
+    arch = ""
+    count = 0
+    try:
+        import platform
+        processor = platform.processor() or ""
+        if processor:
+            cpu_brand = processor.split(",")[0].strip()
+            arch = platform.machine()
+    except (ImportError, OSError, AttributeError):
+        pass
+    try:
+        import multiprocessing
+        count = multiprocessing.cpu_count()
+    except (ImportError, OSError):
+        pass
+    return cpu_brand, arch, count
+
+
+def _get_memory_info() -> float:
+    """Get total memory in GB."""
+    try:
+        import psutil
+        return psutil.virtual_memory().total / 1e9
+    except (ImportError, OSError):
+        try:
+            import ctypes
+            import os
+            class MEMORYSTATUSEX(ctypes.Structure):
+                _fields_ = [
+                    ("dwLength", ctypes.c_ulong),
+                    ("dwMemoryLoad", ctypes.c_ulong),
+                    ("ullTotalPhys", ctypes.c_ulonglong),
+                    ("ullAvailPhys", ctypes.c_ulonglong),
+                    ("ullTotalPageFile", ctypes.c_ulonglong),
+                    ("ullAvailPageFile", ctypes.c_ulonglong),
+                    ("ullTotalVirtual", ctypes.c_ulonglong),
+                    ("ullAvailVirtual", ctypes.c_ulonglong),
+                    ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+                ]
+            memInfo = MEMORYSTATUSEX()
+            memInfo.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+            ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(memInfo))
+            return memInfo.ullTotalPhys / 1e9
+        except (ImportError, OSError, AttributeError):
+            return 0.0
+
+
+def _get_disk_info() -> tuple[float, float]:
+    """Get total and free disk space in GB."""
+    try:
+        import psutil
+        d = psutil.disk_usage("/")
+        return d.total / 1e9, d.free / 1e9
+    except (ImportError, OSError):
+        try:
+            import ctypes
+            import os
+            # Windows: use GetDiskFreeSpaceEx
+            free_bytes = ctypes.c_ulonglong(0)
+            total_bytes = ctypes.c_ulonglong(0)
+            ctypes.windll.kernel32.GetDiskFreeSpaceExW(
+                ctypes.c_wchar_p("\\\\?\\\\" + os.path.splitdrive(os.getcwd())[0] + "\\"),
+                ctypes.byref(free_bytes),
+                ctypes.byref(total_bytes),
+                None,
+            )
+            return total_bytes.value / 1e9, free_bytes.value / 1e9
+        except (ImportError, OSError, AttributeError):
+            return 0.0, 0.0
+
+
+def _get_audio_info(backend: str = "", device: str = "") -> dict[str, Any]:
+    """Get audio device info."""
+    info: dict[str, Any] = {"backend": backend, "device": device}
+    if backend == "noop" or not backend:
+        return info
+    try:
+        import sounddevice as sd
+        devices = sd.query_devices()
+        if devices:
+            info["device_count"] = len(devices)
+            info["default_dtype"] = str(sd.default.dtype)
+    except (ImportError, OSError, AttributeError):
+        pass
+    return info
+
+
 def create_run(
     results: list[dict[str, Any]],
     stt_models: list[str] | None = None,
     stt_engines: list[str] | None = None,
     tts_voices: list[str] | None = None,
+    *,
+    stt_engine_name: str = "",
+    stt_model_name: str = "",
+    stt_vad_enabled: bool = False,
+    stt_sample_rate: int = 0,
+    tts_sample_rate: int = 0,
+    audio_backend: str = "",
+    audio_device: str = "",
 ) -> BenchmarkRun:
     """Create a new benchmark run with metadata."""
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    import importlib.metadata
+    import multiprocessing
+    import platform
+    import socket
+
+    cpu_brand, cpu_arch, cpu_count = _get_cpu_info()
+    mem_total = _get_memory_info()
+    disk_total, disk_free = _get_disk_info()
+    audio_info = _get_audio_info(audio_backend, audio_device)
+
     return BenchmarkRun(
-        run_id=run_id,
+        run_id=datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"),
         timestamp=datetime.now(timezone.utc).isoformat(),
-        python_version=__import__("sys").version,
-        platform=__import__("sys").platform,
+        ziomek_version=importlib.metadata.version("ziomek"),
         pocket_tts_version=_get_package_version("pocket-tts"),
         faster_whisper_version=_get_package_version("faster-whisper"),
         realtimestt_version=_get_package_version("realtimestt"),
         torch_version=_get_package_version("torch"),
+        python_version=platform.python_version(),
+        platform=platform.platform(),
+        machine=platform.machine(),
+        processor=platform.processor() or cpu_arch,
+        cpu_count=cpu_count,
+        cpu_brand=cpu_brand,
+        os_release=platform.release(),
+        hostname=socket.gethostname(),
         stt_models=stt_models or [],
         stt_engines=stt_engines or [],
         tts_voices=tts_voices or [],
+        stt_engine_name=stt_engine_name,
+        stt_model_name=stt_model_name,
+        stt_vad_enabled=stt_vad_enabled,
+        stt_sample_rate=stt_sample_rate,
+        tts_sample_rate=tts_sample_rate,
+        audio_backend=audio_backend,
+        audio_device=audio_device,
+        audio_device_count=audio_info.get("device_count", 0),
+        audio_default_dtype=str(audio_info.get("default_dtype", "")),
+        memory_total_gb=round(mem_total, 2),
+        disk_total_gb=round(disk_total, 2),
+        disk_free_gb=round(disk_free, 2),
         git_commit=_get_git_info()[0],
         git_branch=_get_git_info()[1],
         results=results,
