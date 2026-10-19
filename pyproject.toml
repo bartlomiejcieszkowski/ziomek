@@ -58,6 +58,7 @@ markers = [
 
 [project.optional-dependencies]
 stt = ["RealtimeSTT[faster-whisper]>=0.4", "silero-vad>=6.0"]
+mcp = ["mcp>=1.0.0"]
 
 [dependency-groups]
 dev = [

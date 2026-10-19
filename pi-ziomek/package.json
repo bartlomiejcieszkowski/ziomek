@@ -1,0 +1,66 @@
+{
+  "name": "pi-ziomek",
+  "version": "0.3.0",
+  "description": "Pi extension for hands-free voice interaction with ziomek",
+  "type": "module",
+  "main": "src/index.ts",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev": "tsc --watch"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@vitest/coverage-v8": "^5.0.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": ">=1.0.0",
+    "@earendil-works/pi-tui": ">=0.1.0",
+    "typebox": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "@earendil-works/pi-tui": {
+      "optional": true
+    },
+    "typebox": {
+      "optional": true
+    }
+  },
+  "bugs": {
+    "url": "https://github.com/bartlomiejcieszkowski/gamify_ai/issues",
+    "email": "bartlomiej.cieszkowski@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bartlomiejcieszkowski/gamify_ai.git",
+    "directory": "pi_extension"
+  },
+  "homepage": "https://github.com/bartlomiejcieszkowski/gamify_ai/tree/main/pi_extension",
+  "author": "Bartlomiej Cieszkowski <bartlomiej.cieszkowski@gmail.com>",
+  "license": "MIT",
+  "keywords": [
+    "ziomek",
+    "voice",
+    "assistant",
+    "pi",
+    "pi-extension",
+    "pi-coding-agent",
+    "speech-to-text",
+    "text-to-speech",
+    "hands-free"
+  ],
+  "pi": {
+    "extensions": [
+      "dist/index.js"
+    ]
+  }
+}

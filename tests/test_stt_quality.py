@@ -75,6 +75,7 @@ class TestBenchmarkMock:
         mock._model_name = "tiny"
 
         from ziomek.stt import STTResult
+
         mock.transcribe_chunk.return_value = STTResult(
             text="Hello, how are you today?",  # Original text
             is_final=True,
@@ -85,6 +86,7 @@ class TestBenchmarkMock:
     def test_benchmark_imports(self):
         """Module imports correctly."""
         from ziomek.stt import benchmark  # noqa: F401
+
         assert hasattr(benchmark, "levenshtein_ratio")
         assert hasattr(benchmark, "word_error_rate")
 
@@ -213,6 +215,7 @@ class TestBenchmarkMock:
                 log_level="WARNING",
             )
             from ziomek.stt.benchmark import print_summary
+
             print_summary(results)
             captured = capsys.readouterr()
             assert "STT Quality Benchmark Results" in captured.out

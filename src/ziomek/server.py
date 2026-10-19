@@ -93,7 +93,13 @@ def _stop_gamepad_thread() -> None:
 _settings: Settings | None = None
 
 
-def create_app(settings: Settings | None = None, dev_mode: bool = False, verbose: bool = False) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    dev_mode: bool = False,
+    verbose: bool = False,
+    mcp_enabled: bool = False,
+    mcp_config_exposed: bool = False,
+) -> FastAPI:
     global _tts_model, _voice_cache, _audio_player, _state_machine, _skin_registry, _settings
     if settings is None:
         settings = Settings()
@@ -166,6 +172,19 @@ def create_app(settings: Settings | None = None, dev_mode: bool = False, verbose
             html_path = Path(__file__).parent / "client" / "resources" / "debug.html"
             return HTMLResponse(content=html_path.read_text(encoding="utf-8"))
 
+    # MCP server (separate thread)
+    if mcp_enabled:
+        import threading
+
+        def _start_mcp() -> None:
+            from ziomek.mcp import start_mcp_server
+
+            start_mcp_server(mcp_config_exposed)
+
+        mcp_thread = threading.Thread(target=_start_mcp, daemon=True)
+        mcp_thread.start()
+        _logger.info("MCP server started (stdio transport)")
+
     return app
 
 
@@ -185,6 +204,8 @@ def run_server(
     stt_model_dir: str | None = None,
     dev_mode: bool = False,
     verbose: bool = False,
+    mcp_enabled: bool = False,
+    mcp_config_exposed: bool = False,
 ):
     """Run the unified ziomek server.
 
@@ -207,6 +228,8 @@ def run_server(
         stt_model_dir: STT model download directory.
         dev_mode: Enable debug endpoints and debug page.
         verbose: Enable DEBUG logging.
+        mcp_enabled: Enable MCP server alongside HTTP server.
+        mcp_config_exposed: Expose full config via MCP (default: read-only).
     """
     # Determine effective log level
     effective_level = log_level
@@ -228,7 +251,10 @@ def run_server(
         stt_model_dir=stt_model_dir,
     )
     setup_logging(level=effective_level, enable_buffer=dev_mode)
-    app = create_app(settings, dev_mode=dev_mode, verbose=verbose)
+    app = create_app(
+        settings, dev_mode=dev_mode, verbose=verbose,
+        mcp_enabled=mcp_enabled, mcp_config_exposed=mcp_config_exposed,
+    )
     effective_port = port if port is not None else settings.port
     print(
         f"ziomek server listening on http://{settings.host}:{effective_port}",
@@ -238,6 +264,10 @@ def run_server(
         print(f"  Debug mode enabled: http://{settings.host}:{effective_port}/debug", file=sys.stderr)
     if verbose:
         print("  Verbose mode enabled: DEBUG logging", file=sys.stderr)
+    if mcp_enabled:
+        print(f"  MCP server enabled (stdio transport)", file=sys.stderr)
+        if mcp_config_exposed:
+            print("  MCP config exposed: full config (default: read-only)", file=sys.stderr)
     uvicorn.run(app, host=settings.host, port=effective_port)
 
 

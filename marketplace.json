@@ -1,0 +1,25 @@
+{
+  "name": "gamify_ai",
+  "owner": { "name": "Bartlomiej Cieszkowski", "email": "bartlomiej.cieszkowski@gmail.com" },
+  "metadata": {
+    "description": "Ziomek voice assistant — TTS, STT, gamepad, MCP server",
+    "version": "0.2.0"
+  },
+  "plugins": [
+    {
+      "name": "ziomek",
+      "description": "Ziomek voice assistant — TTS, STT with keyword gating, gamepad support, dashboard overlay, and MCP server.",
+      "version": "0.2.0",
+      "author": { "name": "Bartlomiej Cieszkowski", "url": "https://github.com/bartlomiejcieszkowski" },
+      "homepage": "https://github.com/bartlomiejcieszkowski/ziomek",
+      "keywords": ["voice", "tts", "stt", "voice-assistant", "hands-free", "gamepad", "mcp", "realtime-stt", "faster-whisper"],
+      "license": "MIT",
+      "repository": "https://github.com/bartlomiejcieszkowski/ziomek",
+      "source": {
+        "source": "github",
+        "repo": "bartlomiejcieszkowski/ziomek",
+        "path": "."
+      }
+    }
+  ]
+}

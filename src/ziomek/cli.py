@@ -128,7 +128,8 @@ def main():
         help="Enable debug mode: debug endpoints (/api/debug/*) and debug page (/debug)",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Enable verbose logging (DEBUG level)",
     )
@@ -154,26 +155,31 @@ def main():
     benchmark_parser = parser.add_subparsers(dest="benchmark_command")
 
     benchmark_list_parser = benchmark_parser.add_parser(
-        "benchmark", help="Benchmark management",
+        "benchmark",
+        help="Benchmark management",
     )
     benchmark_sub = benchmark_list_parser.add_subparsers(dest="benchmark_command")
 
     benchmark_list_parser = benchmark_sub.add_parser(
-        "list", help="List saved benchmark runs",
+        "list",
+        help="List saved benchmark runs",
     )
     benchmark_list_parser.add_argument(
-        "--store-dir", default="benchmarks",
+        "--store-dir",
+        default="benchmarks",
         help="Benchmark store directory",
     )
     benchmark_list_parser.set_defaults(func=benchmark_list_cmd)
 
     benchmark_diff_parser = benchmark_sub.add_parser(
-        "diff", help="Compare two benchmark runs",
+        "diff",
+        help="Compare two benchmark runs",
     )
     benchmark_diff_parser.add_argument("run_a", help="First run ID")
     benchmark_diff_parser.add_argument("run_b", help="Second run ID")
     benchmark_diff_parser.add_argument(
-        "--store-dir", default="benchmarks",
+        "--store-dir",
+        default="benchmarks",
         help="Benchmark store directory",
     )
     benchmark_diff_parser.set_defaults(func=benchmark_diff_cmd)

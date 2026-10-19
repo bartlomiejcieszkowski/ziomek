@@ -1,0 +1,25 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "ziomek",
+  "version": "0.2.0",
+  "description": "Ziomek voice assistant — TTS, STT with keyword gating, gamepad support, dashboard overlay, and MCP server",
+  "author": {
+    "name": "Bartlomiej Cieszkowski",
+    "email": "bartlomiej.cieszkowski@gmail.com",
+    "url": "https://github.com/bartlomiejcieszkowski"
+  },
+  "homepage": "https://github.com/bartlomiejcieszkowski/ziomek",
+  "repository": "https://github.com/bartlomiejcieszkowski/ziomek",
+  "license": "MIT",
+  "keywords": [
+    "voice",
+    "tts",
+    "stt",
+    "voice-assistant",
+    "hands-free",
+    "gamepad",
+    "mcp",
+    "realtime-stt",
+    "faster-whisper"
+  ]
+}

@@ -50,7 +50,7 @@ def register_resources(server: Server, expose_full_config: bool = False) -> None
     async def _on_read_resource(ctx: ServerRequestContext, params: Any) -> ReadResourceResult:
         # MCP SDK 2.x: params is ReadResourceRequest wrapping ReadResourceRequestParams
         # The URI is inside the nested params object
-        if hasattr(params, 'params') and hasattr(params.params, 'uri'):
+        if hasattr(params, "params") and hasattr(params.params, "uri"):
             uri = params.params.uri
         else:
             uri = str(params)
@@ -107,37 +107,51 @@ def register_resources(server: Server, expose_full_config: bool = False) -> None
         default = "cosette"
 
         return ReadResourceResult(
-            contents=[TextResourceContents(
-                uri="voices://",
-                text=json.dumps({"voices": voices, "default": default}),
-            )],
+            contents=[
+                TextResourceContents(
+                    uri="voices://",
+                    text=json.dumps({"voices": voices, "default": default}),
+                )
+            ],
         )
 
     async def _get_models() -> ReadResourceResult:
         from ziomek.api.stt import AVAILABLE_MODELS
 
         return ReadResourceResult(
-            contents=[TextResourceContents(
-                uri="models://",
-                text=json.dumps({
-                    "models": AVAILABLE_MODELS,
-                    "default": "tiny",
-                }),
-            )],
+            contents=[
+                TextResourceContents(
+                    uri="models://",
+                    text=json.dumps(
+                        {
+                            "models": AVAILABLE_MODELS,
+                            "default": "tiny",
+                        }
+                    ),
+                )
+            ],
         )
 
     async def _get_expressions() -> ReadResourceResult:
         from ziomek.avatar.state_machine import _EXPRESSIONS
 
         expressions = [
-            {"name": e.name, "cycleCount": e.cycleCount, "durationMs": e.durationMs, "intensity": e.intensity, "triggers": [t.type for t in e.triggers]}
+            {
+                "name": e.name,
+                "cycleCount": e.cycleCount,
+                "durationMs": e.durationMs,
+                "intensity": e.intensity,
+                "triggers": [t.type for t in e.triggers],
+            }
             for e in _EXPRESSIONS
         ]
         return ReadResourceResult(
-            contents=[TextResourceContents(
-                uri="expressions://",
-                text=json.dumps({"expressions": expressions}),
-            )],
+            contents=[
+                TextResourceContents(
+                    uri="expressions://",
+                    text=json.dumps({"expressions": expressions}),
+                )
+            ],
         )
 
     async def _get_config(expose_full_config: bool) -> ReadResourceResult:
@@ -145,10 +159,12 @@ def register_resources(server: Server, expose_full_config: bool = False) -> None
 
         if _settings is None:
             return ReadResourceResult(
-                contents=[TextResourceContents(
-                    uri="config://",
-                    text=json.dumps({"error": "Settings not initialized"}),
-                )],
+                contents=[
+                    TextResourceContents(
+                        uri="config://",
+                        text=json.dumps({"error": "Settings not initialized"}),
+                    )
+                ],
             )
 
         config = {
@@ -167,8 +183,10 @@ def register_resources(server: Server, expose_full_config: bool = False) -> None
             config["full_config"] = True
 
         return ReadResourceResult(
-            contents=[TextResourceContents(
-                uri="config://",
-                text=json.dumps(config),
-            )],
+            contents=[
+                TextResourceContents(
+                    uri="config://",
+                    text=json.dumps(config),
+                )
+            ],
         )
