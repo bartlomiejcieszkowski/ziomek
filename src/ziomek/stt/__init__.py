@@ -232,6 +232,11 @@ class STTEngine:
                 self._stats.state = STTState.IDLE
             return
 
+        logger.info(
+            "STT engine initialized: engine=%s model=%s",
+            self._engine_name,
+            self._model_name,
+        )
         self._running = True
         self._thread = threading.Thread(target=self._listen_loop, daemon=True)
         self._thread.start()
@@ -329,6 +334,11 @@ class STTEngine:
                 self._stats.engine_name = engine_name
                 self._stats.model_name = model_name
                 self._stats.state = STTState.IDLE
+                logger.info(
+                    "STT engine reconfigured: engine=%s model=%s",
+                    engine_name,
+                    model_name,
+                )
                 return True, f"Reconfigured to {engine_name}/{model_name}"
             except Exception:
                 logger.exception("Failed to recreate recorder with new config")

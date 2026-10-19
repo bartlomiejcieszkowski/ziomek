@@ -25,9 +25,17 @@ class TTSModelWrapper:
         from pocket_tts import TTSModel  # type: ignore[import-untyped]
 
         if model_path:
+            logger.info("Loading Pocket TTS model from: %s", model_path)
             self._tts_model = TTSModel.load_model(config=model_path)
         else:
+            logger.info("Loading default Pocket TTS model")
             self._tts_model = TTSModel.load_model()
+
+        logger.info(
+            "Pocket TTS loaded: sample_rate=%d model=%s",
+            self.sample_rate,
+            type(self._tts_model).__name__,
+        )
 
     def ensure_loaded(self) -> bool:
         """Ensure model is loaded, return False if it fails."""
