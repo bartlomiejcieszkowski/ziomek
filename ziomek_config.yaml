@@ -1,0 +1,25 @@
+# ziomek configuration
+# Generate with: ziomek --scaffold-config
+
+# Server settings
+# port: 5003
+# model_path:
+# voice: default
+# cache_dir:
+# host: localhost
+
+# Audio playback backend (sounddevice, pygame, pyaudio, playsound, noop)
+# audio_backend: sounddevice
+
+# Audio device (None/default = system default, or int index, or device name string)
+# audio_device:
+
+# Client settings
+# no_vscode: false
+# no_browser: false
+
+# STT (Speech-to-Text) settings
+# stt_engine: faster_whisper
+# stt_model: tiny
+# stt_model_dir:
+stt_model: tiny.en

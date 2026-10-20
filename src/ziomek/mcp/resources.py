@@ -124,7 +124,7 @@ async def _get_expressions() -> ReadResourceResult:
     )
 
 
-async def _get_config(expose_full_config: bool) -> ReadResourceResult:
+async def _get_config() -> ReadResourceResult:
     from ziomek.server import _settings
 
     if _settings is None:
@@ -136,6 +136,11 @@ async def _get_config(expose_full_config: bool) -> ReadResourceResult:
                 )
             ],
         )
+
+    # Import the config exposure flag from the __init__ module
+    from . import get_expose_full_config
+
+    expose_full = get_expose_full_config()
 
     config = {
         "host": _settings.host,
@@ -149,7 +154,7 @@ async def _get_config(expose_full_config: bool) -> ReadResourceResult:
         "model_path": _settings.model_path,
     }
 
-    if expose_full_config:
+    if expose_full:
         config["full_config"] = True
 
     return ReadResourceResult(
@@ -176,7 +181,7 @@ async def _on_read_resource(_ctx: ServerRequestContext, params: Any) -> ReadReso
     elif uri == "expressions://":
         return await _get_expressions()
     elif uri == "config://":
-        return await _get_config(False)
+        return await _get_config()
     else:
         return ReadResourceResult(
             contents=[

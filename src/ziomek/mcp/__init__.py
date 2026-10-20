@@ -1,4 +1,4 @@
-"""ziomek MCP server — stdio transport."""
+"""ziomek MCP server - stdio transport."""
 
 from __future__ import annotations
 
@@ -18,19 +18,31 @@ logger = logging.getLogger(__name__)
 # Global server reference
 _mcp_server: Server | None = None
 
-
-def get_mcp_server() -> Server | None:
-    """Get the MCP server instance (for testing)."""
-    return _mcp_server
+# Config exposure flag (set by server.py before calling start_mcp_server)
+_expose_full_config: bool = False
 
 
-async def start_mcp_server() -> None:
+def set_expose_full_config(expose: bool) -> None:
+    """Set whether full config should be exposed in resources."""
+    global _expose_full_config
+    _expose_full_config = expose
+
+
+def get_expose_full_config() -> bool:
+    """Get the current config exposure setting."""
+    return _expose_full_config
+
+
+async def start_mcp_server(expose_full_config: bool = False) -> None:
     """Run the MCP server over stdio transport.
 
     This is the main entry point for MCP clients connecting via stdio.
     The server runs until interrupted (Ctrl+C or SIGTERM).
     """
     global _mcp_server
+
+    # Set the config exposure flag before creating the server
+    set_expose_full_config(expose_full_config)
 
     _mcp_server = Server(
         name="ziomek",

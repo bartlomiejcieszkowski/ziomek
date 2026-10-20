@@ -100,6 +100,8 @@ class TestMcpReadResources:
 
     def test_read_config_resource_with_settings(self):
         """config:// returns config when settings exist."""
+        from ziomek.mcp import set_expose_full_config
+
         mock_settings = MagicMock()
         mock_settings.host = "localhost"
         mock_settings.port = 5003
@@ -110,6 +112,8 @@ class TestMcpReadResources:
         mock_settings.stt_model = "tiny.en"
         mock_settings.stt_model_dir = "/tmp/models"
         mock_settings.model_path = None
+
+        set_expose_full_config(True)
 
         with patch("ziomek.server._settings", mock_settings):
             result = asyncio.run(
