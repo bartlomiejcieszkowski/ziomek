@@ -21,6 +21,8 @@ class Settings(BaseModel):
     stt_engine: str = "faster_whisper"
     stt_model: str = "tiny.en"
     stt_model_dir: str | None = None
+    mcp_port: int = 5004
+    mcp_transport: str = "stdio"
 
     @classmethod
     def load(cls, config_path: str | Path | None = None) -> "Settings":
@@ -85,6 +87,8 @@ class Settings(BaseModel):
         stt_engine: str | None = None,
         stt_model: str | None = None,
         stt_model_dir: str | None = None,
+        mcp_port: int | None = None,
+        mcp_transport: str | None = None,
     ) -> "Settings":
         """Compose Settings from config sources with precedence: CLI > env > file > defaults."""
         file_settings = cls.load(file_path) if file_path is not None else cls.load()
@@ -99,6 +103,8 @@ class Settings(BaseModel):
         stt_engine_val = stt_engine or file_settings.stt_engine
         stt_model_val = stt_model or file_settings.stt_model
         stt_model_dir_val = stt_model_dir or file_settings.stt_model_dir
+        mcp_port_val = mcp_port if mcp_port is not None else file_settings.mcp_port
+        mcp_transport_val = mcp_transport or file_settings.mcp_transport
         return cls(
             audio_backend=cli_backend_val,
             audio_device=cli_device_val,
@@ -112,6 +118,8 @@ class Settings(BaseModel):
             stt_engine=stt_engine_val,
             stt_model=stt_model_val,
             stt_model_dir=stt_model_dir_val,
+            mcp_port=mcp_port_val,
+            mcp_transport=mcp_transport_val,
         )
 
     @classmethod
@@ -141,8 +149,12 @@ class Settings(BaseModel):
 
 # STT (Speech-to-Text) settings
 # stt_engine: faster_whisper
-# stt_model: tiny
+# stt_model: tiny.en
 # stt_model_dir:
+
+# MCP (Model Context Protocol) settings
+# mcp_port: 5004
+# mcp_transport: stdio  # stdio | http
 """
         p = Path(path).resolve()
         p.parent.mkdir(parents=True, exist_ok=True)

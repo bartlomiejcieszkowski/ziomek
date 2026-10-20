@@ -1,17 +1,22 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
   "mcpServers": {
-    "ziomek": {
+    "ziomek-stdio": {
       "type": "stdio",
       "command": "uvx",
       "args": [
         "ziomek",
-        "--mcp"
+        "--mcp-stdio"
       ],
       "cwd": ".",
       "env": {
         "PYTHONUNBUFFERED": "1"
       }
+    },
+    "ziomek-http": {
+      "type": "http",
+      "url": "http://localhost:5004/mcp/message",
+      "sseUrl": "http://localhost:5004/mcp/sse"
     }
   }
 }

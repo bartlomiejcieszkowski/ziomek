@@ -30,7 +30,8 @@ def serve_cmd(args):
         stt_model_dir=args.stt_model_dir,
         dev_mode=args.dev,
         verbose=args.verbose,
-        mcp_enabled=args.mcp,
+        mcp_enabled=args.mcp_stdio,
+        mcp_http_enabled=args.mcp_http,
         mcp_config_exposed=args.mcp_config,
     )
 
@@ -178,9 +179,14 @@ def main():
         help="Enable verbose logging (DEBUG level)",
     )
     parser.add_argument(
-        "--mcp",
+        "--mcp-stdio",
         action="store_true",
-        help="Enable MCP server alongside HTTP server",
+        help="Enable MCP server in stdio mode alongside HTTP server",
+    )
+    parser.add_argument(
+        "--mcp-http",
+        action="store_true",
+        help="Enable MCP server in HTTP mode alongside HTTP server (default port: 5004)",
     )
     parser.add_argument(
         "--mcp-config",
