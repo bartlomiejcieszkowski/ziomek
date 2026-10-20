@@ -28,6 +28,7 @@ class STTState(enum.Enum):
 @dataclass
 class STTResult:
     """A transcription result."""
+
     text: str
     is_final: bool
     realtime: bool = False
@@ -36,9 +37,10 @@ class STTResult:
 @dataclass
 class STTStats:
     """Runtime stats for the STT engine."""
+
     state: STTState = STTState.IDLE
     engine_name: str = "faster_whisper"
-    model_name: str = "tiny"
+    model_name: str = "tiny.en"
     last_text: str = ""
     last_is_final: bool = False
     transcription_count: int = 0
@@ -63,7 +65,7 @@ class STTEngine:
     def __init__(
         self,
         engine_name: str = "faster_whisper",
-        model_name: str = "tiny",
+        model_name: str = "tiny.en",
         model_dir: str | None = None,
         on_transcription: Callable[[STTResult], None] | None = None,
         verbose: bool = False,
@@ -95,18 +97,18 @@ class STTEngine:
         if self._on_transcription:
             try:
                 import asyncio
+
                 loop = None
                 try:
                     loop = asyncio.get_running_loop()
                 except RuntimeError:
                     pass
                 if loop and loop.is_running():
-                    asyncio.run_coroutine_threadsafe(
-                        self._on_transcription(result), loop
-                    )
+                    asyncio.run_coroutine_threadsafe(self._on_transcription(result), loop)
                 else:
                     # No running loop — call directly (sync callback)
                     import inspect
+
                     if inspect.iscoroutinefunction(self._on_transcription):
                         # Can't run async without a loop — skip
                         logger.warning("Async transcription callback but no event loop")
@@ -189,8 +191,7 @@ class STTEngine:
             import RealtimeSTT  # noqa: F401
         except ImportError:
             logger.error(
-                "RealtimeSTT not installed. Install with: "
-                "pip install RealtimeSTT[faster-whisper]",
+                "RealtimeSTT not installed. Install with: pip install RealtimeSTT[faster-whisper]",
             )
             return
 
@@ -373,6 +374,7 @@ class STTEngine:
             self._recorder.feed_audio(audio_data, sample_rate)
             # Use a short timeout to avoid blocking indefinitely
             import threading
+
             result = [None]
             event = threading.Event()
 
@@ -412,11 +414,13 @@ class STTEngine:
                         self._stats.last_is_final = True
                         self._stats.transcription_count += 1
                     if self._on_transcription:
-                        self._notify_transcription(STTResult(
-                            text=text,
-                            is_final=True,
-                            realtime=False,
-                        ))
+                        self._notify_transcription(
+                            STTResult(
+                                text=text,
+                                is_final=True,
+                                realtime=False,
+                            )
+                        )
             except Exception:
                 logger.exception("STT transcription error")
                 break
@@ -429,7 +433,7 @@ class STTEngine:
         self.stop()
 
 
-def download_model(model_name: str = "tiny", download_root: str | None = None) -> Path:
+def download_model(model_name: str = "tiny.en", download_root: str | None = None) -> Path:
     """Download a faster-whisper model file. Returns path to downloaded model.
 
     Args:
@@ -442,9 +446,7 @@ def download_model(model_name: str = "tiny", download_root: str | None = None) -
     try:
         from faster_whisper.utils import download_model as fw_download  # noqa: F401
     except ImportError:
-        raise ImportError(
-            "faster_whisper not installed. Install with: pip install faster-whisper"
-        )
+        raise ImportError("faster_whisper not installed. Install with: pip install faster-whisper")
 
     if download_root:
         Path(download_root).mkdir(parents=True, exist_ok=True)

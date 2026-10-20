@@ -19,7 +19,7 @@ class Settings(BaseModel):
     no_vscode: bool = False
     no_browser: bool = False
     stt_engine: str = "faster_whisper"
-    stt_model: str = "tiny"
+    stt_model: str = "tiny.en"
     stt_model_dir: str | None = None
 
     @classmethod
@@ -87,7 +87,7 @@ class Settings(BaseModel):
         stt_model_dir: str | None = None,
     ) -> "Settings":
         """Compose Settings from config sources with precedence: CLI > env > file > defaults."""
-        file_settings = cls.load(file_path) if file_path else cls()
+        file_settings = cls.load(file_path) if file_path is not None else cls.load()
         env_backend_val = env_backend or file_settings.audio_backend
         env_device_val = env_device if env_device is not None else file_settings.audio_device
         env_host_val = env_host if env_host is not None else file_settings.host

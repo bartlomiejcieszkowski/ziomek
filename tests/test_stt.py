@@ -10,7 +10,7 @@ class TestSTTEngineInitialization:
         engine = STTEngine()
         assert engine.state == STTState.IDLE
         assert engine.stats.engine_name == "faster_whisper"
-        assert engine.stats.model_name == "tiny"
+        assert engine.stats.model_name == "tiny.en"
 
     def test_custom_initialization(self):
         engine = STTEngine(

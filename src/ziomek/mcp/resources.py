@@ -125,7 +125,7 @@ def register_resources(server: Server, expose_full_config: bool = False) -> None
                     text=json.dumps(
                         {
                             "models": AVAILABLE_MODELS,
-                            "default": "tiny",
+                            "default": "tiny.en",
                         }
                     ),
                 )

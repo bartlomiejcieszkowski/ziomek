@@ -91,7 +91,7 @@ class TestMcpModelsResource:
         assert "tiny" in data["models"]
         assert "base" in data["models"]
         assert "default" in data
-        assert data["default"] == "tiny"
+        assert data["default"] == "tiny.en"
 
 
 class TestMcpExpressionsResource:
