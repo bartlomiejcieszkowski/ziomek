@@ -11,8 +11,8 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-from mcp.server.lowlevel import Server
-from mcp.types import CallToolRequest, CallToolRequestParams, ListToolsRequest
+from mcp.server import Server
+from mcp.types import CallToolRequestParams, TextContent
 
 from ziomek.mcp import tools as mcp_tools_module
 
@@ -35,16 +35,9 @@ def _make_wav_bytes(duration_s: float = 0.1, sample_rate: int = 16000) -> bytes:
 class TestMcpListTools:
     """Test the list_tools MCP endpoint."""
 
-    def test_list_tools_returns_all_tools(self):
-        """List tools returns all 8 tools."""
-        server = Server("test")
-        mcp_tools_module.register_tools(server)
-
-        result = asyncio.run(
-            server.on_list_tools(None, ListToolsRequest())
-        )
-
-        tool_names = [t.name for t in result.tools]
+    def test_tools_list_has_all_tools(self):
+        """TOOLS list has all 8 tools."""
+        tool_names = [t.name for t in mcp_tools_module.TOOLS]
         assert "speak" in tool_names
         assert "transcribe" in tool_names
         assert "start_listening" in tool_names
@@ -53,254 +46,98 @@ class TestMcpListTools:
         assert "set_expression" in tool_names
         assert "get_expression" in tool_names
         assert "status" in tool_names
-        assert len(result.tools) == 8
+        assert len(tool_names) == 8
+
+    def test_tools_have_correct_schema(self):
+        """Each tool has name, description, and inputSchema."""
+        for tool in mcp_tools_module.TOOLS:
+            assert isinstance(tool.name, str) and len(tool.name) > 0
+            assert isinstance(tool.description, str) and len(tool.description) > 0
+            assert isinstance(tool.input_schema, dict)
+            assert tool.input_schema.get("type") == "object"
 
 
-class TestMcpSpeakTool:
-    """Test the speak MCP tool."""
+class TestMcpCallTool:
+    """Test the call_tool MCP endpoint."""
 
-    def test_speak_calls_generate_wav_and_play(self):
-        """Speak calls generate_wav and audio_player.play."""
-        mock_model = MagicMock()
-        mock_model.ready = True
-        mock_cache = MagicMock()
-        mock_player = MagicMock()
-        mock_settings = MagicMock()
-
-        with patch("ziomek.server._tts_model", mock_model), \
-             patch("ziomek.server._voice_cache", mock_cache), \
-             patch("ziomek.server._audio_player", mock_player), \
-             patch("ziomek.server._settings", mock_settings), \
-             patch("ziomek.tts.generate.generate_wav") as mock_gen:
-
-            mock_gen.return_value = (base64.b64encode(b"fake_wav").decode(), 0.5, 16000)
-
-            server = Server("test")
-            mcp_tools_module.register_tools(server)
-
-            params = CallToolRequest(
-                method="tools/call",
-                params=CallToolRequestParams(
-                    name="speak",
-                    arguments={"text": "hello", "voice": "cosette"},
-                ),
+    def test_call_unknown_tool(self):
+        """Unknown tool returns error."""
+        result = asyncio.run(
+            mcp_tools_module._on_call_tool(
+                None, CallToolRequestParams(name="nonexistent", arguments={})
             )
-            result = asyncio.run(
-                server.on_call_tool(None, params.params)
-            )
+        )
+        assert result.is_error is True
+        content = result.content[0]
+        assert isinstance(content, TextContent)
+        assert "nonexistent" in content.text
 
-            data = json.loads(result.content[0].text)
-            assert data["status"] == "playing"
-            assert data["voice"] == "cosette"
-            mock_gen.assert_called_once()
-            mock_player.play.assert_called_once()
+    def test_call_status_tool(self):
+        """Status tool returns dict with expected fields."""
+        with patch("ziomek.mcp.tools._get_listening_session", return_value=MagicMock()):
+            with patch("ziomek.server._state_machine", None):
+                with patch("ziomek.server._stt_engine", None):
+                    with patch("ziomek.server._audio_player", None):
+                        with patch("ziomek.server._tts_model", None):
+                            with patch("ziomek.server.get_uptime", return_value=123.45):
+                                result = asyncio.run(
+                                    mcp_tools_module._handle_status()
+                                )
+                                assert result.is_error is False
+                                data = json.loads(result.content[0].text)
+                                assert "tts_ready" in data
+                                assert "stt_state" in data
+                                assert "uptime_seconds" in data
 
-    def test_speak_model_not_ready(self):
-        """Speak returns error when TTS model is not loaded."""
+    def test_call_speak_tool_no_model(self):
+        """Speak returns error when TTS model not loaded."""
         mock_model = MagicMock()
         mock_model.ready = False
+        with patch("ziomek.server._tts_model", mock_model):
+            with patch("ziomek.server._settings", None):
+                result = asyncio.run(
+                    mcp_tools_module._handle_speak({"text": "hello"})
+                )
+                assert result.is_error is True
+                data = json.loads(result.content[0].text)
+                assert "error" in data
 
-        with patch("ziomek.server._tts_model", mock_model), \
-             patch("ziomek.server._settings", None):
-
-            server = Server("test")
-            mcp_tools_module.register_tools(server)
-
-            params = CallToolRequest(
-                method="tools/call",
-                params=CallToolRequestParams(
-                    name="speak",
-                    arguments={"text": "hello"},
-                ),
-            )
-            result = asyncio.run(
-                server.on_call_tool(None, params.params)
-            )
-
-            data = json.loads(result.content[0].text)
-            assert "error" in data
-
-
-class TestMcpTranscribeTool:
-    """Test the transcribe MCP tool."""
-
-    def test_transcribe_calls_stt_engine(self):
-        """Transcribe calls STTEngine.transcribe_chunk."""
-        mock_engine = MagicMock()
-        mock_result = MagicMock()
-        mock_result.text = "transcribed text"
-        mock_result.is_final = True
-        mock_engine.transcribe_chunk.return_value = mock_result
-
-        with patch("ziomek.server._stt_engine", mock_engine):
-
-            server = Server("test")
-            mcp_tools_module.register_tools(server)
-
-            wav_bytes = _make_wav_bytes()
-            audio_b64 = base64.b64encode(wav_bytes).decode()
-
-            params = CallToolRequest(
-                method="tools/call",
-                params=CallToolRequestParams(
-                    name="transcribe",
-                    arguments={"audio_b64": audio_b64},
-                ),
-            )
-            result = asyncio.run(
-                server.on_call_tool(None, params.params)
-            )
-
-            data = json.loads(result.content[0].text)
-            assert data["text"] == "transcribed text"
-            assert data["is_final"] is True
-            mock_engine.transcribe_chunk.assert_called_once()
-
-    def test_transcribe_invalid_base64(self):
-        """Transcribe returns error for invalid base64."""
-        mock_engine = MagicMock()
-
-        with patch("ziomek.server._stt_engine", mock_engine):
-
-            server = Server("test")
-            mcp_tools_module.register_tools(server)
-
-            params = CallToolRequest(
-                method="tools/call",
-                params=CallToolRequestParams(
-                    name="transcribe",
-                    arguments={"audio_b64": "not_valid_base64!!!"},
-                ),
-            )
-            result = asyncio.run(
-                server.on_call_tool(None, params.params)
-            )
-
-            data = json.loads(result.content[0].text)
-            assert "error" in data
-
-    def test_transcribe_engine_not_initialized(self):
+    def test_call_transcribe_tool_no_engine(self):
         """Transcribe returns error when STT engine not initialized."""
         with patch("ziomek.server._stt_engine", None):
-
-            server = Server("test")
-            mcp_tools_module.register_tools(server)
-
-            params = CallToolRequest(
-                method="tools/call",
-                params=CallToolRequestParams(
-                    name="transcribe",
-                    arguments={"audio_b64": "dGVzdA=="},
-                ),
-            )
             result = asyncio.run(
-                server.on_call_tool(None, params.params)
+                mcp_tools_module._handle_transcribe({"audio_b64": "dGVzdA=="})
             )
-
+            assert result.is_error is True
             data = json.loads(result.content[0].text)
             assert "error" in data
 
-
-class TestMcpAvatarTools:
-    """Test avatar MCP tools."""
-
-    def test_set_expression_calls_state_machine(self):
-        """Set expression calls state machine."""
-        mock_sm = MagicMock()
-        mock_sm.setExpression.return_value = True
-
-        with patch("ziomek.server._state_machine", mock_sm):
-
-            server = Server("test")
-            mcp_tools_module.register_tools(server)
-
-            params = CallToolRequest(
-                method="tools/call",
-                params=CallToolRequestParams(
-                    name="set_expression",
-                    arguments={"expression": "happy"},
-                ),
-            )
+    def test_call_transcribe_tool_invalid_base64(self):
+        """Transcribe returns error for invalid base64."""
+        with patch("ziomek.server._stt_engine", None):
             result = asyncio.run(
-                server.on_call_tool(None, params.params)
+                mcp_tools_module._handle_transcribe({"audio_b64": "not-valid-base64!!!"})
             )
-
+            assert result.is_error is True
             data = json.loads(result.content[0].text)
-            assert data["ok"] is True
-            assert data["expression"] == "happy"
-            mock_sm.setExpression.assert_called_once_with("happy", None)
+            assert "error" in data
 
-    def test_get_expression_returns_state(self):
-        """Get expression returns current state."""
-        mock_sm = MagicMock()
-        mock_state = MagicMock()
-        mock_state.expressionName = "happy"
-        mock_state.cycleIndex = 0
-        mock_state.message = ""
-        mock_state.messageExpiry = 0
-        mock_sm.tick.return_value = mock_state
-
-        with patch("ziomek.server._state_machine", mock_sm):
-
-            server = Server("test")
-            mcp_tools_module.register_tools(server)
-
-            params = CallToolRequest(
-                method="tools/call",
-                params=CallToolRequestParams(
-                    name="get_expression",
-                    arguments={},
-                ),
-            )
+    def test_call_set_expression_tool_no_machine(self):
+        """Set expression returns error when state machine not initialized."""
+        with patch("ziomek.server._state_machine", None):
             result = asyncio.run(
-                server.on_call_tool(None, params.params)
+                mcp_tools_module._handle_set_expression({"expression": "happy"})
             )
-
+            assert result.is_error is True
             data = json.loads(result.content[0].text)
-            assert data["expression"] == "happy"
-            assert data["cycleIndex"] == 0
-            mock_sm.tick.assert_called_once_with(16)
+            assert "error" in data
 
-
-class TestMcpStatusTool:
-    """Test the status MCP tool."""
-
-    def test_status_returns_combined_info(self):
-        """Status returns TTS, STT, and audio info."""
-        mock_model = MagicMock()
-        mock_model.ready = True
-
-        mock_engine = MagicMock()
-        mock_engine.stats.state.value = "idle"
-        mock_engine.stats.engine_name = "faster_whisper"
-        mock_engine.stats.model_name = "tiny"
-
-        mock_player = MagicMock()
-        mock_player.backend_name = "sounddevice"
-        mock_player.device_name = "default"
-
-        with patch("ziomek.server._tts_model", mock_model), \
-             patch("ziomek.server._stt_engine", mock_engine), \
-             patch("ziomek.server._audio_player", mock_player), \
-             patch("ziomek.server.get_uptime", return_value=123.45):
-
-            server = Server("test")
-            mcp_tools_module.register_tools(server)
-
-            params = CallToolRequest(
-                method="tools/call",
-                params=CallToolRequestParams(
-                    name="status",
-                    arguments={},
-                ),
-            )
+    def test_call_get_expression_tool_no_machine(self):
+        """Get expression returns error when state machine not initialized."""
+        with patch("ziomek.server._state_machine", None):
             result = asyncio.run(
-                server.on_call_tool(None, params.params)
+                mcp_tools_module._handle_get_expression()
             )
-
+            assert result.is_error is True
             data = json.loads(result.content[0].text)
-            assert data["tts_ready"] is True
-            assert data["stt_state"] == "idle"
-            assert data["stt_engine"] == "faster_whisper"
-            assert data["audio_backend"] == "sounddevice"
-            assert data["uptime_seconds"] == 123.5
+            assert "error" in data

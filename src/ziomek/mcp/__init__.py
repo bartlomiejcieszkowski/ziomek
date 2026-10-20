@@ -1,42 +1,55 @@
-"""ziomek MCP server — embedded alongside FastAPI HTTP server."""
+"""ziomek MCP server — stdio transport."""
 
 from __future__ import annotations
 
+import asyncio
+import logging
+import sys
+from typing import Any
 
-def start_mcp_server(expose_full_config: bool = False) -> None:
-    """Start the MCP server (runs in a separate thread)."""
-    import asyncio
+from mcp.server import Server
+from mcp.server.stdio import stdio_server
 
-    from mcp.server.lowlevel import Server
+from .resources import RESOURCES, _on_list_resources, _on_read_resource
+from .tools import TOOLS, _on_call_tool, _on_list_tools
 
-    from .resources import register_resources
-    from .tools import register_tools
+logger = logging.getLogger(__name__)
 
-    mcp_server = Server("ziomek-mcp")
-    register_tools(mcp_server)
-    register_resources(mcp_server, expose_full_config)
-
-    async def _run():
-        from mcp.server.stdio import stdio_server
-
-        async with stdio_server() as (read_stream, write_stream):
-            await mcp_server.run(
-                read_stream,
-                write_stream,
-                mcp_server.create_initialization_options(),
-            )
-
-    asyncio.run(_run())
+# Global server reference
+_mcp_server: Server | None = None
 
 
-def get_mcp_server(expose_full_config: bool = False):
+def get_mcp_server() -> Server | None:
     """Get the MCP server instance (for testing)."""
-    from mcp.server.lowlevel import Server
+    return _mcp_server
 
-    from .resources import register_resources
-    from .tools import register_tools
 
-    mcp_server = Server("ziomek-mcp")
-    register_tools(mcp_server)
-    register_resources(mcp_server, expose_full_config)
-    return mcp_server
+async def start_mcp_server() -> None:
+    """Run the MCP server over stdio transport.
+
+    This is the main entry point for MCP clients connecting via stdio.
+    The server runs until interrupted (Ctrl+C or SIGTERM).
+    """
+    global _mcp_server
+
+    _mcp_server = Server(
+        name="ziomek",
+        version="0.2.0",
+        on_list_tools=_on_list_tools,
+        on_call_tool=_on_call_tool,
+        on_list_resources=_on_list_resources,
+        on_read_resource=_on_read_resource,
+    )
+
+    logger.info("Starting ziomek MCP server (stdio transport)")
+
+    async with stdio_server() as (read_stream, write_stream):
+        await _mcp_server.run(
+            read_stream,
+            write_stream,
+            _mcp_server.create_initialization_options(),
+        )
+
+
+if __name__ == "__main__":
+    asyncio.run(start_mcp_server())

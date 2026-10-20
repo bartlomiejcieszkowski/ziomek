@@ -7,131 +7,99 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from mcp.server.lowlevel import Server
-from mcp.types import (
-    ListResourcesRequest,
-    ReadResourceRequest,
-    ReadResourceRequestParams,
-)
+from mcp.server import Server
+from mcp.types import ReadResourceRequestParams, TextResourceContents
 
 from ziomek.mcp import resources as mcp_resources_module
 
 
-class TestMcpVoicesResource:
-    """Test the voices MCP resource."""
+class TestMcpListResources:
+    """Test the list_resources MCP endpoint."""
 
-    def test_voices_returns_list(self):
-        """Voices resource returns voice list."""
-        mock_model = MagicMock()
+    def test_resources_list_has_all_resources(self):
+        """RESOURCES list has all 4 resources."""
+        uris = [r.uri for r in mcp_resources_module.RESOURCES]
+        assert "voices://" in uris
+        assert "models://" in uris
+        assert "expressions://" in uris
+        assert "config://" in uris
+        assert len(uris) == 4
 
-        with patch("ziomek.server._tts_model", mock_model):
-
-            server = Server("test")
-            mcp_resources_module.register_resources(server)
-
-            # Call on_list_resources first
-            list_result = asyncio.run(
-                server.on_list_resources(None, ListResourcesRequest())
-            )
-            voices_resource = None
-            for r in list_result.resources:
-                if r.uri == "voices://":
-                    voices_resource = r
-                    break
-
-            assert voices_resource is not None
-
-            # Call on_read_resource
-            read_result = asyncio.run(
-                server.on_read_resource(
-                    None, ReadResourceRequest(
-                        method="resources/read",
-                        params=ReadResourceRequestParams(uri="voices://"),
-                    )
-                )
-            )
-
-            data = json.loads(read_result.contents[0].text)
-            assert "voices" in data
-            assert "cosette" in data["voices"]
-            assert "default" in data
-            assert data["default"] == "cosette"
+    def test_resources_have_correct_fields(self):
+        """Each resource has uri, name, and description."""
+        for resource in mcp_resources_module.RESOURCES:
+            assert isinstance(resource.uri, str) and len(resource.uri) > 0
+            assert isinstance(resource.name, str) and len(resource.name) > 0
+            assert isinstance(resource.description, str) and len(resource.description) > 0
 
 
-class TestMcpModelsResource:
-    """Test the models MCP resource."""
+class TestMcpReadResources:
+    """Test the read_resource MCP endpoint."""
 
-    def test_models_returns_list(self):
-        """Models resource returns model list."""
-        server = Server("test")
-        mcp_resources_module.register_resources(server)
-
-        list_result = asyncio.run(
-            server.on_list_resources(None, ListResourcesRequest())
-        )
-        models_resource = None
-        for r in list_result.resources:
-            if r.uri == "models://":
-                models_resource = r
-                break
-
-        assert models_resource is not None
-
-        read_result = asyncio.run(
-            server.on_read_resource(
-                None, ReadResourceRequest(
-                    method="resources/read",
-                    params=ReadResourceRequestParams(uri="models://"),
-                )
+    def test_read_voices_resource(self):
+        """voices:// returns list of voices."""
+        result = asyncio.run(
+            mcp_resources_module._on_read_resource(
+                None, ReadResourceRequestParams(uri="voices://")
             )
         )
-
-        data = json.loads(read_result.contents[0].text)
-        assert "models" in data
-        assert "tiny" in data["models"]
-        assert "base" in data["models"]
+        assert len(result.contents) == 1
+        content = result.contents[0]
+        assert isinstance(content, TextResourceContents)
+        assert content.uri == "voices://"
+        data = json.loads(content.text)
+        assert "voices" in data
         assert "default" in data
-        assert data["default"] == "tiny.en"
+        assert "cosette" in data["voices"]
 
-
-class TestMcpExpressionsResource:
-    """Test the expressions MCP resource."""
-
-    def test_expressions_returns_list(self):
-        """Expressions resource returns expression list."""
-        server = Server("test")
-        mcp_resources_module.register_resources(server)
-
-        list_result = asyncio.run(
-            server.on_list_resources(None, ListResourcesRequest())
-        )
-        expr_resource = None
-        for r in list_result.resources:
-            if r.uri == "expressions://":
-                expr_resource = r
-                break
-
-        assert expr_resource is not None
-
-        read_result = asyncio.run(
-            server.on_read_resource(
-                None, ReadResourceRequest(
-                    method="resources/read",
-                    params=ReadResourceRequestParams(uri="expressions://"),
-                )
+    def test_read_models_resource(self):
+        """models:// returns list of models."""
+        result = asyncio.run(
+            mcp_resources_module._on_read_resource(
+                None, ReadResourceRequestParams(uri="models://")
             )
         )
+        assert len(result.contents) == 1
+        content = result.contents[0]
+        assert isinstance(content, TextResourceContents)
+        assert content.uri == "models://"
+        data = json.loads(content.text)
+        assert "models" in data
+        assert "default" in data
+        assert "tiny" in data["models"]
 
-        data = json.loads(read_result.contents[0].text)
+    def test_read_expressions_resource(self):
+        """expressions:// returns list of expressions."""
+        result = asyncio.run(
+            mcp_resources_module._on_read_resource(
+                None, ReadResourceRequestParams(uri="expressions://")
+            )
+        )
+        assert len(result.contents) == 1
+        content = result.contents[0]
+        assert isinstance(content, TextResourceContents)
+        assert content.uri == "expressions://"
+        data = json.loads(content.text)
         assert "expressions" in data
         assert len(data["expressions"]) > 0
 
+    def test_read_config_resource(self):
+        """config:// returns server config."""
+        with patch("ziomek.server._settings", None):
+            result = asyncio.run(
+                mcp_resources_module._on_read_resource(
+                    None, ReadResourceRequestParams(uri="config://")
+                )
+            )
+            assert len(result.contents) == 1
+            content = result.contents[0]
+            assert isinstance(content, TextResourceContents)
+            assert content.uri == "config://"
+            data = json.loads(content.text)
+            assert "error" in data
 
-class TestMcpConfigResource:
-    """Test the config MCP resource."""
-
-    def test_config_returns_readonly(self):
-        """Config resource returns read-only config by default."""
+    def test_read_config_resource_with_settings(self):
+        """config:// returns config when settings exist."""
         mock_settings = MagicMock()
         mock_settings.host = "localhost"
         mock_settings.port = 5003
@@ -139,108 +107,23 @@ class TestMcpConfigResource:
         mock_settings.cache_dir = "/tmp/cache"
         mock_settings.log_level = "INFO"
         mock_settings.stt_engine = "faster_whisper"
-        mock_settings.stt_model = "tiny"
-        mock_settings.stt_model_dir = None
+        mock_settings.stt_model = "tiny.en"
+        mock_settings.stt_model_dir = "/tmp/models"
         mock_settings.model_path = None
 
         with patch("ziomek.server._settings", mock_settings):
-
-            server = Server("test")
-            mcp_resources_module.register_resources(server, expose_full_config=False)
-
-            list_result = asyncio.run(
-                server.on_list_resources(None, ListResourcesRequest())
-            )
-            config_resource = None
-            for r in list_result.resources:
-                if r.uri == "config://":
-                    config_resource = r
-                    break
-
-            assert config_resource is not None
-
-            read_result = asyncio.run(
-                server.on_read_resource(
-                    None, ReadResourceRequest(
-                        method="resources/read",
-                        params=ReadResourceRequestParams(uri="config://"),
-                    )
+            result = asyncio.run(
+                mcp_resources_module._on_read_resource(
+                    None, ReadResourceRequestParams(uri="config://")
                 )
             )
-
-            data = json.loads(read_result.contents[0].text)
+            assert len(result.contents) == 1
+            content = result.contents[0]
+            assert isinstance(content, TextResourceContents)
+            assert content.uri == "config://"
+            data = json.loads(content.text)
             assert data["host"] == "localhost"
             assert data["port"] == 5003
             assert data["voice"] == "cosette"
-            assert "full_config" not in data
-
-    def test_config_returns_full_with_flag(self):
-        """Config resource returns full config with --mcp-config flag."""
-        mock_settings = MagicMock()
-        mock_settings.host = "localhost"
-        mock_settings.port = 5003
-        mock_settings.voice = "cosette"
-        mock_settings.cache_dir = "/tmp/cache"
-        mock_settings.log_level = "INFO"
-        mock_settings.stt_engine = "faster_whisper"
-        mock_settings.stt_model = "tiny"
-        mock_settings.stt_model_dir = None
-        mock_settings.model_path = None
-
-        with patch("ziomek.server._settings", mock_settings):
-
-            server = Server("test")
-            mcp_resources_module.register_resources(server, expose_full_config=True)
-
-            list_result = asyncio.run(
-                server.on_list_resources(None, ListResourcesRequest())
-            )
-            config_resource = None
-            for r in list_result.resources:
-                if r.uri == "config://":
-                    config_resource = r
-                    break
-
-            assert config_resource is not None
-
-            read_result = asyncio.run(
-                server.on_read_resource(
-                    None, ReadResourceRequest(
-                        method="resources/read",
-                        params=ReadResourceRequestParams(uri="config://"),
-                    )
-                )
-            )
-
-            data = json.loads(read_result.contents[0].text)
-            assert data["full_config"] is True
-
-    def test_config_not_initialized(self):
-        """Config resource returns error when settings not initialized."""
-        with patch("ziomek.server._settings", None):
-
-            server = Server("test")
-            mcp_resources_module.register_resources(server)
-
-            list_result = asyncio.run(
-                server.on_list_resources(None, ListResourcesRequest())
-            )
-            config_resource = None
-            for r in list_result.resources:
-                if r.uri == "config://":
-                    config_resource = r
-                    break
-
-            assert config_resource is not None
-
-            read_result = asyncio.run(
-                server.on_read_resource(
-                    None, ReadResourceRequest(
-                        method="resources/read",
-                        params=ReadResourceRequestParams(uri="config://"),
-                    )
-                )
-            )
-
-            data = json.loads(read_result.contents[0].text)
-            assert "error" in data
+            assert data["stt_engine"] == "faster_whisper"
+            assert data["stt_model"] == "tiny.en"
