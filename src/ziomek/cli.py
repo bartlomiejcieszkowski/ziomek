@@ -63,14 +63,58 @@ def benchmark_diff_cmd(args):
     print_diff(diff)
 
 
-def benchmark_cmd(args):
-    """Handle benchmark subcommands."""
-    if args.benchmark_command == "list":
-        benchmark_list_cmd(args)
-    elif args.benchmark_command == "diff":
-        benchmark_diff_cmd(args)
+def benchmark_run_cmd(args):
+    """Run a benchmark (TTS accuracy or STT quality)."""
+    if args.benchmark_type == "tts":
+        # Run TTS accuracy benchmark
+        from ziomek.tts.accuracy import main as accuracy_main
+
+        accuracy_main(
+            voices=args.voices,
+            models=args.models,
+            categories=args.categories,
+            iterations=args.iterations,
+            output=args.output,
+            output_dir=args.output_dir,
+            store=args.store,
+            store_dir=args.store_dir,
+            log_level=args.log_level,
+        )
+    elif args.benchmark_type == "stt":
+        # Run STT quality benchmark
+        from ziomek.stt.benchmark import main as stt_benchmark_main
+
+        stt_benchmark_main(
+            voices=args.voices,
+            models=args.models,
+            categories=args.categories,
+            iterations=args.iterations,
+            output=args.output,
+            output_dir=args.output_dir,
+            store=args.store,
+            store_dir=args.store_dir,
+            log_level=args.log_level,
+        )
     else:
         args.benchmark_parser.print_help()
+
+
+def benchmark_cmd(args):
+    """Handle benchmark subcommands."""
+    if args.benchmark_subcommand == "list":
+        benchmark_list_cmd(args)
+    elif args.benchmark_subcommand == "diff":
+        benchmark_diff_cmd(args)
+    elif args.benchmark_subcommand == "run":
+        benchmark_run_cmd(args)
+    else:
+        # No subcommand — print help for the benchmark parser
+        print("Usage: ziomek benchmark {list,diff,run} [options]")
+        print()
+        print("Benchmark management commands:")
+        print("  list    List saved benchmark runs")
+        print("  diff    Compare two benchmark runs")
+        print("  run     Run a benchmark (TTS accuracy or STT quality)")
 
 
 def main():
@@ -154,11 +198,11 @@ def main():
     # Benchmark subcommands
     benchmark_parser = parser.add_subparsers(dest="benchmark_command")
 
-    benchmark_list_parser = benchmark_parser.add_parser(
+    benchmark_main = benchmark_parser.add_parser(
         "benchmark",
         help="Benchmark management",
     )
-    benchmark_sub = benchmark_list_parser.add_subparsers(dest="benchmark_command")
+    benchmark_sub = benchmark_main.add_subparsers(dest="benchmark_subcommand")
 
     benchmark_list_parser = benchmark_sub.add_parser(
         "list",
@@ -184,11 +228,136 @@ def main():
     )
     benchmark_diff_parser.set_defaults(func=benchmark_diff_cmd)
 
+    # Run benchmark subcommand
+    benchmark_run_parser = benchmark_sub.add_parser(
+        "run",
+        help="Run a benchmark (TTS accuracy or STT quality)",
+    )
+    benchmark_run_sub = benchmark_run_parser.add_subparsers(dest="benchmark_type")
+
+    # TTS accuracy benchmark
+    tts_parser = benchmark_run_sub.add_parser(
+        "tts",
+        help="Run TTS accuracy benchmark",
+    )
+    tts_parser.add_argument(
+        "--voices",
+        nargs="+",
+        default=["cosette", "default"],
+        help="Voices to test",
+    )
+    tts_parser.add_argument(
+        "--models",
+        nargs="+",
+        default=["tiny", "tiny.en", "base", "base.en", "small", "small.en"],
+        help="STT models to test",
+    )
+    tts_parser.add_argument(
+        "--categories",
+        nargs="+",
+        default=["simple", "complex", "names", "numbers", "technical", "long"],
+        help="Categories to test",
+    )
+    tts_parser.add_argument(
+        "--iterations",
+        type=int,
+        default=1,
+        help="Iterations per category per voice",
+    )
+    tts_parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="CSV output file path",
+    )
+    tts_parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Directory to save WAV files",
+    )
+    tts_parser.add_argument(
+        "--store",
+        action="store_true",
+        help="Save benchmark results to store",
+    )
+    tts_parser.add_argument(
+        "--store-dir",
+        type=str,
+        default="benchmarks",
+        help="Benchmark store directory",
+    )
+    tts_parser.add_argument(
+        "--log-level",
+        default="INFO",
+        help="Log level",
+    )
+    tts_parser.set_defaults(func=benchmark_run_cmd)
+
+    # STT quality benchmark
+    stt_parser = benchmark_run_sub.add_parser(
+        "stt",
+        help="Run STT quality benchmark",
+    )
+    stt_parser.add_argument(
+        "--voices",
+        nargs="+",
+        default=["cosette", "default"],
+        help="Voices to test",
+    )
+    stt_parser.add_argument(
+        "--models",
+        nargs="+",
+        default=["tiny", "tiny.en", "base", "base.en", "small", "small.en"],
+        help="STT models to test",
+    )
+    stt_parser.add_argument(
+        "--categories",
+        nargs="+",
+        default=["simple", "complex", "names", "numbers", "technical", "long"],
+        help="Categories to test",
+    )
+    stt_parser.add_argument(
+        "--iterations",
+        type=int,
+        default=1,
+        help="Iterations per category per voice",
+    )
+    stt_parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="CSV output file path",
+    )
+    stt_parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Directory to save WAV files",
+    )
+    stt_parser.add_argument(
+        "--store",
+        action="store_true",
+        help="Save benchmark results to store",
+    )
+    stt_parser.add_argument(
+        "--store-dir",
+        type=str,
+        default="benchmarks",
+        help="Benchmark store directory",
+    )
+    stt_parser.add_argument(
+        "--log-level",
+        default="INFO",
+        help="Log level",
+    )
+    stt_parser.set_defaults(func=benchmark_run_cmd)
+
     args = parser.parse_args()
 
     if args.scaffold_config:
         scaffold_cmd(args)
-    elif args.benchmark_command in ("list", "diff"):
+    elif args.benchmark_command == "benchmark":
         benchmark_cmd(args)
     else:
         serve_cmd(args)

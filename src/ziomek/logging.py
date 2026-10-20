@@ -16,6 +16,47 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 
+class _UTF8StreamHandler(logging.StreamHandler):
+    """StreamHandler that forces UTF-8 encoding with error replacement."""
+
+    def __init__(self, stream=None) -> None:
+        if stream is None:
+            stream = sys.stdout
+        super().__init__(stream)
+        # Force UTF-8 encoding with replacement for non-encodable chars
+        if hasattr(self.stream, "reconfigure"):
+            try:
+                self.stream.reconfigure(encoding="utf-8", errors="replace")
+            except (OSError, ValueError):
+                self.stream = _UTF8StreamWrapper(self.stream)
+        else:
+            self.stream = _UTF8StreamWrapper(self.stream)
+
+
+class _UTF8StreamWrapper:
+    """Wrap a stream to force UTF-8 encoding."""
+
+    def __init__(self, wrapped) -> None:
+        self._wrapped = wrapped
+
+    def write(self, s: str) -> int:
+        if isinstance(s, str):
+            try:
+                return self._wrapped.write(s)
+            except UnicodeEncodeError:
+                return self._wrapped.write(s.encode("utf-8").decode("utf-8", errors="replace"))
+        return self._wrapped.write(s)
+
+    def flush(self) -> None:
+        self._wrapped.flush()
+
+    def isatty(self) -> bool:
+        return self._wrapped.isatty()
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._wrapped, name)
+
+
 class JSONFormatter(logging.Formatter):
     """Format log records as JSON for structured log collectors."""
 
@@ -104,56 +145,65 @@ def setup_logging(level: str = "INFO", enable_buffer: bool = False, log_file: st
         log_file: Optional file path for JSON log output. Stdout uses colored text.
     """
     from uvicorn.logging import ColourizedFormatter
-    
+
     numeric_level = getattr(logging, level.upper(), logging.INFO)
-    
+
+    # ── Wrap stderr FIRST (before any logger configures handlers) ──
+    # This catches any log output that bypasses our handlers
+    # Always wrap stderr with UTF-8 wrapper as the final safety net
+    _stderr_wrapper = _UTF8StreamWrapper(sys.stderr)
+    sys.stderr = _stderr_wrapper
+
     # Stdout: force UTF-8 encoding to handle non-ASCII characters in logs
     # (e.g., RealtimeSTT transcription text with accents, emojis, etc.)
-    utf8_stdout = logging.StreamHandler(sys.stdout)
-    utf8_stdout.stream.reconfigure(encoding="utf-8", errors="replace")
-    utf8_stdout.setFormatter(ColourizedFormatter(
-        "%(asctime)s [%(levelname)s] %(name)s - %(message)s",
-        datefmt="%H:%M:%S",
-        use_colors=True,
-    ))
+    utf8_stdout = _UTF8StreamHandler(sys.stdout)
+    utf8_stdout.setFormatter(
+        ColourizedFormatter(
+            "%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+            datefmt="%H:%M:%S",
+            use_colors=True,
+        )
+    )
     logger = logging.getLogger("ziomek")
     logger.setLevel(numeric_level)
     logger.addHandler(utf8_stdout)
     logger.propagate = False
-    
+
     # Log file: JSON format (if specified)
     if log_file:
         file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setFormatter(JSONFormatter())
         logger.addHandler(file_handler)
-    
+
     # Configure uvicorn to use colored format on stdout too
     for uvicorn_logger in ["uvicorn", "uvicorn.access", "uvicorn.error"]:
         uv_logger = logging.getLogger(uvicorn_logger)
         uv_logger.handlers.clear()
-        uv_handler = logging.StreamHandler(sys.stdout)
-        uv_handler.stream.reconfigure(encoding="utf-8", errors="replace")
-        uv_handler.setFormatter(ColourizedFormatter(
-            "%(message)s",
-            use_colors=True,
-        ))
+        uv_handler = _UTF8StreamHandler(sys.stdout)
+        uv_handler.setFormatter(
+            ColourizedFormatter(
+                "%(message)s",
+                use_colors=True,
+            )
+        )
         uv_logger.addHandler(uv_handler)
         uv_logger.propagate = False
-    
+
     # Also configure all third-party loggers (RealtimeSTT, whisper, etc.)
     # to use UTF-8 stdout so they don't crash on non-ASCII characters
     for third_party in ["realtimestt", "RealtimeSTT", "whisper", "ctranslate2", "torch"]:
         tp_logger = logging.getLogger(third_party)
         tp_logger.handlers.clear()
-        tp_handler = logging.StreamHandler(sys.stdout)
-        tp_handler.stream.reconfigure(encoding="utf-8", errors="replace")
-        tp_handler.setFormatter(logging.Formatter(
-            "%(asctime)s [%(levelname)s] %(name)s - %(message)s",
-            datefmt="%H:%M:%S",
-        ))
+        tp_handler = _UTF8StreamHandler(sys.stdout)
+        tp_handler.setFormatter(
+            logging.Formatter(
+                "%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+                datefmt="%H:%M:%S",
+            )
+        )
         tp_logger.addHandler(tp_handler)
         tp_logger.propagate = False
-    
+
     if enable_buffer:
         buf = _LogRingBuffer()
         buf.setLevel(logging.DEBUG)

@@ -315,73 +315,100 @@ def print_summary(results: list[BenchmarkResult]) -> None:
     print("\n" + "=" * 80)
 
 
-def main() -> list[BenchmarkResult]:
-    """CLI entry point."""
+def main(  # noqa: PLR0915 (complex function — benchmark runner)
+    engines: list[str] | None = None,
+    models: list[str] | None = None,
+    categories: list[tuple[str, str]] | None = None,
+    iterations: int | None = None,
+    output_dir: str | None = None,
+    store: bool = False,
+    store_dir: str = "benchmarks",
+    log_level: str = "WARNING",
+) -> list[BenchmarkResult]:
     import argparse
+    import sys
 
-    parser = argparse.ArgumentParser(description="STT Quality Benchmark")
-    parser.add_argument(
-        "--engines",
-        nargs="+",
-        default=None,
-        help="STT engines to test (default: faster_whisper)",
-    )
-    parser.add_argument(
-        "--models",
-        nargs="+",
-        default=None,
-        help=f"STT models to test (default: {DEFAULT_MODELS})",
-    )
-    parser.add_argument(
-        "--categories",
-        nargs="+",
-        default=None,
-        help="Category names to test (default: all)",
-    )
-    parser.add_argument(
-        "--iterations",
-        type=int,
-        default=1,
-        help="Number of runs per config (default: 1)",
-    )
-    parser.add_argument(
-        "--output-dir",
-        type=str,
-        default=None,
-        help="Directory for CSV/JSON output",
-    )
-    parser.add_argument(
-        "--store",
-        action="store_true",
-        help="Save benchmark results to store.py",
-    )
-    parser.add_argument(
-        "--store-dir",
-        type=str,
-        default="benchmarks",
-        help="Benchmark store directory (default: benchmarks)",
-    )
-    parser.add_argument(
-        "--log-level",
-        type=str,
-        default="WARNING",
-        help="Logging level (default: WARNING)",
-    )
+    # If called from CLI (no args provided), parse from command line
+    if engines is None:
+        parser = argparse.ArgumentParser(description="STT Quality Benchmark")
+        parser.add_argument(
+            "--engines",
+            nargs="+",
+            default=None,
+            help="STT engines to test (default: faster_whisper)",
+        )
+        parser.add_argument(
+            "--models",
+            nargs="+",
+            default=None,
+            help=f"STT models to test (default: {DEFAULT_MODELS})",
+        )
+        parser.add_argument(
+            "--categories",
+            nargs="+",
+            default=None,
+            help="Category names to test (default: all)",
+        )
+        parser.add_argument(
+            "--iterations",
+            type=int,
+            default=1,
+            help="Number of runs per config (default: 1)",
+        )
+        parser.add_argument(
+            "--output-dir",
+            type=str,
+            default=None,
+            help="Directory for CSV/JSON output",
+        )
+        parser.add_argument(
+            "--store",
+            action="store_true",
+            help="Save benchmark results to store.py",
+        )
+        parser.add_argument(
+            "--store-dir",
+            type=str,
+            default="benchmarks",
+            help="Benchmark store directory (default: benchmarks)",
+        )
+        parser.add_argument(
+            "--log-level",
+            type=str,
+            default="WARNING",
+            help="Logging level (default: WARNING)",
+        )
 
-    args = parser.parse_args()
+        args = parser.parse_args()
 
-    # Parse categories
-    categories = SAMPLE_TEXTS
-    if args.categories:
-        categories = [(n, t) for n, t in SAMPLE_TEXTS if n in args.categories]
+        engines = args.engines
+        models = args.models
+        categories_input = args.categories
+        iterations = args.iterations
+        output_dir = args.output_dir
+        store = args.store
+        store_dir = args.store_dir
+        log_level = args.log_level
+    else:
+        # Use defaults for any None values
+        if models is None:
+            models = DEFAULT_MODELS
+        if categories is None:
+            categories = SAMPLE_TEXTS
+        if iterations is None:
+            iterations = 1
+
+        # Parse categories if provided as list of names
+        if isinstance(categories, list) and categories and isinstance(categories[0], str):
+            categories = [(n, t) for n, t in SAMPLE_TEXTS if n in categories]
 
     results = run_benchmark(
-        engines=args.engines,
-        models=args.models,
+        engines=engines,
+        models=models,
         categories=categories,
-        iterations=args.iterations,
-        output_dir=args.output_dir,
-        log_level=args.log_level,
+        iterations=iterations,
+        output_dir=output_dir,
+        log_level=log_level,
     )
 
     print_summary(results)

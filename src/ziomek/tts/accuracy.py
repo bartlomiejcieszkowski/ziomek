@@ -244,78 +244,110 @@ def _print_summary(results: list[dict[str, Any]]) -> None:
     print("\n" + "=" * 80)
 
 
-def main() -> list[dict[str, Any]]:
-    parser = argparse.ArgumentParser(description="ziomek TTS accuracy test")
-    parser.add_argument(
-        "--voices",
-        nargs="+",
-        default=["cosette", "default"],
-        help="Voices to test",
-    )
-    parser.add_argument(
-        "--models",
-        nargs="+",
-        default=DEFAULT_MODELS,
-        help="STT models to test (default: all)",
-    )
-    parser.add_argument(
-        "--categories",
-        nargs="+",
-        default=["simple", "complex", "names", "numbers", "technical", "long"],
-        help="Categories to test",
-    )
-    parser.add_argument(
-        "--iterations",
-        type=int,
-        default=1,
-        help="Iterations per category per voice",
-    )
-    parser.add_argument(
-        "--output",
-        type=str,
-        default=None,
-        help="CSV output file path",
-    )
-    parser.add_argument(
-        "--output-dir",
-        type=str,
-        default=None,
-        help="Directory to save WAV files",
-    )
-    parser.add_argument(
-        "--store",
-        action="store_true",
-        help="Save benchmark results to store.py",
-    )
-    parser.add_argument(
-        "--store-dir",
-        type=str,
-        default="benchmarks",
-        help="Benchmark store directory (default: benchmarks)",
-    )
-    parser.add_argument(
-        "--log-level",
-        default="INFO",
-        help="Log level",
-    )
-    args = parser.parse_args()
+def main(  # noqa: PLR0915 (complex function — benchmark runner)
+    voices: list[str] | None = None,
+    models: list[str] | None = None,
+    categories: list[str] | None = None,
+    iterations: int | None = None,
+    output: str | None = None,
+    output_dir: str | None = None,
+    store: bool = False,
+    store_dir: str = "benchmarks",
+    log_level: str = "INFO",
+) -> list[dict[str, Any]]:
+    import sys
+
+    # If called from CLI (no args provided), parse from command line
+    if voices is None:
+        parser = argparse.ArgumentParser(description="ziomek TTS accuracy test")
+        parser.add_argument(
+            "--voices",
+            nargs="+",
+            default=["cosette", "default"],
+            help="Voices to test",
+        )
+        parser.add_argument(
+            "--models",
+            nargs="+",
+            default=DEFAULT_MODELS,
+            help="STT models to test (default: all)",
+        )
+        parser.add_argument(
+            "--categories",
+            nargs="+",
+            default=["simple", "complex", "names", "numbers", "technical", "long"],
+            help="Categories to test",
+        )
+        parser.add_argument(
+            "--iterations",
+            type=int,
+            default=1,
+            help="Iterations per category per voice",
+        )
+        parser.add_argument(
+            "--output",
+            type=str,
+            default=None,
+            help="CSV output file path",
+        )
+        parser.add_argument(
+            "--output-dir",
+            type=str,
+            default=None,
+            help="Directory to save WAV files",
+        )
+        parser.add_argument(
+            "--store",
+            action="store_true",
+            help="Save benchmark results to store.py",
+        )
+        parser.add_argument(
+            "--store-dir",
+            type=str,
+            default="benchmarks",
+            help="Benchmark store directory (default: benchmarks)",
+        )
+        parser.add_argument(
+            "--log-level",
+            default="INFO",
+            help="Log level",
+        )
+        args = parser.parse_args()
+
+        voices = args.voices
+        models = args.models
+        categories = args.categories
+        iterations = args.iterations
+        output = args.output
+        output_dir = args.output_dir
+        store = args.store
+        store_dir = args.store_dir
+        log_level = args.log_level
+    else:
+        # Use defaults for any None values
+        if models is None:
+            models = DEFAULT_MODELS
+        if categories is None:
+            categories = ["simple", "complex", "names", "numbers", "technical", "long"]
+        if iterations is None:
+            iterations = 1
 
     logging.basicConfig(
-        level=getattr(logging, args.log_level, logging.INFO),
+        level=getattr(logging, log_level, logging.INFO),
         format="%(message)s",
     )
 
     # Filter categories
-    cat_names = set(args.categories)
+    cat_names = set(categories)
     filtered_texts = [(n, t) for n, t in SAMPLE_TEXTS if n in cat_names]
 
-    print(f"Voices: {', '.join(args.voices)}")
-    print(f"STT models: {', '.join(args.models)}")
-    print(f"Categories: {', '.join(args.categories)}")
-    print(f"Iterations: {args.iterations}")
-    if args.output_dir:
-        Path(args.output_dir).mkdir(parents=True, exist_ok=True)
-        print(f"WAV output directory: {args.output_dir}")
+    print(f"Voices: {', '.join(voices)}")
+    print(f"STT models: {', '.join(models)}")
+    print(f"Categories: {', '.join(categories)}")
+    print(f"Iterations: {iterations}")
+    if output_dir:
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        print(f"WAV output directory: {output_dir}")
     print()
 
     # Initialize model and STT engine
@@ -333,8 +365,8 @@ def main() -> list[dict[str, Any]]:
 
     all_results: list[dict[str, Any]] = []
 
-    for voice in args.voices:
-        for stt_model in args.models:
+    for voice in voices:
+        for stt_model in models:
             if stt_engine:
                 stt_engine.reconfigure("faster_whisper", stt_model)
 
@@ -347,8 +379,8 @@ def main() -> list[dict[str, Any]]:
                     voice,
                     stt_model,
                     filtered_texts,
-                    args.iterations,
-                    args.output_dir,
+                    iterations,
+                    output_dir,
                 )
                 all_results.extend(results)
             except Exception as e:
@@ -365,7 +397,7 @@ def main() -> list[dict[str, Any]]:
     _print_summary(all_results)
 
     # Write CSV
-    csv_path = args.output or "tts_accuracy.csv"
+    csv_path = output or "tts_accuracy.csv"
     fieldnames = [
         "voice",
         "stt_model",
@@ -385,7 +417,7 @@ def main() -> list[dict[str, Any]]:
     print(f"\nCSV report written to: {csv_path}")
 
     # Save to benchmark store
-    if args.store:
+    if store:
         from ziomek.benchmark.store import create_run, save_run
 
         # Collect unique STT models and voices from results
@@ -405,7 +437,7 @@ def main() -> list[dict[str, Any]]:
             stt_models=stt_models,
             tts_voices=tts_voices,
         )
-        path = save_run(run, store_dir=args.store_dir)
+        path = save_run(run, store_dir=store_dir)
         print(f"\nBenchmark result saved to: {path}")
 
     return all_results
