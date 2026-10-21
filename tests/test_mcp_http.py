@@ -41,8 +41,9 @@ class TestMcpHttpRoute:
         assert "ziomek MCP" in resp.text
 
     def test_mcp_sse_endpoint_exists(self, http_mcp_client):
-        # Just check the route exists and returns 200 with correct content-type
-        # Don't actually consume the SSE stream (it's infinite)
+        # /mcp/sse is our SSE passthrough route that delegates to the MCP SDK.
+        # The MCP SDK opens an infinite SSE stream, which TestClient can't consume.
+        # We expect an exception (e.g., broken pipe or timeout) when trying to read.
         with pytest.raises(Exception):
             http_mcp_client.get("/mcp/sse")
 

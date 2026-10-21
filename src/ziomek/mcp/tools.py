@@ -110,17 +110,23 @@ async def _handle_speak(arguments: dict) -> CallToolResult:
     from ziomek.server import _audio_player, _settings, _tts_model, _voice_cache
 
     if _tts_model is None or not _tts_model.ready:
-        _tts_model.load(_settings.model_path if _settings else None)
+        if _tts_model is not None:
+            _tts_model.load(_settings.model_path if _settings else None)
     if _tts_model is None or not _tts_model.ready:
         return CallToolResult(
             content=[TextContent(type="text", text=json.dumps({"error": "TTS model not loaded"}))],
-            isError=True,
+            is_error=True,
         )
 
     from ziomek.tts.generate import generate_wav
 
     text = arguments.get("text", "")
     voice = arguments.get("voice", "default")
+    if _voice_cache is None:
+        return CallToolResult(
+            content=[TextContent(type="text", text=json.dumps({"error": "Voice cache not initialized"}))],
+            is_error=True,
+        )
     audio_b64, duration, sample_rate = generate_wav(_tts_model, _voice_cache, text, voice)
     wav_bytes = base64.b64decode(audio_b64)
 
@@ -128,14 +134,18 @@ async def _handle_speak(arguments: dict) -> CallToolResult:
         _audio_player.play(wav_bytes, sample_rate)
 
     return CallToolResult(
-        content=[TextContent(
-            type="text",
-            text=json.dumps({
-                "status": "playing",
-                "duration_s": round(duration, 3),
-                "voice": voice,
-            }),
-        )],
+        content=[
+            TextContent(
+                type="text",
+                text=json.dumps(
+                    {
+                        "status": "playing",
+                        "duration_s": round(duration, 3),
+                        "voice": voice,
+                    }
+                ),
+            )
+        ],
     )
 
 
@@ -145,7 +155,7 @@ async def _handle_transcribe(arguments: dict) -> CallToolResult:
     if _stt_engine is None:
         return CallToolResult(
             content=[TextContent(type="text", text=json.dumps({"error": "STT engine not initialized"}))],
-            isError=True,
+            is_error=True,
         )
 
     audio_b64 = arguments.get("audio_b64", "")
@@ -156,18 +166,22 @@ async def _handle_transcribe(arguments: dict) -> CallToolResult:
     except Exception:
         return CallToolResult(
             content=[TextContent(type="text", text=json.dumps({"error": "Invalid base64 audio data"}))],
-            isError=True,
+            is_error=True,
         )
 
     result = _stt_engine.transcribe_chunk(audio_bytes, sample_rate)
     return CallToolResult(
-        content=[TextContent(
-            type="text",
-            text=json.dumps({
-                "text": result.text,
-                "is_final": result.is_final,
-            }),
-        )],
+        content=[
+            TextContent(
+                type="text",
+                text=json.dumps(
+                    {
+                        "text": result.text,
+                        "is_final": result.is_final,
+                    }
+                ),
+            )
+        ],
     )
 
 
@@ -179,23 +193,31 @@ async def _handle_start_listening(arguments: dict) -> CallToolResult:
 
     if success:
         return CallToolResult(
-            content=[TextContent(
-                type="text",
-                text=json.dumps({
-                    "status": "listening",
-                    "message": "Continuous listening started",
-                }),
-            )],
+            content=[
+                TextContent(
+                    type="text",
+                    text=json.dumps(
+                        {
+                            "status": "listening",
+                            "message": "Continuous listening started",
+                        }
+                    ),
+                )
+            ],
         )
     return CallToolResult(
-        content=[TextContent(
-            type="text",
-            text=json.dumps({
-                "status": "error",
-                "message": "Failed to start listening (already active or engine error)",
-            }),
-        )],
-        isError=True,
+        content=[
+            TextContent(
+                type="text",
+                text=json.dumps(
+                    {
+                        "status": "error",
+                        "message": "Failed to start listening (already active or engine error)",
+                    }
+                ),
+            )
+        ],
+        is_error=True,
     )
 
 
@@ -212,23 +234,31 @@ async def _handle_stop_listening() -> CallToolResult:
 
     if success:
         return CallToolResult(
-            content=[TextContent(
-                type="text",
-                text=json.dumps({
-                    "status": "stopped",
-                    "state": "idle",
-                }),
-            )],
+            content=[
+                TextContent(
+                    type="text",
+                    text=json.dumps(
+                        {
+                            "status": "stopped",
+                            "state": "idle",
+                        }
+                    ),
+                )
+            ],
         )
     return CallToolResult(
-        content=[TextContent(
-            type="text",
-            text=json.dumps({
-                "status": "error",
-                "message": "No active listening session",
-            }),
-        )],
-        isError=True,
+        content=[
+            TextContent(
+                type="text",
+                text=json.dumps(
+                    {
+                        "status": "error",
+                        "message": "No active listening session",
+                    }
+                ),
+            )
+        ],
+        is_error=True,
     )
 
 
@@ -238,20 +268,24 @@ async def _handle_set_expression(arguments: dict) -> CallToolResult:
     if _state_machine is None:
         return CallToolResult(
             content=[TextContent(type="text", text=json.dumps({"error": "State machine not initialized"}))],
-            isError=True,
+            is_error=True,
         )
 
     expression = arguments.get("expression", "")
     duration_ms = arguments.get("duration_ms")
     ok = _state_machine.setExpression(expression, duration_ms)
     return CallToolResult(
-        content=[TextContent(
-            type="text",
-            text=json.dumps({
-                "ok": ok,
-                "expression": expression,
-            }),
-        )],
+        content=[
+            TextContent(
+                type="text",
+                text=json.dumps(
+                    {
+                        "ok": ok,
+                        "expression": expression,
+                    }
+                ),
+            )
+        ],
     )
 
 
@@ -261,20 +295,24 @@ async def _handle_get_expression() -> CallToolResult:
     if _state_machine is None:
         return CallToolResult(
             content=[TextContent(type="text", text=json.dumps({"error": "State machine not initialized"}))],
-            isError=True,
+            is_error=True,
         )
 
     state = _state_machine.tick(16)
     return CallToolResult(
-        content=[TextContent(
-            type="text",
-            text=json.dumps({
-                "expression": state.expressionName,
-                "cycleIndex": state.cycleIndex,
-                "message": state.message,
-                "messageExpiry": state.messageExpiry,
-            }),
-        )],
+        content=[
+            TextContent(
+                type="text",
+                text=json.dumps(
+                    {
+                        "expression": state.expressionName,
+                        "cycleIndex": state.cycleIndex,
+                        "message": state.message,
+                        "messageExpiry": state.messageExpiry,
+                    }
+                ),
+            )
+        ],
     )
 
 
@@ -300,18 +338,22 @@ async def _handle_status() -> CallToolResult:
     uptime_s = get_uptime()
 
     return CallToolResult(
-        content=[TextContent(
-            type="text",
-            text=json.dumps({
-                "tts_ready": tts_ready,
-                "stt_state": stt_state,
-                "stt_engine": stt_engine_name,
-                "stt_model": stt_model,
-                "audio_backend": audio_backend,
-                "audio_device": audio_device,
-                "uptime_seconds": round(uptime_s, 1),
-            }),
-        )],
+        content=[
+            TextContent(
+                type="text",
+                text=json.dumps(
+                    {
+                        "tts_ready": tts_ready,
+                        "stt_state": stt_state,
+                        "stt_engine": stt_engine_name,
+                        "stt_model": stt_model,
+                        "audio_backend": audio_backend,
+                        "audio_device": audio_device,
+                        "uptime_seconds": round(uptime_s, 1),
+                    }
+                ),
+            )
+        ],
     )
 
 
@@ -340,5 +382,5 @@ async def _on_call_tool(ctx: ServerRequestContext, params: CallToolRequestParams
     else:
         return CallToolResult(
             content=[TextContent(type="text", text=f"Unknown tool: {name}")],
-            isError=True,
+            is_error=True,
         )
