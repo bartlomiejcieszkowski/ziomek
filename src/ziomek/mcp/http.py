@@ -18,11 +18,17 @@ logger = logging.getLogger(__name__)
 
 # Global server reference
 _mcp_server: Server | None = None
+_mcp_http_app: Any = None
 
 
 def get_mcp_server() -> Server | None:
     """Get the MCP server instance (for testing)."""
     return _mcp_server
+
+
+def _get_mcp_http_app() -> Any:
+    """Get the MCP HTTP app (for SSE passthrough)."""
+    return _mcp_http_app
 
 
 def register_mcp_http_routes(app: Any, expose_full_config: bool = False) -> None:
@@ -49,6 +55,10 @@ def register_mcp_http_routes(app: Any, expose_full_config: bool = False) -> None
 
     # Get the built-in HTTP app from MCP SDK
     mcp_http_app = _mcp_server.streamable_http_app(streamable_http_path="/mcp")
+
+    # Store globally for SSE passthrough
+    global _mcp_http_app
+    _mcp_http_app = mcp_http_app
 
     # Health endpoint (GET only)
     app.add_route("/mcp/health", mcp_health, methods=["GET"])
@@ -96,19 +106,21 @@ async def mcp_sse(request: Request) -> Any:
         "path": "/mcp",
         "path_info": "/mcp",
         "query_string": request.url.query.encode(),
-        "headers": [(k.lower(), v.encode()) for k, v in request.headers.raw],
+        "headers": [(k.lower(), v if isinstance(v, bytes) else v.encode()) for k, v in request.headers.raw],
     }
 
     async def receive():
         return {"type": "http.request", "body": b""}
 
-    body_chunks = []
+    body_chunks: list[bytes] = []
 
     async def send(message):
         if message["type"] == "http.response.body":
             body_chunks.append(message.get("body", b""))
 
-    await mcp_http_app(scope, receive, send)
+    app = _get_mcp_http_app()
+    if app:
+        await app(scope, receive, send)
 
     from starlette.responses import StreamingResponse
 
@@ -119,7 +131,7 @@ async def mcp_sse(request: Request) -> Any:
     return StreamingResponse(stream(), media_type="text/event-stream")
 
 
-async def start_mcp_http_server(host: str = "localhost", port: int = 5005) -> None:
+def start_mcp_http_server(host: str = "localhost", port: int = 5005) -> None:
     """Run the MCP server over HTTP transport.
 
     Uses uvicorn to serve the streamable_http_app.
@@ -155,6 +167,4 @@ def create_http_app() -> Any:
 
 
 if __name__ == "__main__":
-    import asyncio
-
-    asyncio.run(start_mcp_http_server())
+    start_mcp_http_server()

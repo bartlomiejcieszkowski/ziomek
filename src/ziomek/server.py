@@ -97,8 +97,8 @@ def create_app(
     settings: Settings | None = None,
     dev_mode: bool = False,
     verbose: bool = False,
-    mcp_enabled: bool = False,
-    mcp_http_enabled: bool = False,
+    mcp_stdio: bool = False,
+    mcp_http: bool = False,
     mcp_config_exposed: bool = False,
 ) -> FastAPI:
     global _tts_model, _voice_cache, _audio_player, _state_machine, _skin_registry, _settings
@@ -174,7 +174,7 @@ def create_app(
             return HTMLResponse(content=html_path.read_text(encoding="utf-8"))
 
     # MCP server (separate thread for stdio, HTTP routes for http mode)
-    if mcp_enabled:
+    if mcp_stdio:
         import threading
 
         def _start_mcp() -> None:
@@ -186,7 +186,7 @@ def create_app(
         mcp_thread.start()
         _logger.info("MCP server started (stdio transport)")
 
-    if mcp_http_enabled:
+    if mcp_http:
         from ziomek.mcp.http import register_mcp_http_routes
 
         register_mcp_http_routes(app, mcp_config_exposed)
@@ -211,8 +211,9 @@ def run_server(
     stt_model_dir: str | None = None,
     dev_mode: bool = False,
     verbose: bool = False,
-    mcp_enabled: bool = False,
-    mcp_http_enabled: bool = False,
+    mcp_stdio: bool = False,
+    mcp_http: bool = False,
+    mcp_port: int | None = None,
     mcp_config_exposed: bool = False,
 ):
     """Run the unified ziomek server.
@@ -236,8 +237,8 @@ def run_server(
         stt_model_dir: STT model download directory.
         dev_mode: Enable debug endpoints and debug page.
         verbose: Enable DEBUG logging.
-        mcp_enabled: Enable MCP server in stdio mode alongside HTTP server.
-        mcp_http_enabled: Enable MCP server in HTTP mode alongside HTTP server.
+        mcp_stdio: Enable MCP server in stdio mode alongside HTTP server.
+        mcp_http: Enable MCP server in HTTP mode alongside HTTP server.
         mcp_config_exposed: Expose full config via MCP (default: read-only).
     """
     # Determine effective log level
@@ -258,13 +259,16 @@ def run_server(
         stt_engine=stt_engine,
         stt_model=stt_model,
         stt_model_dir=stt_model_dir,
-        mcp_port=port,  # Reuse main port for MCP HTTP if not specified
-        mcp_transport="http" if mcp_http_enabled else "stdio",
+        mcp_port=mcp_port,
+        mcp_transport="http" if mcp_http else "stdio",
     )
     setup_logging(level=effective_level, enable_buffer=dev_mode)
     app = create_app(
-        settings, dev_mode=dev_mode, verbose=verbose,
-        mcp_enabled=mcp_enabled, mcp_http_enabled=mcp_http_enabled,
+        settings,
+        dev_mode=dev_mode,
+        verbose=verbose,
+        mcp_stdio=mcp_stdio,
+        mcp_http=mcp_http,
         mcp_config_exposed=mcp_config_exposed,
     )
     effective_port = port if port is not None else settings.port
@@ -276,15 +280,33 @@ def run_server(
         print(f"  Debug mode enabled: http://{settings.host}:{effective_port}/debug", file=sys.stderr)
     if verbose:
         print("  Verbose mode enabled: DEBUG logging", file=sys.stderr)
-    if mcp_enabled:
+    if mcp_stdio:
         print(f"  MCP server enabled (stdio transport)", file=sys.stderr)
         if mcp_config_exposed:
             print("  MCP config exposed: full config (default: read-only)", file=sys.stderr)
-    if mcp_http_enabled:
-        print(f"  MCP server enabled (http transport, port {settings.mcp_port})", file=sys.stderr)
-        if mcp_config_exposed:
-            print("  MCP config exposed: full config (default: read-only)", file=sys.stderr)
-    uvicorn.run(app, host=settings.host, port=effective_port)
+    if mcp_http:
+        _mcp_port = settings.mcp_port or effective_port
+        if _mcp_port == effective_port:
+            print(f"  MCP server enabled (http transport, integrated on main port {effective_port}/mcp)", file=sys.stderr)
+            if mcp_config_exposed:
+                print("  MCP config exposed: full config (default: read-only)", file=sys.stderr)
+            uvicorn.run(app, host=settings.host, port=effective_port)
+        else:
+            print(f"  MCP server enabled (http transport, separate port {_mcp_port})", file=sys.stderr)
+            if mcp_config_exposed:
+                print("  MCP config exposed: full config (default: read-only)", file=sys.stderr)
+            import threading
+
+            def _start_mcp_http() -> None:
+                from ziomek.mcp.http import start_mcp_http_server
+
+                start_mcp_http_server(host=settings.host, port=_mcp_port)
+
+            mcp_thread = threading.Thread(target=_start_mcp_http, daemon=True)
+            mcp_thread.start()
+            uvicorn.run(app, host=settings.host, port=effective_port)
+    else:
+        uvicorn.run(app, host=settings.host, port=effective_port)
 
 
 def shutdown_server() -> None:

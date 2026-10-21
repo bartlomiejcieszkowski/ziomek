@@ -13,7 +13,7 @@ from ziomek.server import create_app
 def http_mcp_client():
     """Create a test client with MCP HTTP enabled."""
     settings = Settings(mcp_port=5004, mcp_transport="http")
-    app = create_app(settings, mcp_http_enabled=True)
+    app = create_app(settings, mcp_http=True)
     with TestClient(app) as c:
         yield c
 
@@ -53,14 +53,14 @@ class TestMcpHttpDisabled:
 
     def test_mcp_health_not_available(self):
         settings = Settings(mcp_port=5004, mcp_transport="stdio")
-        app = create_app(settings, mcp_http_enabled=False)
+        app = create_app(settings, mcp_http=False)
         with TestClient(app) as c:
             resp = c.get("/mcp/health")
             assert resp.status_code == 404
 
     def test_mcp_page_not_available(self):
         settings = Settings(mcp_port=5004, mcp_transport="stdio")
-        app = create_app(settings, mcp_http_enabled=False)
+        app = create_app(settings, mcp_http=False)
         with TestClient(app) as c:
             resp = c.get("/mcp")
             assert resp.status_code == 404

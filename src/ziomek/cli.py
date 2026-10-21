@@ -30,8 +30,9 @@ def serve_cmd(args):
         stt_model_dir=args.stt_model_dir,
         dev_mode=args.dev,
         verbose=args.verbose,
-        mcp_enabled=args.mcp_stdio,
-        mcp_http_enabled=args.mcp_http,
+        mcp_stdio=args.mcp_stdio,
+        mcp_http=args.mcp,
+        mcp_port=args.mcp_port,
         mcp_config_exposed=args.mcp_config,
     )
 
@@ -184,9 +185,15 @@ def main():
         help="Enable MCP server in stdio mode alongside HTTP server",
     )
     parser.add_argument(
-        "--mcp-http",
+        "--mcp",
         action="store_true",
-        help="Enable MCP server in HTTP mode alongside HTTP server (default port: 5004)",
+        help="Enable MCP server in HTTP mode alongside HTTP server",
+    )
+    parser.add_argument(
+        "--mcp-port",
+        type=int,
+        default=None,
+        help="MCP HTTP server port (default: same as main server port)",
     )
     parser.add_argument(
         "--mcp-config",
