@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here.
 
-## [0.3.0] - 2026-10-17
+## [0.3.0] - 2026-10-22
 
 ### Added
 
@@ -19,6 +19,17 @@ All notable changes to this project are documented here.
 - Health endpoint enriched with STT info, audio backend/device, cache stats
 - Request ID middleware for structured logging
 - `conftest.py` with STT engine cleanup fixture for test isolation
+- MCP server implementation with 8 tools (speak, transcribe, start/stop listening, transcription, set/get expression, status)
+- MCP resources (voices, models, expressions, config) with read-only default
+- MCP HTTP transport with streamable_http_app() (port-based routing)
+- Benchmark CLI: `ziomek benchmark run tts|stt` with --store flag
+- Benchmark result store with versioned history (save, list, diff)
+- TTS accuracy round-trip benchmark (Levenshtein ratio + WER metrics)
+- STT quality benchmark (Levenshtein ratio + WER metrics)
+- BenchmarkWav output with configurable output directory
+- Pi Voice Assistant extension scaffold (keyword gating, gamepad, dashboard)
+- Marketplace config (plugin.json, mcp.json) for Agent Plugins 1.0
+- UTF-8 stderr wrapping to handle non-ASCII STT transcription output
 
 ### Changed
 
