@@ -287,7 +287,9 @@ def run_server(
     if mcp_http:
         _mcp_port = settings.mcp_port or effective_port
         if _mcp_port == effective_port:
-            print(f"  MCP server enabled (http transport, integrated on main port {effective_port}/mcp)", file=sys.stderr)
+            print(
+                f"  MCP server enabled (http transport, integrated on main port {effective_port}/mcp)", file=sys.stderr
+            )
             if mcp_config_exposed:
                 print("  MCP config exposed: full config (default: read-only)", file=sys.stderr)
             uvicorn.run(app, host=settings.host, port=effective_port)

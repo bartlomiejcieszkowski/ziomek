@@ -75,14 +75,16 @@ def register_mcp_http_routes(app: Any, expose_full_config: bool = False) -> None
 
 async def mcp_health(request: Request) -> JSONResponse:
     """Health check endpoint."""
-    return JSONResponse({
-        "status": "ok",
-        "transport": "http",
-        "endpoints": {
-            "sse": "/mcp/sse",
-            "message": "/mcp/message",
-        },
-    })
+    return JSONResponse(
+        {
+            "status": "ok",
+            "transport": "http",
+            "endpoints": {
+                "sse": "/mcp/sse",
+                "message": "/mcp/message",
+            },
+        }
+    )
 
 
 async def mcp_page(request: Request) -> HTMLResponse:
