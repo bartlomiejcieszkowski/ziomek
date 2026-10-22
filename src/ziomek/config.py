@@ -9,7 +9,7 @@ from pydantic import BaseModel
 class Settings(BaseModel):
     """Application settings with optional config file loading."""
 
-    port: int = 5003
+    port: int = 5004
     model_path: str | None = None
     voice: str = "default"
     cache_dir: str | None = None
