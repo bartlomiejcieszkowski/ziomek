@@ -43,29 +43,30 @@ Press **F5** in VS Code to launch the extension host. The extension automaticall
 │  ┌────────────────────┐  ┌──────────────────┐  ┌──────────────────┐   │
 │  │ TTS Synthesis      │  │ Audio Playback   │  │ Avatar           │   │
 │  │ TTSModelWrapper    │  │ BackendRegistry  │  │ State Machine    │   │
-│  │ (Coqui TTS)        │  │ pygame / sound-  │  │                  │   │
+│  │ (Pocket TTS)       │  │ pygame / sound-  │  │                  │   │
 │  │                    │  │ device / py-     │  │ /                │   │
-│  │ /tts/synthesize    │  │ audio / playsound│  │ HTML/JS Renderer │   │
+│  │ /tts/generate      │  │ audio / playsound│  │ HTML/JS Renderer │   │
 │  │ /tts/cancel        │  │ / noop           │  │ (served by       │   │
 │  └────────────────────┘  └──────────────────┘  │ FastAPI)         │   │
 │  ┌──────────────────┐  ┌──────────────────┐  └──────────────────┘   │
 │  │ pygame           │→ │ Avatar           │  ┌──────────────────┐   │
-│  │ gamepad poll     │  │ State Machine    │  │ WebSocket Relay  │   │
-│  └──────────────────┘  └──────────────────┘  │ ← Extension      │   │
-│  ┌──────────────────┐       ┌──────────────────┐  │ → gamepad state│   │
+│  │ gamepad poll     │  │ State Machine    │  │ MCP HTTP/stdio   │   │
+│  └──────────────────┘  └──────────────────┘  │ (port-based     │   │
+│  ┌──────────────────┐       ┌──────────────────┐  │ routing)      │   │
 │  │ STT (Speech-to-  │       │ /docs, /redoc    │  └──────────────────┘   │
 │  │ Text)            │       └──────────────────┘                      │
 │  │ faster_whisper   │                                              │
 │  └──────────────────┘                                              │
 └──────────┬──────────────────────────────────────────────────────────┘
-           │ WebSocket
+           │ HTTP / WebSocket / MCP
            ▼
 ┌─────────────────────────────┐
-│  VS Code Extension          │
-│  • Canvas rendering         │
-│  • Copilot Chat integration │
-│  • Fetches avatar state     │
-│    & gamepad relay          │
+│  Pi Voice Assistant         │
+│  • Keyword-gated STT        │
+│  • Gamepad controls         │
+│  • TUI dashboard overlay    │
+│  • 7 tools (speak, listen,  │
+│    status, dashboard, etc.) │
 └─────────────────────────────┘
 ```
 
@@ -161,16 +162,98 @@ The debug page provides interactive controls for:
 - Server: uptime, log level toggle, recent log entries
 - Cache: directory, size, file list
 
-## VS Code Extension Configuration
+## Pi Voice Assistant Extension
+
+Install and configure the Pi extension for hands-free voice interaction with the ziomek server.
+
+### Installation
+
+```bash
+cd pi-ziomek
+npm install
+npm run build
+```
+
+Configure Pi to load the extension by adding to your Pi configuration:
+
+```json
+{
+  "extensions": ["pi-ziomek/dist/index.js"]
+}
+```
+
+### Configuration
+
+The Pi extension reads its configuration from `~/.pi/agent/extensions/pi-ziomek/config.json`.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `ziomek.enabled` | true | Enable gamepad input for Ziomek Humanize AI |
-| `ziomek.client.url` | http://localhost:5004 | URL of the ziomek server |
-| `ziomek.tts.url` | http://localhost:5004 | URL of the ziomek TTS server |
-| `ziomek.tts.voice` | cosette | Voice identifier for TTS |
-| `ziomek.tts.backend` | stub | TTS backend ('stub' or 'ziomek') |
-| `ziomek.debounceMs` | 80 | Minimum time between repeated actions (ms) |
+| `voice.serverUrl` | http://localhost:5004 | URL of the ziomek server |
+| `voice.keyword` | ziomek | Keyword to activate voice commands (case-insensitive prefix match) |
+| `voice.keywords` | ["ziomek"] | List of keywords that activate voice mode |
+| `voice.maxListenDuration` | 5 | Maximum continuous listening duration (seconds) |
+| `gamepad.enabled` | true | Enable gamepad input |
+| `gamepad.pollIntervalMs` | 2000 | Gamepad polling interval (ms) |
+| `gamepad.debounceMs` | 1000 | Minimum time between repeated button actions (ms) |
+| `gamepad.buttonMap` | — | Button index → action mapping (see below) |
+| `dashboard.enabled` | true | Enable TUI dashboard overlay |
+| `dashboard.autoShow` | true | Show dashboard on extension load |
+| `dashboard.refreshIntervalMs` | 2000 | Dashboard refresh interval (ms) |
+
+**Available gamepad buttons:**
+
+| Button | Index | Default Action |
+|--------|-------|---------------|
+| A | 0 | `listen_short` |
+| B | 1 | `cycle_responses` |
+| X | 2 | `listen_long` |
+| Y | 3 | `tts_speak_last` |
+| LB | 4 | `prev_response` |
+| RB | 5 | `next_response` |
+| D-Pad Up | 12 | `history_up` |
+| D-Pad Down | 13 | `history_down` |
+| Start | 9 | `toggle_dashboard` |
+| Select | 8 | `show_status` |
+
+### Tools
+
+The extension registers the following tools in Pi:
+
+| Tool | Description |
+|------|-------------|
+| `ziomek_voice_speak` | Send text to TTS for playback |
+| `ziomek_voice_listen` | Connect STT, wait for transcription, return "User said: ..." |
+| `ziomek_voice_start` | Start continuous listening with keyword gating |
+| `ziomek_voice_stop` | Stop continuous listening |
+| `ziomek_voice_status` | Return current mode, engine, model info |
+| `ziomek_voice_transcribe` | One-shot transcription (placeholder) |
+| `ziomek_gamepad_state` | Return gamepad connection status and state |
+
+### Keywords
+
+The extension uses **keyword gating** to activate voice commands. A keyword is a case-insensitive prefix match — the keyword is stripped from the transcription before being sent to the agent.
+
+Example: if the keyword is `ziomek` and the user says:
+
+```
+"ziomek, continue"
+```
+
+The extension sends only `continue` to the agent.
+
+Keywords are configurable via `voice.keyword` and `voice.keywords` in the config file.
+
+### Dashboard
+
+The TUI dashboard overlay shows:
+
+- **Status indicator**: 🔴 disconnected, 🟡 connecting, 🟢 connected
+- **Engine info**: STT engine, model, current state
+- **Live transcription**: last 5 transcribed messages
+- **Gamepad status**: connection status, current button presses
+- **Recent activity**: last 3 actions (tool calls, events)
+
+Toggle the dashboard at any time with the `toggle_dashboard` gamepad action or the `/dashboard` slash command.
 
 ## API Endpoints
 
@@ -239,32 +322,27 @@ curl http://localhost:5004/api/avatar/expressions
 curl http://localhost:5004/status
 ```
 
-## Default Gamepad Mapping
+## Default Gamepad Mapping (Pi Extension)
 
 | Input | Action |
 |-------|--------|
-| A (South) | Send message |
-| B (East) | Cancel / Stop streaming |
-| X (West) | New chat |
-| Y (North) | Open slash menu |
-| D-Pad Up | Focus up |
-| D-Pad Down | Focus down |
-| D-Pad Left | Focus left |
-| D-Pad Right | Focus right |
-| L1 | Scroll up |
-| R1 | Scroll down |
-| L2 | Step forward (next code block) |
-| R2 | Step backward (previous code block) |
-| Start | Toggle Copilot Chat panel |
-| Select | Open command palette |
-| Left Stick | Scroll chat content |
+| A (South) | Start short voice listening |
+| B (East) | Cycle responses |
+| X (West) | Start long voice listening |
+| Y (North) | Re-speak last TTS output |
+| D-Pad Up | Scroll history up |
+| D-Pad Down | Scroll history down |
+| LB | Previous response |
+| RB | Next response |
+| Start | Toggle dashboard |
+| Select | Show status |
 
 ## Prerequisites
 
 - **uv** (recommended — installs deps and manages venv in one step)
   - Install: <https://docs.astral.sh/uv/getting-started/installation/>
 - **Python 3.10+** (auto-managed by uv, or use your system Python)
-- **VS Code 1.95+**
+- **Node.js 22+** (for Pi extension development)
 - **Gamepad** (Xbox, PlayStation, or any compatible gamepad)
 - **pygame-ce** (installed automatically by uv)
 
@@ -279,14 +357,22 @@ uv run pytest tests/              # run tests
 uv run ruff check .               # linting
 ```
 
-### VS Code Extension
+### Pi Voice Assistant Extension
 
 ```bash
-cd vscode_extension
+cd pi-ziomek
 npm install                       # install node modules
-npm run compile                   # compile TypeScript to out/
-npm test                          # run Jest tests
-npm run watch                     # auto-recompile on changes
+npm run build                     # compile TypeScript to dist/
+npm test                          # run Vitest tests
+npm run dev                       # auto-compile on changes
+```
+
+The Pi extension compiles to `pi-ziomek/dist/`. Add the compiled output to your Pi configuration:
+
+```json
+{
+  "extensions": ["pi-ziomek/dist/index.js"]
+}
 ```
 
 
@@ -320,7 +406,23 @@ npm run watch                     # auto-recompile on changes
 ├── .venv/                       # Virtual env (gitignored)
 ├── run-ziomek.sh                # Launcher script (Linux/macOS)
 ├── run-ziomek.bat               # Launcher script (Windows)
-├── vscode_extension/            # VS Code extension
+├── pi-ziomek/                   # Pi Voice Assistant extension
+│   ├── src/                     # Source TypeScript
+│   │   ├── index.ts             # Extension factory
+│   │   ├── config.ts            # Config module (load/save/merge)
+│   │   ├── tts-client.ts        # TTS API client
+│   │   ├── stt-client.ts        # STT API client (WebSocket)
+│   │   ├── keyword.ts           # Keyword gating (match/strip)
+│   │   ├── gamepad.ts           # Gamepad manager
+│   │   ├── dashboard.ts         # TUI dashboard overlay
+│   │   ├── tools.ts             # Tool definitions
+│   │   └── lifecycle.ts         # Extension lifecycle hooks
+│   ├── dist/                    # Compiled output
+│   ├── tests/                   # Vitest tests
+│   ├── package.json             # Extension manifest
+│   └── tsconfig.json            # TypeScript config
+│
+├── vscode_extension/            # (deprecated — unmaintained) VS Code extension
 │   ├── src/                     # Extension source
 │   │   ├── extension.ts         # Main entry point
 │   │   ├── humanize/            # Avatar & TTS rendering
@@ -342,4 +444,9 @@ npm run watch                     # auto-recompile on changes
 
 ## Contributing
 
-The module system is extensible. Create a new module by implementing the `GamepadModule` interface in `vscode_extension/src/modules/` and registering it in `vscode_extension/src/extension.ts`.
+The Pi extension is extensible. Add new features by implementing:
+
+1. New tools in `pi-ziomek/src/tools.ts` (register via `registerTool()`)
+2. New gamepad actions in `pi-ziomek/src/gamepad.ts` (extend `buttonMap`)
+3. New dashboard widgets in `pi-ziomek/src/dashboard.ts` (extend state update methods)
+4. New lifecycle hooks in `pi-ziomek/src/lifecycle.ts` (register via `on()` events)

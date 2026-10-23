@@ -41,7 +41,7 @@ export interface Config {
 function getDefaultConfig(): Config {
   return {
     voice: {
-      serverUrl: "http://localhost:5003",
+      serverUrl: "http://localhost:5004",
       keyword: "ziomek",
       keywords: ["ziomek"],
       maxListenDuration: 5,

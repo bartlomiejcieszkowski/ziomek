@@ -170,7 +170,7 @@ function createTTS(log: Logger): TTSService {
   const backend = config.get<'stub' | 'ziomek'>('tts.backend', 'stub');
 
   // Ziomek TTS configuration
-  const ttsUrl = config.get('tts.url', 'http://localhost:5003');
+  const ttsUrl = config.get('tts.url', 'http://localhost:5004');
   const voice = config.get('tts.voice', 'cosette');
 
   if (backend === 'stub') {

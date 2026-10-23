@@ -3,7 +3,7 @@ import { Logger } from '../../logger.js';
 
 /** Configuration for the Ziomek TTS HTTP client. */
 export interface ZiomekTTSConfig {
-  /** Base URL of the ziomek server (default: http://localhost:5003). */
+  /** Base URL of the ziomek server (default: http://localhost:5004). */
   url?: string;
   /** Default voice to use for synthesis. */
   voice?: string;
@@ -12,7 +12,7 @@ export interface ZiomekTTSConfig {
 }
 
 const DEFAULTS = {
-  url: 'http://localhost:5003',
+  url: 'http://localhost:5004',
   voice: 'cosette',
   timeoutMs: 30_000,
 } as const;
