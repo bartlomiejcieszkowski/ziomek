@@ -16,6 +16,20 @@ try:
 except ImportError:
     pass  # Optional dependency
 
+# Monkey-patch FasterWhisperEngine to add a no-op close() method.
+# RealtimeSTT's shutdown.py calls resource.close() on all registered
+# resources (shutdown.py:157), but FasterWhisperEngine does not implement
+# .close(). This is a bug in RealtimeSTT — see ISSUES.md.
+try:
+    from RealtimeSTT.transcription_engines.faster_whisper_engine import (
+        FasterWhisperEngine,
+    )
+
+    if not hasattr(FasterWhisperEngine, "close"):
+        FasterWhisperEngine.close = lambda self: None  # noqa: E704
+except (ImportError, AttributeError):
+    pass
+
 logger = logging.getLogger(__name__)
 
 
