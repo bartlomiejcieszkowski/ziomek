@@ -195,7 +195,7 @@ def _run_accuracy(
                 }
             )
 
-            logger.info(
+            logger.debug(
                 "  voice=%s model=%s cat=%s lev=%.4f wer=%.4f gen=%.1fms",
                 voice,
                 stt_model,
@@ -233,10 +233,14 @@ def _print_summary(results: list[dict[str, Any]]) -> None:
             cat_results = [r for r in group if r["category"] == cat]
             cat_levs = [r["levenshtein"] for r in cat_results]
             cat_wers = [r["wer"] for r in cat_results]
+            cat_text = cat_results[0]["text"] if cat_results else ""
+            display_text = (
+                cat_text[:80] + "..." if len(cat_text) > 80 else cat_text
+            )
             print(
                 f"      {cat:12s}  lev={statistics.mean(cat_levs):.4f}  "
-                f"wer={statistics.mean(cat_wers):.4f}  "
-                f"({len(cat_results)} samples)"
+                f"wer={statistics.mean(cat_wers):.4f}  ({len(cat_results)} samples)\n"
+                f"      {'text:':12s} {display_text}"
             )
 
         print(f"      {'overall':12s}  lev={statistics.mean(levs):.4f}  wer={statistics.mean(wers):.4f}")
