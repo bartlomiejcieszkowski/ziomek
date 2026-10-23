@@ -246,6 +246,7 @@ def main():
         "run",
         help="Run a benchmark (TTS accuracy or STT quality)",
     )
+    benchmark_run_parser.set_defaults(benchmark_parser=benchmark_run_parser)
     benchmark_run_sub = benchmark_run_parser.add_subparsers(dest="benchmark_type")
 
     # TTS accuracy benchmark
