@@ -15,6 +15,9 @@ ISSUES.md
 # Internal docs
 docs/internal/
 
+# Pi agent local data (skills, config, etc.)
+.pi/
+
 # Cache
 .mypy_cache/
 .ruff_cache/
