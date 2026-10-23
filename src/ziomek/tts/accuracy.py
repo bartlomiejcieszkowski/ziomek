@@ -354,6 +354,10 @@ def main(  # noqa: PLR0915 (complex function — benchmark runner)
     model = TTSModelWrapper()
     voice_cache = VoiceStateCache(model)
 
+    if not model.ensure_loaded():
+        logger.error("Failed to load TTS model — aborting benchmark")
+        return []
+
     try:
         from ziomek.stt import STTEngine
 
