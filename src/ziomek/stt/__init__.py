@@ -226,8 +226,6 @@ class STTEngine:
                 beam_size_realtime=1,
                 download_root=self._model_dir or "",
                 silero_backend=None,
-                # External audio mode — no microphone device
-                use_microphone=False,
                 # Disable halo spinner — we use our own logging
                 spinner=False,
                 level=logging.WARNING,
@@ -335,8 +333,6 @@ class STTEngine:
                     beam_size_realtime=1,
                     download_root=self._model_dir or "",
                     silero_backend=None,
-                    # External audio mode — no microphone device
-                    use_microphone=False,
                     spinner=False,
                     level=logging.WARNING,
                     on_recording_start=self._on_recording_start,
