@@ -189,19 +189,13 @@ def setup_logging(level: str = "INFO", enable_buffer: bool = False, log_file: st
         uv_logger.addHandler(uv_handler)
         uv_logger.propagate = False
 
-    # Also configure all third-party loggers (RealtimeSTT, whisper, etc.)
-    # to use UTF-8 stdout so they don't crash on non-ASCII characters
+    # Silence third-party logging (RealtimeSTT, whisper, etc.).
+    # Background worker threads in these libs still log during cleanup.
+    # Don't re-add handlers — just suppress everything except crashes.
     for third_party in ["realtimestt", "RealtimeSTT", "whisper", "ctranslate2", "torch"]:
         tp_logger = logging.getLogger(third_party)
+        tp_logger.setLevel(logging.CRITICAL)
         tp_logger.handlers.clear()
-        tp_handler = _UTF8StreamHandler(sys.stdout)
-        tp_handler.setFormatter(
-            logging.Formatter(
-                "%(asctime)s [%(levelname)s] %(name)s - %(message)s",
-                datefmt="%H:%M:%S",
-            )
-        )
-        tp_logger.addHandler(tp_handler)
         tp_logger.propagate = False
 
     if enable_buffer:
