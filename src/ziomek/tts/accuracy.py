@@ -164,7 +164,7 @@ def _run_accuracy(
             # Save WAV
             wav_path = None
             if output_dir:
-                wav_path = Path(output_dir) / f"{voice}_{cat_name}_{stt_model}_{i + 1:02d}.wav"
+                wav_path = Path(output_dir) / f"pocket_tts_{voice}_{cat_name}_{stt_model}_{i + 1:02d}.wav"
                 wavfile.write(wav_path, sample_rate, audio_np)
 
             # Transcribe back
@@ -366,7 +366,7 @@ def main(  # noqa: PLR0915 (complex function — benchmark runner)
         from ziomek.stt import STTEngine
 
         stt_engine = STTEngine()
-        stt_engine.start()
+        stt_engine.start_from_file()
     except Exception as e:
         logger.warning("STT engine failed to start: %s — running TTS-only mode", e)
         stt_engine = None

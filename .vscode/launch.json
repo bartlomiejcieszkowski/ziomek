@@ -16,6 +16,33 @@
 				"${workspaceFolder}/vscode_extension/out/**/*.js"
 			],
 			"preLaunchTask": "${defaultBuildTask}"
+		},
+		{
+			"name": "Python: TTS Accuracy Benchmark",
+			"type": "debugpy",
+			"request": "launch",
+			"module": "ziomek",
+			"args": ["benchmark", "run", "tts"],
+			"console": "integratedTerminal",
+			"justMyCode": false
+		},
+		{
+			"name": "Python: STT Quality Benchmark",
+			"type": "debugpy",
+			"request": "launch",
+			"module": "ziomek",
+			"args": ["benchmark", "run", "stt"],
+			"console": "integratedTerminal",
+			"justMyCode": false
+		},
+		{
+			"name": "Python: Ziomek Server",
+			"type": "debugpy",
+			"request": "launch",
+			"module": "ziomek",
+			"args": ["server", "--dev", "--verbose"],
+			"console": "integratedTerminal",
+			"justMyCode": false
 		}
 	]
 }

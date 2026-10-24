@@ -101,6 +101,7 @@ class STTEngine:
         self._lock = threading.Lock()
         self._recording_start_time: float = 0.0
         self._recording_active = False
+        self._use_microphone = True
 
     def _notify_transcription(self, result: STTResult) -> None:
         """Notify transcription callback (handles async callbacks safely)."""
@@ -222,6 +223,7 @@ class STTEngine:
 
     def _start(self, use_microphone: bool) -> None:
         """Common initialization path for :meth:`start` and :meth:`start_from_file`."""
+        self._use_microphone = use_microphone
         try:
             import RealtimeSTT  # noqa: F401
         except ImportError:
@@ -238,31 +240,7 @@ class STTEngine:
             )
 
         try:
-            self._recorder = RealtimeSTT.AudioToTextRecorder(
-                transcription_engine=self._engine_name,
-                model=self._model_name,
-                device="cpu",
-                enable_realtime_transcription=True,
-                realtime_model_type="tiny",
-                beam_size_realtime=1,
-                download_root=self._model_dir or "",
-                silero_backend=None,
-                use_microphone=use_microphone,
-                # Disable halo spinner — we use our own logging
-                spinner=False,
-                level=logging.WARNING,
-                # Hook up verbose callbacks
-                on_recording_start=self._on_recording_start,
-                on_recording_stop=self._on_recording_stop,
-                on_vad_start=self._on_vad_start,
-                on_vad_stop=self._on_vad_stop,
-                on_vad_detect_start=self._on_vad_detect_start,
-                on_vad_detect_stop=self._on_vad_detect_stop,
-                on_transcription_start=self._on_transcription_start,
-                on_realtime_transcription_update=self._on_realtime_transcription_update,
-                on_realtime_transcription_stabilized=self._on_realtime_transcription_stabilized,
-                on_recorded_chunk=self._on_recorded_chunk,
-            )
+            self._recorder = self._new_recorder()
         except Exception:
             logger.exception("Failed to initialize RealtimeSTT recorder")
             with self._lock:
@@ -307,6 +285,33 @@ class STTEngine:
             logger.exception("Failed to stop recording")
             raise RuntimeError("Failed to stop recording")
 
+    def _new_recorder(self):
+        return RealtimeSTT.AudioToTextRecorder(
+            transcription_engine=self._engine_name,
+            model=self._model_name,
+            device="cpu",
+            enable_realtime_transcription=True,
+            realtime_model_type=self._model_name,
+            beam_size_realtime=1,
+            download_root=self._model_dir or "",
+            silero_backend=None,
+            use_microphone=self._use_microphone,
+            # Disable halo spinner — we use our own logging
+            spinner=False,
+            level=logging.WARNING,
+            # Hook up verbose callbacks
+            on_recording_start=self._on_recording_start,
+            on_recording_stop=self._on_recording_stop,
+            on_vad_start=self._on_vad_start,
+            on_vad_stop=self._on_vad_stop,
+            on_vad_detect_start=self._on_vad_detect_start,
+            on_vad_detect_stop=self._on_vad_detect_stop,
+            on_transcription_start=self._on_transcription_start,
+            on_realtime_transcription_update=self._on_realtime_transcription_update,
+            on_realtime_transcription_stabilized=self._on_realtime_transcription_stabilized,
+            on_recorded_chunk=self._on_recorded_chunk,
+        )
+
     def reconfigure(self, engine_name: str, model_name: str) -> tuple[bool, str]:
         """Reconfigure STT engine with new engine/model.
 
@@ -347,28 +352,7 @@ class STTEngine:
 
             # Try to recreate recorder
             try:
-                self._recorder = RealtimeSTT.AudioToTextRecorder(
-                    transcription_engine=self._engine_name,
-                    model=self._model_name,
-                    device="cpu",
-                    enable_realtime_transcription=True,
-                    realtime_model_type="tiny",
-                    beam_size_realtime=1,
-                    download_root=self._model_dir or "",
-                    silero_backend=None,
-                    spinner=False,
-                    level=logging.WARNING,
-                    on_recording_start=self._on_recording_start,
-                    on_recording_stop=self._on_recording_stop,
-                    on_vad_start=self._on_vad_start,
-                    on_vad_stop=self._on_vad_stop,
-                    on_vad_detect_start=self._on_vad_detect_start,
-                    on_vad_detect_stop=self._on_vad_detect_stop,
-                    on_transcription_start=self._on_transcription_start,
-                    on_realtime_transcription_update=self._on_realtime_transcription_update,
-                    on_realtime_transcription_stabilized=self._on_realtime_transcription_stabilized,
-                    on_recorded_chunk=self._on_recorded_chunk,
-                )
+                self._recorder = self._new_recorder()
                 self._stats.engine_name = engine_name
                 self._stats.model_name = model_name
                 self._stats.state = STTState.IDLE
