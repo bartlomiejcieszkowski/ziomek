@@ -1,0 +1,73 @@
+voice,stt_model,category,text,transcribed,iteration,duration_s,gen_time_ms,levenshtein,wer
+cosette,tiny,simple,"Hello, how are you today?",,1,1.52,409.6,0.0,1.0
+cosette,tiny,complex,The quick brown fox jumps over the lazy dog.,,1,3.28,786.7,0.0,1.0
+cosette,tiny,names,My name is Ziomek and I am a humanize AI project.,,1,2.96,825.2,0.0,1.0
+cosette,tiny,numbers,The year is 2026 and the temperature is 23.5 degrees.,,1,4.8,1218.9,0.0,1.0
+cosette,tiny,technical,The API endpoint is /api/tts/synthesize with content type application/json.,,1,4.8,1170.3,0.0,1.0
+cosette,tiny,long,"Ziomek is a humanize AI project that combines text-to-speech, speech-to-text, and avatar rendering into a single local-first application. It is designed to be fully offline and privacy-friendly.",,1,12.4,2955.3,0.0,1.0
+cosette,tiny.en,simple,"Hello, how are you today?",,1,1.6,419.8,0.0,1.0
+cosette,tiny.en,complex,The quick brown fox jumps over the lazy dog.,,1,3.04,725.7,0.0,1.0
+cosette,tiny.en,names,My name is Ziomek and I am a humanize AI project.,,1,3.68,922.3,0.0,1.0
+cosette,tiny.en,numbers,The year is 2026 and the temperature is 23.5 degrees.,,1,4.56,1124.2,0.0,1.0
+cosette,tiny.en,technical,The API endpoint is /api/tts/synthesize with content type application/json.,,1,4.88,1226.6,0.0,1.0
+cosette,tiny.en,long,"Ziomek is a humanize AI project that combines text-to-speech, speech-to-text, and avatar rendering into a single local-first application. It is designed to be fully offline and privacy-friendly.",,1,11.92,3009.1,0.0,1.0
+cosette,base,simple,"Hello, how are you today?",,1,1.68,482.3,0.0,1.0
+cosette,base,complex,The quick brown fox jumps over the lazy dog.,,1,2.96,701.7,0.0,1.0
+cosette,base,names,My name is Ziomek and I am a humanize AI project.,,1,3.28,781.4,0.0,1.0
+cosette,base,numbers,The year is 2026 and the temperature is 23.5 degrees.,,1,4.32,1004.0,0.0,1.0
+cosette,base,technical,The API endpoint is /api/tts/synthesize with content type application/json.,,1,5.04,1201.5,0.0,1.0
+cosette,base,long,"Ziomek is a humanize AI project that combines text-to-speech, speech-to-text, and avatar rendering into a single local-first application. It is designed to be fully offline and privacy-friendly.",,1,11.76,2812.0,0.0,1.0
+cosette,base.en,simple,"Hello, how are you today?",,1,1.84,486.8,0.0,1.0
+cosette,base.en,complex,The quick brown fox jumps over the lazy dog.,,1,2.96,776.3,0.0,1.0
+cosette,base.en,names,My name is Ziomek and I am a humanize AI project.,,1,3.36,962.4,0.0,1.0
+cosette,base.en,numbers,The year is 2026 and the temperature is 23.5 degrees.,,1,4.4,1241.8,0.0,1.0
+cosette,base.en,technical,The API endpoint is /api/tts/synthesize with content type application/json.,,1,5.6,1455.3,0.0,1.0
+cosette,base.en,long,"Ziomek is a humanize AI project that combines text-to-speech, speech-to-text, and avatar rendering into a single local-first application. It is designed to be fully offline and privacy-friendly.",,1,12.16,3340.1,0.0,1.0
+cosette,small,simple,"Hello, how are you today?",,1,1.6,435.7,0.0,1.0
+cosette,small,complex,The quick brown fox jumps over the lazy dog.,,1,3.04,765.4,0.0,1.0
+cosette,small,names,My name is Ziomek and I am a humanize AI project.,,1,3.36,869.4,0.0,1.0
+cosette,small,numbers,The year is 2026 and the temperature is 23.5 degrees.,,1,5.04,1241.3,0.0,1.0
+cosette,small,technical,The API endpoint is /api/tts/synthesize with content type application/json.,,1,5.52,1355.0,0.0,1.0
+cosette,small,long,"Ziomek is a humanize AI project that combines text-to-speech, speech-to-text, and avatar rendering into a single local-first application. It is designed to be fully offline and privacy-friendly.",,1,12.32,2986.8,0.0,1.0
+cosette,small.en,simple,"Hello, how are you today?",,1,1.6,431.3,0.0,1.0
+cosette,small.en,complex,The quick brown fox jumps over the lazy dog.,,1,2.64,643.5,0.0,1.0
+cosette,small.en,names,My name is Ziomek and I am a humanize AI project.,,1,3.52,866.6,0.0,1.0
+cosette,small.en,numbers,The year is 2026 and the temperature is 23.5 degrees.,,1,4.8,1145.3,0.0,1.0
+cosette,small.en,technical,The API endpoint is /api/tts/synthesize with content type application/json.,,1,5.28,1279.4,0.0,1.0
+cosette,small.en,long,"Ziomek is a humanize AI project that combines text-to-speech, speech-to-text, and avatar rendering into a single local-first application. It is designed to be fully offline and privacy-friendly.",,1,12.32,2926.0,0.0,1.0
+default,tiny,simple,"Hello, how are you today?",,1,1.6,444.9,0.0,1.0
+default,tiny,complex,The quick brown fox jumps over the lazy dog.,,1,2.8,717.0,0.0,1.0
+default,tiny,names,My name is Ziomek and I am a humanize AI project.,,1,3.2,797.3,0.0,1.0
+default,tiny,numbers,The year is 2026 and the temperature is 23.5 degrees.,,1,4.32,1015.7,0.0,1.0
+default,tiny,technical,The API endpoint is /api/tts/synthesize with content type application/json.,,1,5.12,1208.6,0.0,1.0
+default,tiny,long,"Ziomek is a humanize AI project that combines text-to-speech, speech-to-text, and avatar rendering into a single local-first application. It is designed to be fully offline and privacy-friendly.",,1,11.76,2789.4,0.0,1.0
+default,tiny.en,simple,"Hello, how are you today?",,1,1.6,421.4,0.0,1.0
+default,tiny.en,complex,The quick brown fox jumps over the lazy dog.,,1,3.04,747.5,0.0,1.0
+default,tiny.en,names,My name is Ziomek and I am a humanize AI project.,,1,3.36,811.1,0.0,1.0
+default,tiny.en,numbers,The year is 2026 and the temperature is 23.5 degrees.,,1,4.32,1021.6,0.0,1.0
+default,tiny.en,technical,The API endpoint is /api/tts/synthesize with content type application/json.,,1,5.28,1254.9,0.0,1.0
+default,tiny.en,long,"Ziomek is a humanize AI project that combines text-to-speech, speech-to-text, and avatar rendering into a single local-first application. It is designed to be fully offline and privacy-friendly.",,1,12.24,2869.5,0.0,1.0
+default,base,simple,"Hello, how are you today?",,1,1.68,426.8,0.0,1.0
+default,base,complex,The quick brown fox jumps over the lazy dog.,,1,2.96,705.7,0.0,1.0
+default,base,names,My name is Ziomek and I am a humanize AI project.,,1,3.44,833.7,0.0,1.0
+default,base,numbers,The year is 2026 and the temperature is 23.5 degrees.,,1,4.8,1125.8,0.0,1.0
+default,base,technical,The API endpoint is /api/tts/synthesize with content type application/json.,,1,5.28,1251.5,0.0,1.0
+default,base,long,"Ziomek is a humanize AI project that combines text-to-speech, speech-to-text, and avatar rendering into a single local-first application. It is designed to be fully offline and privacy-friendly.",,1,11.76,2826.0,0.0,1.0
+default,base.en,simple,"Hello, how are you today?",,1,1.6,415.1,0.0,1.0
+default,base.en,complex,The quick brown fox jumps over the lazy dog.,,1,3.12,768.7,0.0,1.0
+default,base.en,names,My name is Ziomek and I am a humanize AI project.,,1,3.04,772.4,0.0,1.0
+default,base.en,numbers,The year is 2026 and the temperature is 23.5 degrees.,,1,4.72,1163.4,0.0,1.0
+default,base.en,technical,The API endpoint is /api/tts/synthesize with content type application/json.,,1,5.28,1354.2,0.0,1.0
+default,base.en,long,"Ziomek is a humanize AI project that combines text-to-speech, speech-to-text, and avatar rendering into a single local-first application. It is designed to be fully offline and privacy-friendly.",,1,11.84,2960.5,0.0,1.0
+default,small,simple,"Hello, how are you today?",,1,1.6,438.8,0.0,1.0
+default,small,complex,The quick brown fox jumps over the lazy dog.,,1,2.8,726.5,0.0,1.0
+default,small,names,My name is Ziomek and I am a humanize AI project.,,1,3.28,841.2,0.0,1.0
+default,small,numbers,The year is 2026 and the temperature is 23.5 degrees.,,1,4.8,1206.7,0.0,1.0
+default,small,technical,The API endpoint is /api/tts/synthesize with content type application/json.,,1,5.04,1286.7,0.0,1.0
+default,small,long,"Ziomek is a humanize AI project that combines text-to-speech, speech-to-text, and avatar rendering into a single local-first application. It is designed to be fully offline and privacy-friendly.",,1,11.68,2928.6,0.0,1.0
+default,small.en,simple,"Hello, how are you today?",,1,1.6,445.0,0.0,1.0
+default,small.en,complex,The quick brown fox jumps over the lazy dog.,,1,3.44,861.5,0.0,1.0
+default,small.en,names,My name is Ziomek and I am a humanize AI project.,,1,3.2,824.8,0.0,1.0
+default,small.en,numbers,The year is 2026 and the temperature is 23.5 degrees.,,1,5.04,1261.3,0.0,1.0
+default,small.en,technical,The API endpoint is /api/tts/synthesize with content type application/json.,,1,5.2,1285.7,0.0,1.0
+default,small.en,long,"Ziomek is a humanize AI project that combines text-to-speech, speech-to-text, and avatar rendering into a single local-first application. It is designed to be fully offline and privacy-friendly.",,1,11.44,2859.7,0.0,1.0

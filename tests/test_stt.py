@@ -44,6 +44,40 @@ class TestSTTEngineStartStop:
             engine.stop()
             assert engine.state == STTState.IDLE
 
+    def test_start_from_file_uses_no_microphone(self, monkeypatch):
+        """start_from_file() must pass use_microphone=False."""
+        mock_recorder = object()
+
+        class FakeAudioToTextRecorder:
+            def __init__(self, **kwargs):  # noqa: ANN001
+                assert kwargs.get("use_microphone") is False, (
+                    "start_from_file must set use_microphone=False"
+                )
+                self._text_calls = []
+
+            def text(self):  # noqa: ANN201
+                return ""
+
+            def feed_audio(self, *args, **kwargs):  # noqa: ANN201, ANN002, ARG002
+                pass
+
+            def shutdown(self):  # noqa: ANN201
+                pass
+
+            def start(self):  # noqa: ANN201
+                pass
+
+            def stop(self):  # noqa: ANN201
+                pass
+
+        monkeypatch.setattr(
+            "ziomek.stt.RealtimeSTT.AudioToTextRecorder",
+            FakeAudioToTextRecorder,
+        )
+        engine = STTEngine()
+        engine.start_from_file()
+        assert engine.state == STTState.IDLE  # no listen thread for file mode
+
 
 class TestSTTEngineStats:
     def test_stats_are_copy(self):

@@ -137,7 +137,7 @@ def _run_single(
     wavfile.write(str(wav_path), sample_rate, audio_np)
 
     # Transcribe
-    engine.start()
+    engine.start_from_file()
     engine.start_recording()
 
     # Feed audio to STT engine

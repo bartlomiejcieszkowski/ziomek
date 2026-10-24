@@ -200,7 +200,28 @@ class STTEngine:
         #     logger.debug("STT audio chunk: %d bytes (%.2fs)", len(audio_data), duration)
 
     def start(self) -> None:
-        """Start the STT engine (blocking call — runs in background thread)."""
+        """Start the STT engine (blocking call — runs in background thread).
+
+        Uses microphone input. For file-based/transcription-only use cases,
+        use :meth:`start_from_file` instead.
+        """
+        self._start(use_microphone=True)
+
+    def start_from_file(self) -> None:
+        """Start the STT engine for file-based transcription (no microphone).
+
+        Initializes the recorder with ``use_microphone=False`` so it can
+        receive audio via :meth:`~RealtimeSTT.AudioToTextRecorder.feed_audio`
+        from files, test fixtures, or external sources.  No background
+        listening thread is started — call :meth:`transcribe_chunk` directly
+        after feeding audio.
+
+        .. versionadded:: 0.3.1
+        """
+        self._start(use_microphone=False)
+
+    def _start(self, use_microphone: bool) -> None:
+        """Common initialization path for :meth:`start` and :meth:`start_from_file`."""
         try:
             import RealtimeSTT  # noqa: F401
         except ImportError:
@@ -226,6 +247,7 @@ class STTEngine:
                 beam_size_realtime=1,
                 download_root=self._model_dir or "",
                 silero_backend=None,
+                use_microphone=use_microphone,
                 # Disable halo spinner — we use our own logging
                 spinner=False,
                 level=logging.WARNING,
@@ -253,8 +275,9 @@ class STTEngine:
             self._model_name,
         )
         self._running = True
-        self._thread = threading.Thread(target=self._listen_loop, daemon=True)
-        self._thread.start()
+        if use_microphone:
+            self._thread = threading.Thread(target=self._listen_loop, daemon=True)
+            self._thread.start()
 
     def start_recording(self) -> None:
         """Start audio recording for transcription (non-blocking)."""
