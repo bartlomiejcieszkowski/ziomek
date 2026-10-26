@@ -108,6 +108,7 @@ class BenchmarkResult:
     gen_time_ms: float = 0.0
     transcribe_time_ms: float = 0.0
     duration_s: float = 0.0
+    voice: str = "cosette"
 
 
 def _run_single(
@@ -136,21 +137,20 @@ def _run_single(
         audio_np = (audio_np * 32767).astype(np.int16)
     wavfile.write(str(wav_path), sample_rate, audio_np)
 
-    # Transcribe
+    # Transcribe (file mode: no microphone, no recording lifecycle)
     engine.start_from_file()
-    #engine.start_recording()
 
     # Feed audio to STT engine
     audio_bytes = wav_path.read_bytes()
     result = engine.transcribe_chunk(audio_bytes, sample_rate)
     transcribe_time = time.time() - start
 
-    engine.stop_recording()
     engine.stop()
 
     return BenchmarkResult(
         engine=engine._engine_name,
         model=engine._model_name,
+        voice=voice,
         category="",  # filled by caller
         original_text=text,
         transcribed_text=result.text,
@@ -165,6 +165,7 @@ def _run_single(
 def run_benchmark(
     engines: list[str] | None = None,
     models: list[str] | None = None,
+    voices: list[str] | None = None,
     categories: list[tuple[str, str]] | None = None,
     iterations: int = 1,
     output_dir: str | None = None,
@@ -175,6 +176,7 @@ def run_benchmark(
     Args:
         engines: List of engine names (default: ["faster_whisper"]).
         models: List of model names (default: DEFAULT_MODELS).
+        voices: List of TTS voices used to generate test audio (default: ["cosette"]).
         categories: List of (name, text) pairs (default: SAMPLE_TEXTS).
         iterations: Number of runs per config.
         output_dir: Directory for CSV/JSON output.
@@ -187,53 +189,57 @@ def run_benchmark(
         engines = ["faster_whisper"]
     if models is None:
         models = DEFAULT_MODELS
+    if voices is None:
+        voices = ["cosette"]
     if categories is None:
         categories = SAMPLE_TEXTS
 
     logging.basicConfig(level=getattr(logging, log_level.upper(), logging.WARNING))
 
     results: list[BenchmarkResult] = []
-    total = len(engines) * len(models) * len(categories) * iterations
+    total = len(engines) * len(models) * len(voices) * len(categories) * iterations
     count = 0
 
     for engine_name in engines:
         for model_name in models:
-            for cat_name, text in categories:
-                for _ in range(iterations):
-                    count += 1
-                    logger.info(
-                        "Running %d/%d: engine=%s model=%s category=%s",
-                        count,
-                        total,
-                        engine_name,
-                        model_name,
-                        cat_name,
-                    )
-
-                    # Create engine with config
-                    engine = STTEngine(
-                        engine_name=engine_name,
-                        model_name=model_name,
-                    )
-
-                    # Generate WAV in temp dir
-                    tmp_dir = Path(__file__).parent.parent.parent / "tmp_bench"
-                    tmp_dir.mkdir(exist_ok=True)
-                    wav_path = tmp_dir / f"{engine_name}_{model_name}_{cat_name}_{count}.wav"
-
-                    try:
-                        result = _run_single(engine, text, wav_path)
-                        result.category = cat_name
-                        results.append(result)
-                    except Exception:
-                        logger.exception(
-                            "Failed to benchmark engine=%s model=%s category=%s",
+            for voice in voices:
+                for cat_name, text in categories:
+                    for _ in range(iterations):
+                        count += 1
+                        logger.info(
+                            "Running %d/%d: engine=%s model=%s voice=%s category=%s",
+                            count,
+                            total,
                             engine_name,
                             model_name,
+                            voice,
                             cat_name,
                         )
-                    finally:
-                        engine.shutdown()
+
+                        # Create engine with config
+                        engine = STTEngine(
+                            engine_name=engine_name,
+                            model_name=model_name,
+                        )
+
+                        # Generate WAV in temp dir
+                        tmp_dir = Path(__file__).parent.parent.parent / "tmp_bench"
+                        tmp_dir.mkdir(exist_ok=True)
+                        wav_path = tmp_dir / f"{engine_name}_{model_name}_{voice}_{cat_name}_{count}.wav"
+
+                        try:
+                            result = _run_single(engine, text, wav_path, voice=voice)
+                            result.category = cat_name
+                            results.append(result)
+                        except Exception:
+                            logger.exception(
+                                "Failed to benchmark engine=%s model=%s category=%s",
+                                engine_name,
+                                model_name,
+                                cat_name,
+                            )
+                        finally:
+                            engine.shutdown()
 
     # Write output
     if output_dir:
@@ -249,6 +255,7 @@ def run_benchmark(
                     fieldnames=[
                         "engine",
                         "model",
+                        "voice",
                         "category",
                         "original_text",
                         "transcribed_text",
@@ -272,6 +279,7 @@ def run_benchmark(
                 "total_runs": len(results),
                 "engines": engines,
                 "models": models,
+                "voices": voices,
                 "categories": [c[0] for c in categories],
                 "results": [asdict(r) for r in results],
             }
@@ -289,10 +297,10 @@ def print_summary(results: list[BenchmarkResult]) -> None:
     print("STT Quality Benchmark Results")
     print("=" * 80)
 
-    # Group by engine+model
+    # Group by engine+model+voice
     groups: dict[str, list[BenchmarkResult]] = {}
     for r in results:
-        key = f"{r.engine}/{r.model}"
+        key = f"{r.engine}/{r.model}/{r.voice}"
         groups.setdefault(key, []).append(r)
 
     for key, group in sorted(groups.items()):
@@ -318,6 +326,7 @@ def print_summary(results: list[BenchmarkResult]) -> None:
 def main(  # noqa: PLR0915 (complex function — benchmark runner)
     engines: list[str] | None = None,
     models: list[str] | None = None,
+    voices: list[str] | None = None,
     categories: list[tuple[str, str]] | None = None,
     iterations: int | None = None,
     output_dir: str | None = None,
@@ -329,8 +338,14 @@ def main(  # noqa: PLR0915 (complex function — benchmark runner)
     import sys
 
     # If called from CLI (no args provided), parse from command line
-    if engines is None:
+    if all(v is None for v in (engines, models, voices, categories, iterations, output_dir)):
         parser = argparse.ArgumentParser(description="STT Quality Benchmark")
+        parser.add_argument(
+            "--voices",
+            nargs="+",
+            default=None,
+            help="TTS voices used to generate test audio (default: cosette)",
+        )
         parser.add_argument(
             "--engines",
             nargs="+",
@@ -383,6 +398,7 @@ def main(  # noqa: PLR0915 (complex function — benchmark runner)
 
         engines = args.engines
         models = args.models
+        voices = args.voices
         categories_input = args.categories
         iterations = args.iterations
         output_dir = args.output_dir
@@ -391,6 +407,10 @@ def main(  # noqa: PLR0915 (complex function — benchmark runner)
         log_level = args.log_level
     else:
         # Use defaults for any None values
+        if engines is None:
+            engines = ["faster_whisper"]
+        if voices is None:
+            voices = ["cosette"]
         if models is None:
             models = DEFAULT_MODELS
         if categories is None:
@@ -405,8 +425,9 @@ def main(  # noqa: PLR0915 (complex function — benchmark runner)
     results = run_benchmark(
         engines=engines,
         models=models,
+        voices=voices,
         categories=categories,
-        iterations=iterations,
+        iterations=iterations or 1,
         output_dir=output_dir,
         log_level=log_level,
     )
@@ -414,7 +435,7 @@ def main(  # noqa: PLR0915 (complex function — benchmark runner)
     print_summary(results)
 
     # Save to benchmark store
-    if args.store:
+    if store:
         from ziomek.benchmark.store import create_run, save_run
 
         stt_models = list(set(r.model for r in results))
@@ -432,8 +453,9 @@ def main(  # noqa: PLR0915 (complex function — benchmark runner)
             ],
             stt_models=stt_models,
             stt_engines=engines,
+            tts_voices=voices,
         )
-        path = save_run(run, store_dir=args.store_dir)
+        path = save_run(run, store_dir=store_dir)
         print(f"\nBenchmark result saved to: {path}")
 
     return results
