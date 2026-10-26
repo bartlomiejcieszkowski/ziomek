@@ -27,3 +27,7 @@ docs/internal/
 # Runtime logs
 realtimesst.log
 src/tmp_bench/
+
+# Benchmark outputs
+benchmarks/
+*.csv
