@@ -30,4 +30,4 @@ src/tmp_bench/
 
 # Benchmark outputs
 benchmarks/
-*.csv
+tts_accuracy.csv
