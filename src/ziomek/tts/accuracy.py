@@ -169,9 +169,10 @@ def _run_accuracy(
 
             # Transcribe back
             if len(audio_np) > 0:
-                # Convert to bytes for STT
-                audio_bytes = audio_np.astype(np.int16).tobytes()
-                stt_result = stt_engine.transcribe_chunk(audio_bytes, sample_rate)
+                # Pass the float array directly — _decode_audio scales it to the
+                # int16 range; casting to int16 here would truncate quiet audio
+                # to silence and produce empty transcriptions.
+                stt_result = stt_engine.transcribe_chunk(audio_np, sample_rate)
                 transcribed = stt_result.text
             else:
                 transcribed = ""
@@ -329,6 +330,8 @@ def main(  # noqa: PLR0915 (complex function — benchmark runner)
         log_level = args.log_level
     else:
         # Use defaults for any None values
+        if voices is None:
+            voices = ["cosette", "default"]
         if models is None:
             models = DEFAULT_MODELS
         if categories is None:
