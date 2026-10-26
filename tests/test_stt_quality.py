@@ -261,11 +261,9 @@ class TestBenchmarkReal:
         wav_path = tmp_path / "test.wav"
         wavfile.write(str(wav_path), sample_rate, audio_np)
 
-        # Transcribe via STT
-        real_stt_engine.start()
-        real_stt_engine.start_recording()
+        # Transcribe via STT (file mode — no microphone, no recording lifecycle)
+        real_stt_engine.start_from_file()
         result = real_stt_engine.transcribe_chunk(wav_path.read_bytes(), sample_rate)
-        real_stt_engine.stop_recording()
         real_stt_engine.stop()
 
         # Verify metrics
@@ -275,6 +273,8 @@ class TestBenchmarkReal:
         assert lev >= 0, "Levenshtein ratio should be >= 0"
         assert wer >= 0, "WER should be >= 0"
         assert gen_time > 0, "Generation time should be positive"
+        assert result.text.strip() != "", "STT should transcribe the generated audio"
+        assert lev > 0.7, f"transcription should match the generated text (lev={lev})"
 
     def test_benchmark_across_models(self, tmp_path):
         """Test with different STT models."""
@@ -303,14 +303,12 @@ class TestBenchmarkReal:
             wav_path = tmp_path / f"{model_name}.wav"
             wavfile.write(str(wav_path), sample_rate, audio_np)
 
-            # Transcribe
-            engine.start()
-            engine.start_recording()
+            # Transcribe (file mode — no microphone, no recording lifecycle)
+            engine.start_from_file()
             result = engine.transcribe_chunk(wav_path.read_bytes(), sample_rate)
-            engine.stop_recording()
             engine.stop()
 
-            assert result.text is not None, f"STT should return text for model {model_name}"
+            assert result.text.strip() != "", f"STT should transcribe audio for model {model_name}"
 
     def test_benchmark_wav_output(self, real_stt_engine, tmp_path):
         """WAV files are created with correct format."""

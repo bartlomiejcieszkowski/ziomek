@@ -27,6 +27,15 @@
 			"justMyCode": false
 		},
 		{
+			"name": "Python: TTS Accuracy Benchmark Verbose",
+			"type": "debugpy",
+			"request": "launch",
+			"module": "ziomek",
+			"args": ["-v", "benchmark", "run", "tts"],
+			"console": "integratedTerminal",
+			"justMyCode": false
+		},
+		{
 			"name": "Python: STT Quality Benchmark",
 			"type": "debugpy",
 			"request": "launch",

@@ -3,18 +3,36 @@
 from __future__ import annotations
 
 import enum
+import io
 import logging
 import threading
 import time
+import wave
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
+
+import numpy as np
 
 # Import RealtimeSTT at module level so tests can patch it
 try:
     import RealtimeSTT  # noqa: F401
 except ImportError:
     pass  # Optional dependency
+
+# RealtimeSTT's final-transcription worker is fed directly by
+# :meth:`STTEngine.transcribe_chunk`. The VAD/recording lifecycle never runs
+# without microphone input, so audio must be submitted to the worker as a
+# numpy array (``RealtimeSTT/transcription_engines/base.py:146`` calls
+# ``audio.size``), not as raw bytes.
+try:
+    from RealtimeSTT.core.transcription import (
+        receive_transcription_result,
+        submit_transcription_request,
+    )
+except ImportError:  # pragma: no cover - optional dependency
+    submit_transcription_request = None
+    receive_transcription_result = None
 
 # Monkey-patch FasterWhisperEngine to add a no-op close() method.
 # RealtimeSTT's shutdown.py calls resource.close() on all registered
@@ -31,6 +49,64 @@ except (ImportError, AttributeError):
     pass
 
 logger = logging.getLogger(__name__)
+
+# RealtimeSTT's transcription engines expect audio at this rate, normalized
+# to float (see ``RealtimeSTT/core/manual_audio_input.py`` INT16_MAX_ABS_VALUE).
+_TARGET_SAMPLE_RATE = 16000
+_INT16_MAX_ABS_VALUE = 32767.0
+# Maximum time to wait for a transcription result (seconds).
+_TRANSCRIBE_TIMEOUT = 30
+
+
+def _decode_audio(audio_data: bytes | np.ndarray, sample_rate: int) -> tuple[np.ndarray, int]:
+    """Return a mono int16 numpy array and its sample rate.
+
+    Accepts WAV bytes (``RIFF`` header), raw PCM int16 bytes, or a numpy array.
+    Float audio is scaled to the int16 range — casting it straight to int16
+    would turn quiet audio into silence.
+    """
+    if isinstance(audio_data, np.ndarray):
+        audio = np.asarray(audio_data)
+        if audio.ndim > 1:
+            audio = audio.mean(axis=1)
+        if np.issubdtype(audio.dtype, np.integer):
+            return np.asarray(audio, dtype=np.int16), sample_rate
+        scaled = np.clip(np.rint(audio.astype(np.float64) * _INT16_MAX_ABS_VALUE), -32768, 32767)
+        return scaled.astype(np.int16), sample_rate
+
+    if len(audio_data) >= 4 and audio_data[:4] == b"RIFF":
+        try:
+            with wave.open(io.BytesIO(audio_data), "rb") as wav:
+                source_rate = wav.getframerate()
+                channels = wav.getnchannels()
+                frames = wav.readframes(wav.getnframes())
+        except (OSError, wave.Error):
+            logger.exception("could not parse WAV audio, falling back to raw PCM")
+            return np.frombuffer(audio_data, dtype=np.int16), sample_rate
+        audio = np.frombuffer(frames, dtype=np.int16)
+        if channels > 1:
+            audio = audio.reshape(-1, channels).mean(axis=1).astype(np.int16)
+        return audio, source_rate
+    return np.frombuffer(audio_data, dtype=np.int16), sample_rate
+
+
+def _resample_to_target(audio: np.ndarray, source_rate: int) -> np.ndarray | None:
+    """Resample an audio array to :data:`_TARGET_SAMPLE_RATE`, or None on failure."""
+    try:
+        from scipy.signal import resample_poly
+
+        resampled = resample_poly(audio, _TARGET_SAMPLE_RATE, source_rate)
+        return np.asarray(resampled, dtype=np.float32)
+    except ImportError:
+        logger.warning(
+            "scipy is not installed, cannot resample %d Hz audio to %d Hz",
+            source_rate,
+            _TARGET_SAMPLE_RATE,
+        )
+        return None
+    except Exception:
+        logger.exception("resampling %d Hz audio failed", source_rate)
+        return None
 
 
 class STTState(enum.Enum):
@@ -102,6 +178,7 @@ class STTEngine:
         self._recording_start_time: float = 0.0
         self._recording_active = False
         self._use_microphone = True
+        self._transcription_done = threading.Event()
 
     def _notify_transcription(self, result: STTResult) -> None:
         """Notify transcription callback (handles async callbacks safely)."""
@@ -192,6 +269,8 @@ class STTEngine:
         """Callback: realtime transcription stabilized (finalized)."""
         if self._verbose:
             logger.info("STT realtime stabilized: '%s'", text)
+        # Signal that transcription is complete so transcribe_chunk can proceed
+        self._transcription_done.set()
 
     def _on_recorded_chunk(self, audio_data: bytes) -> None:
         """Callback: audio chunk recorded."""
@@ -383,43 +462,74 @@ class STTEngine:
         with self._lock:
             self._stats.state = STTState.IDLE
 
-    def transcribe_chunk(self, audio_data: bytes, sample_rate: int = 16000) -> STTResult:
+    def transcribe_chunk(
+        self, audio_data: bytes | np.ndarray, sample_rate: int = 16000
+    ) -> STTResult:
         """Transcribe a single audio chunk (non-streaming mode).
 
-        Note: RealtimeSTT's text() method blocks in streaming mode.
-        This method uses a timeout to avoid hanging.
+        Accepts WAV bytes or raw PCM int16 bytes, converts them to a mono
+        int16 numpy array, and submits the audio directly to RealtimeSTT's
+        transcription worker. The VAD/recording lifecycle is bypassed — it
+        never triggers without microphone input, so feeding audio and waiting
+        for the callback always produced an empty result.
         """
         if self._recorder is None:
             return STTResult(text="", is_final=True, realtime=False)
-        try:
-            self._recorder.feed_audio(audio_data, sample_rate)
-            # Use a short timeout to avoid blocking indefinitely
-            import threading
+        if submit_transcription_request is None or receive_transcription_result is None:
+            logger.error(
+                "RealtimeSTT transcription API unavailable, cannot transcribe chunk"
+            )
+            return STTResult(text="", is_final=True, realtime=False)
 
-            result = [None]
-            event = threading.Event()
-
-            def get_text():
-                try:
-                    result[0] = self._recorder.text()  # type: ignore[union-attr]
-                except Exception:
-                    result[0] = ""
-                event.set()
-
-            thread = threading.Thread(target=get_text, daemon=True)
-            thread.start()
-            event.wait(timeout=2.0)
-
-            if result[0] is None:
+        audio, source_rate = _decode_audio(audio_data, sample_rate)
+        if audio.size == 0:
+            return STTResult(text="", is_final=True, realtime=False)
+        # Engines require normalized float audio, not int16 — the ONNX VAD filter
+        # used by faster-whisper fails on int16 input.
+        audio = audio.astype(np.float32) / _INT16_MAX_ABS_VALUE
+        if source_rate != _TARGET_SAMPLE_RATE:
+            audio = _resample_to_target(audio, source_rate)
+            if audio is None or audio.size == 0:
                 return STTResult(text="", is_final=True, realtime=False)
-            return STTResult(
-                text=result[0] or "",
-                is_final=True,
-                realtime=False,
+
+        with self._lock:
+            self._stats.state = STTState.TRANSCRIBING
+
+        try:
+            if self._verbose:
+                logger.debug(
+                    "submitting %d samples (%d ms) to transcription worker", audio.size, int(audio.size / _TARGET_SAMPLE_RATE * 1000)
+                )
+            submit_transcription_request(self._recorder, audio, None, False)  # type: ignore[union-attr]
+            received = receive_transcription_result(  # type: ignore[union-attr]
+                self._recorder, timeout=_TRANSCRIBE_TIMEOUT
             )
         except Exception:
             logger.exception("transcribe_chunk failed")
+            with self._lock:
+                self._stats.state = STTState.IDLE
             return STTResult(text="", is_final=True, realtime=False)
+
+        with self._lock:
+            self._stats.state = STTState.IDLE
+
+        if received is None:
+            logger.warning(
+                "transcribe_chunk timed out after %ds waiting for transcription", _TRANSCRIBE_TIMEOUT
+            )
+            return STTResult(text="", is_final=True, realtime=False)
+
+        status, result = received
+        if status != "success":
+            logger.error("transcribe_chunk failed: %s", result)
+            return STTResult(text="", is_final=True, realtime=False)
+
+        text = getattr(result, "text", "") or ""
+        with self._lock:
+            self._stats.last_text = text
+            self._stats.last_is_final = True
+            self._stats.transcription_count += 1
+        return STTResult(text=text, is_final=True, realtime=False)
 
     def _listen_loop(self) -> None:
         """Background loop that listens for speech and calls the transcription callback."""

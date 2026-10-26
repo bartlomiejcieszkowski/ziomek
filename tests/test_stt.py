@@ -87,6 +87,39 @@ class TestSTTEngineStats:
         assert stats1 is not stats2
 
 
+class TestDecodeAudio:
+    def test_float32_array_is_scaled_to_int16_range(self):
+        """Full-scale float audio must map to the int16 range, not truncate to silence."""
+        import numpy as np
+
+        from ziomek.stt import _decode_audio
+
+        audio = np.array([0.0, 0.5, -1.0], dtype=np.float32)
+        decoded, rate = _decode_audio(audio, 24000)
+        assert decoded.dtype == np.int16
+        assert rate == 24000
+        assert list(decoded) == [0, 16384, -32767]
+
+    def test_int16_array_passes_through(self):
+        import numpy as np
+
+        from ziomek.stt import _decode_audio
+
+        audio = np.array([0, 100, -100], dtype=np.int16)
+        decoded, rate = _decode_audio(audio, 24000)
+        assert list(decoded) == [0, 100, -100]
+
+    def test_multichannel_array_is_downmixed(self):
+        import numpy as np
+
+        from ziomek.stt import _decode_audio
+
+        audio = np.array([[0.5, -0.5], [1.0, 1.0]], dtype=np.float32)
+        decoded, _ = _decode_audio(audio, 24000)
+        assert decoded.shape == (2,)
+        assert list(decoded) == [0, 32767]
+
+
 class TestDownloadModel:
     def test_download_model_returns_path(self):
         """Test that download_model returns a Path object."""
