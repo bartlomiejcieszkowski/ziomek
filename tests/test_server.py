@@ -7,6 +7,7 @@ from ziomek.server import create_app
 @pytest.fixture
 def client():
     from ziomek.config import Settings
+
     settings = Settings(no_vscode=True)
     app = create_app(settings)
     return TestClient(app)

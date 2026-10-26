@@ -1,12 +1,13 @@
 """Tests for TTS benchmark module."""
 
-import pytest
 import csv
 import tempfile
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
 import numpy as np
+import pytest
 
 from ziomek.tts.engine import TTSModelWrapper
 from ziomek.tts.voice import VoiceStateCache
@@ -17,7 +18,7 @@ class TestBenchmarkMock:
 
     def test_benchmark_imports(self):
         """Benchmark module imports successfully."""
-        from ziomek.tts.benchmark import SAMPLE_TEXTS, _run_benchmark, _print_summary
+        from ziomek.tts.benchmark import SAMPLE_TEXTS, _print_summary, _run_benchmark
 
         assert len(SAMPLE_TEXTS) >= 3
         assert callable(_run_benchmark)
