@@ -87,11 +87,11 @@ def benchmark_run_cmd(args):
         from ziomek.stt.benchmark import main as stt_benchmark_main
 
         stt_benchmark_main(
+            engines=args.engines,
             voices=args.voices,
             models=args.models,
             categories=args.categories,
             iterations=args.iterations,
-            output=args.output,
             output_dir=args.output_dir,
             store=args.store,
             store_dir=args.store_dir,
@@ -314,6 +314,12 @@ def main():
         help="Run STT quality benchmark",
     )
     stt_parser.add_argument(
+        "--engines",
+        nargs="+",
+        default=["faster_whisper"],
+        help="STT engines to test",
+    )
+    stt_parser.add_argument(
         "--voices",
         nargs="+",
         default=["cosette", "default"],
@@ -338,16 +344,10 @@ def main():
         help="Iterations per category per voice",
     )
     stt_parser.add_argument(
-        "--output",
-        type=str,
-        default=None,
-        help="CSV output file path",
-    )
-    stt_parser.add_argument(
         "--output-dir",
         type=str,
         default=None,
-        help="Directory to save WAV files",
+        help="Directory to save CSV/JSON output",
     )
     stt_parser.add_argument(
         "--store",
