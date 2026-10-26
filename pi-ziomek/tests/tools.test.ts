@@ -13,9 +13,8 @@ import type { Config } from "../src/config";
 // Mock clients
 const mockTtsClient = {
   speak: vi.fn(),
-  cancel: vi.fn(),
+  generate: vi.fn(),
   getVoices: vi.fn(),
-  getLastWavPath: vi.fn(),
   setBaseUrl: vi.fn(),
 } as unknown as TtsClient;
 

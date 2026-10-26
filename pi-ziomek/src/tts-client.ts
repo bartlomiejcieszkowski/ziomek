@@ -1,44 +1,80 @@
 /**
  * TTS client — HTTP client for ziomek TTS endpoints.
  *
- * Provides methods to synthesize speech, cancel playback, and list voices.
- * Communicates with the ziomek server's TTS API over HTTP.
+ * Mirrors the server API in src/ziomek/api/tts.py: /api/tts/speak (generate and
+ * play), /api/tts/generate (return base64 WAV), /api/tts/voices.
  */
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export interface TtsVoice {
-  name: string;
-  language: string;
-  description?: string;
+export interface VoiceList {
+  voices: string[];
+  default: string;
 }
 
 export interface TtsResult {
   success: boolean;
-  wavPath?: string | null;
   error?: string;
+  /** Playback duration in seconds reported by the server. */
+  duration?: number;
+  sampleRate?: number;
+}
+
+export interface GenerateResult extends TtsResult {
+  /** Base64-encoded WAV bytes, as returned by /api/tts/generate. */
+  audioBase64?: string | null;
 }
 
 // ── Client ───────────────────────────────────────────────────────────────────
 
 export class TtsClient {
   private baseUrl: string;
-  private currentWavPath: string | null = null;
 
   constructor(baseUrl: string = "http://localhost:5004") {
     this.baseUrl = baseUrl;
   }
 
   /**
-   * Synthesize speech from text. Returns the path to the generated WAV file.
+   * Synthesize text and let the server play it (POST /api/tts/speak).
    */
   async speak(text: string, voice?: string): Promise<TtsResult> {
+    return this.post("/api/tts/speak", text, voice);
+  }
+
+  /**
+   * Synthesize text without playing it (POST /api/tts/generate).
+   */
+  async generate(text: string, voice?: string): Promise<GenerateResult> {
+    return this.post("/api/tts/generate", text, voice);
+  }
+
+  /**
+   * List available TTS voices (GET /api/tts/voices).
+   */
+  async getVoices(): Promise<VoiceList> {
     try {
-      const url = `${this.baseUrl}/api/tts/synthesize`;
+      const response = await fetch(`${this.baseUrl}/api/tts/voices`);
+      if (!response.ok) return { voices: [], default: "" };
+      const data = (await response.json()) as { voices?: string[]; default?: string };
+      return { voices: data.voices ?? [], default: data.default ?? "" };
+    } catch {
+      return { voices: [], default: "" };
+    }
+  }
+
+  /**
+   * Update the base URL (e.g., after config reload).
+   */
+  setBaseUrl(url: string): void {
+    this.baseUrl = url;
+  }
+
+  private async post(path: string, text: string, voice?: string): Promise<GenerateResult> {
+    try {
       const body: Record<string, string> = { text };
       if (voice) body.voice = voice;
 
-      const response = await fetch(url, {
+      const response = await fetch(`${this.baseUrl}${path}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -49,56 +85,18 @@ export class TtsClient {
         return { success: false, error: errorText || response.statusText };
       }
 
-      // The endpoint returns the WAV file path in the response body
-      const result = (await response.json()) as { path?: string };
-      this.currentWavPath = result.path || null;
-      return { success: true, wavPath: this.currentWavPath };
+      const data = (await response.json()) as Record<string, unknown>;
+      return {
+        success: true,
+        duration: typeof data.duration === "number" ? data.duration : undefined,
+        sampleRate: typeof data.sample_rate === "number" ? data.sample_rate : undefined,
+        audioBase64: typeof data.audio_b64 === "string" ? data.audio_b64 : undefined,
+      };
     } catch (error) {
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),
       };
     }
-  }
-
-  /**
-   * Cancel current playback (if supported by the server).
-   */
-  async cancel(): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/tts/cancel`, {
-        method: "POST",
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * List available TTS voices.
-   */
-  async getVoices(): Promise<TtsVoice[]> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/tts/voices`);
-      if (!response.ok) return [];
-      return (await response.json()) as TtsVoice[];
-    } catch {
-      return [];
-    }
-  }
-
-  /**
-   * Get the last generated WAV file path.
-   */
-  getLastWavPath(): string | null {
-    return this.currentWavPath;
-  }
-
-  /**
-   * Update the base URL (e.g., after config reload).
-   */
-  setBaseUrl(url: string): void {
-    this.baseUrl = url;
   }
 }
