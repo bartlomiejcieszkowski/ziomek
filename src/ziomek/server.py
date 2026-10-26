@@ -20,7 +20,7 @@ from ziomek.avatar.state_machine import AvatarInput, AvatarStateMachine
 from ziomek.config import Settings
 from ziomek.gamepad import GamepadManager
 from ziomek.logging import RequestIDMiddleware, get_log_buffer, setup_logging
-from ziomek.stt import STTEngine, STTState
+from ziomek.stt import STTEngine, STTState, stt_installed
 from ziomek.tts.engine import TTSModelWrapper
 from ziomek.tts.playback import AudioPlayer
 from ziomek.tts.voice import VoiceStateCache
@@ -130,8 +130,8 @@ def create_app(
     # Initialize avatar components
     _state_machine = AvatarStateMachine()
     _skin_registry = SkinRegistry()
-    # Initialize STT engine (optional, can be disabled)
-    if not settings.no_vscode:
+    # Initialize STT engine only when the optional 'stt' extra is installed
+    if stt_installed():
         global _stt_engine
         from ziomek.api.stt_ws import _stt_callback
 

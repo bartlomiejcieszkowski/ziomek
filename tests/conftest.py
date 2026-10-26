@@ -8,9 +8,12 @@ def _cleanup_stt_engine():
     """Stop STT engine after each test to prevent hanging threads."""
     yield
     try:
-        from ziomek.server import _stt_engine
-        if _stt_engine is not None:
-            _stt_engine.stop()
+        from ziomek import server
+
+        if server._stt_engine is not None:
+            server._stt_engine.stop()
+        # Reset so a later test cannot see an engine left behind by this one.
+        server._stt_engine = None
     except Exception:
         pass
 

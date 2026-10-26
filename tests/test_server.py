@@ -88,3 +88,19 @@ def test_health_status_null_when_model_not_loaded():
     # Should not crash even if model is None
     assert isinstance(data["model_loaded"], bool)
     assert isinstance(data["ready"], bool)
+
+
+def test_create_app_skips_stt_when_extra_missing():
+    """The STT engine must not be created when the 'stt' extra is not installed."""
+    from unittest.mock import patch
+
+    from ziomek import server
+    from ziomek.config import Settings
+    from ziomek.server import create_app
+
+    settings = Settings(no_vscode=True)
+    with patch("ziomek.server.stt_installed", return_value=False):
+        app = create_app(settings)
+
+    assert app is not None
+    assert server._stt_engine is None
