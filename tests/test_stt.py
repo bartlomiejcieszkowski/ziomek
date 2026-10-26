@@ -1,8 +1,80 @@
 """Tests for the STT engine module."""
 
+import logging
+import sys
+from unittest.mock import patch
+
+import numpy as np
 import pytest
 
-from ziomek.stt import STTEngine, STTState
+from ziomek.stt import STTEngine, STTState, stt_installed
+
+
+class TestSttInstalled:
+    """Tests for the optional 'stt' extra availability check."""
+
+    def test_true_when_package_importable(self):
+        with patch("ziomek.stt.find_spec", return_value=object()):
+            assert stt_installed() is True
+
+    def test_false_when_package_missing(self):
+        with patch("ziomek.stt.find_spec", return_value=None):
+            assert stt_installed() is False
+
+
+class TestMissingSttExtra:
+    """Option 3: missing extra warns and continues, with a hint naming the ziomek extra."""
+
+    def test_start_warns_with_ziomek_extra_hint(self, caplog, monkeypatch):
+        caplog.set_level(logging.WARNING, logger="ziomek.stt")
+        monkeypatch.setitem(sys.modules, "RealtimeSTT", None)
+
+        engine = STTEngine()
+        engine.start()  # must not raise — degraded run continues
+
+        assert engine.state == STTState.IDLE
+        messages = " ".join(record.message for record in caplog.records)
+        assert "not installed" in messages.lower()
+        assert "ziomek[stt]" in messages
+        assert "uv pip install" in messages
+
+    def test_download_model_hint_names_ziomek_extra(self, monkeypatch):
+        from ziomek.stt import download_model
+
+        # Null out the package and its submodule: an earlier test in the suite may
+        # already have imported faster_whisper.utils, which would skip the check.
+        monkeypatch.setitem(sys.modules, "faster_whisper", None)
+        monkeypatch.setitem(sys.modules, "faster_whisper.utils", None)
+
+        with pytest.raises(ImportError) as exc:
+            download_model("tiny")
+
+        assert "ziomek[stt]" in str(exc.value)
+
+
+class TestTranscribeChunkGuard:
+    """Guard for calling transcription when the 'stt' extra is missing."""
+
+    def test_returns_empty_when_engine_not_started(self):
+        engine = STTEngine()
+        result = engine.transcribe_chunk(b"", 16000)
+        assert result.text == ""
+
+    def test_logs_error_and_returns_empty_when_extra_missing(self, caplog, monkeypatch):
+        caplog.set_level(logging.WARNING, logger="ziomek.stt")
+        monkeypatch.setattr("ziomek.stt.submit_transcription_request", None)
+        monkeypatch.setattr("ziomek.stt.receive_transcription_result", None)
+
+        engine = STTEngine()
+        # A recorder object exists (as it would after a successful start), but the
+        # transcription worker API is unavailable because the extra is missing.
+        setattr(engine, "_recorder", object())  # noqa: B010
+        result = engine.transcribe_chunk(np.zeros(2, dtype=np.int16).tobytes(), 16000)
+
+        assert result.text == ""
+        messages = " ".join(record.message for record in caplog.records)
+        assert "unavailable" in messages.lower()
+        assert "ziomek[stt]" in messages
 
 
 class TestSTTEngineInitialization:

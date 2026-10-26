@@ -9,6 +9,7 @@ import threading
 import time
 import wave
 from dataclasses import dataclass, field
+from importlib.util import find_spec
 from pathlib import Path
 from typing import Callable
 
@@ -49,6 +50,12 @@ except (ImportError, AttributeError):
     pass
 
 logger = logging.getLogger(__name__)
+
+
+def stt_installed() -> bool:
+    """Return True if the optional 'stt' extra (RealtimeSTT) is installed."""
+    return find_spec("RealtimeSTT") is not None
+
 
 # RealtimeSTT's transcription engines expect audio at this rate, normalized
 # to float (see ``RealtimeSTT/core/manual_audio_input.py`` INT16_MAX_ABS_VALUE).
@@ -307,7 +314,8 @@ class STTEngine:
             import RealtimeSTT  # noqa: F401
         except ImportError:
             logger.error(
-                "RealtimeSTT not installed. Install with: pip install RealtimeSTT[faster-whisper]",
+                'STT support requires the "stt" extra, which is not installed. '
+                'Install it with: uv pip install "ziomek[stt]"',
             )
             return
 
@@ -474,7 +482,10 @@ class STTEngine:
         if self._recorder is None:
             return STTResult(text="", is_final=True, realtime=False)
         if submit_transcription_request is None or receive_transcription_result is None:
-            logger.error("RealtimeSTT transcription API unavailable, cannot transcribe chunk")
+            logger.error(
+                'RealtimeSTT transcription API unavailable — STT support requires the "stt" '
+                'extra. Install it with: uv pip install "ziomek[stt]"',
+            )
             return STTResult(text="", is_final=True, realtime=False)
 
         audio, source_rate = _decode_audio(audio_data, sample_rate)
@@ -573,7 +584,9 @@ def download_model(model_name: str = "tiny.en", download_root: str | None = None
     try:
         from faster_whisper.utils import download_model as fw_download  # noqa: F401
     except ImportError:
-        raise ImportError("faster_whisper not installed. Install with: pip install faster-whisper")
+        raise ImportError(
+            'faster_whisper is not installed. Install it with: uv pip install "ziomek[stt]"',
+        )
 
     if download_root:
         Path(download_root).mkdir(parents=True, exist_ok=True)

@@ -13,6 +13,7 @@ from importlib.metadata import version as get_version
 from importlib.util import find_spec
 
 from ziomek.server import run_server
+from ziomek.stt import stt_installed
 
 
 def mcp_installed() -> bool:
@@ -380,6 +381,14 @@ def main():
         print("Error: MCP support requires the 'mcp' package, which is not installed.", file=sys.stderr)
         print("Install it with: uv pip install 'ziomek[mcp]' (or run without --mcp / --mcp-stdio).", file=sys.stderr)
         sys.exit(1)
+
+    # Option 3: warn and continue — the server runs with STT disabled.
+    if not stt_installed():
+        print(
+            'Warning: STT support requires the "stt" extra, which is not installed. '
+            'Install it with: uv pip install "ziomek[stt]" — STT will be disabled for this run.',
+            file=sys.stderr,
+        )
 
     if args.scaffold_config:
         scaffold_cmd(args)
