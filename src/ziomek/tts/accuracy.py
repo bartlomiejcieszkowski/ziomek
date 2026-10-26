@@ -235,9 +235,7 @@ def _print_summary(results: list[dict[str, Any]]) -> None:
             cat_levs = [r["levenshtein"] for r in cat_results]
             cat_wers = [r["wer"] for r in cat_results]
             cat_text = cat_results[0]["text"] if cat_results else ""
-            display_text = (
-                cat_text[:80] + "..." if len(cat_text) > 80 else cat_text
-            )
+            display_text = cat_text[:80] + "..." if len(cat_text) > 80 else cat_text
             print(
                 f"      {cat:12s}  lev={statistics.mean(cat_levs):.4f}  "
                 f"wer={statistics.mean(cat_wers):.4f}  ({len(cat_results)} samples)\n"

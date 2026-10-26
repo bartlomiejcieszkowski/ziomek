@@ -50,9 +50,7 @@ class TestSTTEngineStartStop:
 
         class FakeAudioToTextRecorder:
             def __init__(self, **kwargs):  # noqa: ANN001
-                assert kwargs.get("use_microphone") is False, (
-                    "start_from_file must set use_microphone=False"
-                )
+                assert kwargs.get("use_microphone") is False, "start_from_file must set use_microphone=False"
                 self._text_calls = []
 
             def text(self):  # noqa: ANN201

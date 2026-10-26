@@ -462,9 +462,7 @@ class STTEngine:
         with self._lock:
             self._stats.state = STTState.IDLE
 
-    def transcribe_chunk(
-        self, audio_data: bytes | np.ndarray, sample_rate: int = 16000
-    ) -> STTResult:
+    def transcribe_chunk(self, audio_data: bytes | np.ndarray, sample_rate: int = 16000) -> STTResult:
         """Transcribe a single audio chunk (non-streaming mode).
 
         Accepts WAV bytes or raw PCM int16 bytes, converts them to a mono
@@ -476,9 +474,7 @@ class STTEngine:
         if self._recorder is None:
             return STTResult(text="", is_final=True, realtime=False)
         if submit_transcription_request is None or receive_transcription_result is None:
-            logger.error(
-                "RealtimeSTT transcription API unavailable, cannot transcribe chunk"
-            )
+            logger.error("RealtimeSTT transcription API unavailable, cannot transcribe chunk")
             return STTResult(text="", is_final=True, realtime=False)
 
         audio, source_rate = _decode_audio(audio_data, sample_rate)
@@ -498,7 +494,9 @@ class STTEngine:
         try:
             if self._verbose:
                 logger.debug(
-                    "submitting %d samples (%d ms) to transcription worker", audio.size, int(audio.size / _TARGET_SAMPLE_RATE * 1000)
+                    "submitting %d samples (%d ms) to transcription worker",
+                    audio.size,
+                    int(audio.size / _TARGET_SAMPLE_RATE * 1000),
                 )
             submit_transcription_request(self._recorder, audio, None, False)  # type: ignore[union-attr]
             received = receive_transcription_result(  # type: ignore[union-attr]
@@ -514,9 +512,7 @@ class STTEngine:
             self._stats.state = STTState.IDLE
 
         if received is None:
-            logger.warning(
-                "transcribe_chunk timed out after %ds waiting for transcription", _TRANSCRIBE_TIMEOUT
-            )
+            logger.warning("transcribe_chunk timed out after %ds waiting for transcription", _TRANSCRIBE_TIMEOUT)
             return STTResult(text="", is_final=True, realtime=False)
 
         status, result = received
