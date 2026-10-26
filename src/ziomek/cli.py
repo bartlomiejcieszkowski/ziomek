@@ -8,9 +8,16 @@ Usage:
 """
 
 import argparse
+import sys
 from importlib.metadata import version as get_version
+from importlib.util import find_spec
 
 from ziomek.server import run_server
+
+
+def mcp_installed() -> bool:
+    """Return True if the optional 'mcp' package is importable."""
+    return find_spec("mcp") is not None
 
 
 def serve_cmd(args):
@@ -368,6 +375,11 @@ def main():
     stt_parser.set_defaults(func=benchmark_run_cmd)
 
     args = parser.parse_args()
+
+    if (args.mcp or args.mcp_stdio) and not mcp_installed():
+        print("Error: MCP support requires the 'mcp' package, which is not installed.", file=sys.stderr)
+        print("Install it with: uv pip install 'ziomek[mcp]' (or run without --mcp / --mcp-stdio).", file=sys.stderr)
+        sys.exit(1)
 
     if args.scaffold_config:
         scaffold_cmd(args)
