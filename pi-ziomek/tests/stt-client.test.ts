@@ -302,4 +302,18 @@ describe("SttClient", () => {
       expect(cb2).toHaveBeenCalled();
     });
   });
+
+  describe("default base URL", () => {
+    it("uses the ziomek server port when no URL is given", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValue({
+        ok: true,
+        json: async () => ({ state: "idle", engine: "faster_whisper", model: "tiny.en", transcriptionCount: 0 }),
+      } as Response);
+
+      await new SttClient().getStatus();
+
+      const [url] = (globalThis.fetch as any).mock.calls[0];
+      expect(url.startsWith("http://localhost:5004")).toBe(true);
+    });
+  });
 });

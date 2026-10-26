@@ -153,4 +153,19 @@ describe("TtsClient", () => {
       expect(url).toBe("http://example.com:8080/api/tts/synthesize");
     });
   });
+
+  describe("default base URL", () => {
+    it("uses the ziomek server port when no URL is given", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValue({
+        ok: false,
+        statusText: "Error",
+        text: async () => "Error",
+      } as Response);
+
+      await new TtsClient().speak("test");
+
+      const [url] = (globalThis.fetch as any).mock.calls[0];
+      expect(url.startsWith("http://localhost:5004")).toBe(true);
+    });
+  });
 });

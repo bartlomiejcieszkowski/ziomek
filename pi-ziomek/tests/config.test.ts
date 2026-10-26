@@ -29,7 +29,7 @@ describe("config module", () => {
     it("returns defaults when no config file exists", () => {
       const config = loadConfig();
       expect(config).toBeDefined();
-      expect(config.voice.serverUrl).toBe("http://localhost:5003");
+      expect(config.voice.serverUrl).toBe("http://localhost:5004");
       expect(config.voice.keyword).toBe("ziomek");
       expect(config.voice.keywords).toEqual(["ziomek"]);
       expect(config.voice.maxListenDuration).toBe(5);
@@ -47,7 +47,7 @@ describe("config module", () => {
       fs.writeFileSync(path.join(configDir, "config.json"), "not valid json {{{", "utf-8");
 
       const config = loadConfig();
-      expect(config.voice.serverUrl).toBe("http://localhost:5003");
+      expect(config.voice.serverUrl).toBe("http://localhost:5004");
     });
 
     it("merges partial config with defaults", () => {
@@ -97,7 +97,7 @@ describe("config module", () => {
       const configPath = path.join(tmpDir, ".pi", "agent", "extensions", "pi-ziomek", "config.json");
       const raw = fs.readFileSync(configPath, "utf-8");
       const parsed = JSON.parse(raw);
-      expect(parsed.voice.serverUrl).toBe("http://localhost:5003");
+      expect(parsed.voice.serverUrl).toBe("http://localhost:5004");
     });
 
     it("persists and reloads custom values", () => {

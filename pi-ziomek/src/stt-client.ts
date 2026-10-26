@@ -34,7 +34,7 @@ export class SttClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private connected = false;
 
-  constructor(baseUrl: string = "http://localhost:5003") {
+  constructor(baseUrl: string = "http://localhost:5004") {
     this.baseUrl = baseUrl;
   }
 

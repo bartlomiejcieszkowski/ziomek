@@ -25,7 +25,7 @@ export class TtsClient {
   private baseUrl: string;
   private currentWavPath: string | null = null;
 
-  constructor(baseUrl: string = "http://localhost:5003") {
+  constructor(baseUrl: string = "http://localhost:5004") {
     this.baseUrl = baseUrl;
   }
 
