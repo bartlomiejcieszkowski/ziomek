@@ -132,7 +132,7 @@ def main():
     parser.add_argument("--version", action="version", version=f"%(prog)s {get_version('ziomek')}")
 
     # Server args
-    parser.add_argument("--port", type=int, default=None, help="Port (default: 5003)")
+    parser.add_argument("--port", type=int, default=None, help="Port (default: 5004)")
     parser.add_argument("--model-path", type=str, default=None, help="Path to TTS model")
     parser.add_argument("--voice", type=str, default="default", help="Voice to use (default: default)")
     parser.add_argument("--cache-dir", type=str, default=None, help="Cache directory for TTS")

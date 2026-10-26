@@ -222,7 +222,7 @@ def run_server(
     and STT transcription in a single process.
 
     Args:
-        port: Server port (default: 5003).
+        port: Server port (default: 5004).
         model_path: Path to TTS model file.
         voice: Voice identifier (default: "default").
         cache_dir: Directory for TTS cache.

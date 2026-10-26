@@ -131,7 +131,7 @@ class Settings(BaseModel):
 # Generate with: ziomek --scaffold-config
 
 # Server settings
-# port: 5003
+# port: 5004
 # model_path:
 # voice: default
 # cache_dir:
