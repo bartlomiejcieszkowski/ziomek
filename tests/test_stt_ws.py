@@ -31,7 +31,7 @@ class TestSTTWebSocket:
         from ziomek.config import Settings
         from ziomek.server import create_app
 
-        settings = Settings(no_vscode=True)
+        settings = Settings(no_gamepad=True)
         app = create_app(settings=settings, dev_mode=False)
         app.include_router(router)
         return TestClient(app)

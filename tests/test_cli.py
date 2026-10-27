@@ -120,10 +120,10 @@ class TestSttMissingExtraWarning:
         assert capsys.readouterr().err == ""
         run_server.assert_called_once()
 
-    def test_warns_even_with_no_vscode(self, capsys):
+    def test_warns_even_with_no_gamepad(self, capsys):
         """The engine is created in every mode, so a missing extra is always reported."""
         with (
-            patch("sys.argv", ["ziomek", "--no-vscode"]),
+            patch("sys.argv", ["ziomek", "--no-gamepad"]),
             patch("ziomek.cli.mcp_installed", return_value=True),
             patch("ziomek.cli.stt_installed", return_value=False),
             patch("ziomek.cli.run_server") as run_server,
@@ -133,3 +133,18 @@ class TestSttMissingExtraWarning:
         err = capsys.readouterr().err
         assert "ziomek[stt]" in err
         run_server.assert_called_once()
+
+
+class TestGamepadFlagPlumbing:
+    """--no-gamepad reaches run_server as no_gamepad."""
+
+    def test_no_gamepad_passed_to_run_server(self):
+        with (
+            patch("sys.argv", ["ziomek", "--no-gamepad"]),
+            patch("ziomek.cli.mcp_installed", return_value=True),
+            patch("ziomek.cli.stt_installed", return_value=True),
+            patch("ziomek.cli.run_server") as run_server,
+        ):
+            main()
+
+        assert run_server.call_args.kwargs["no_gamepad"] is True

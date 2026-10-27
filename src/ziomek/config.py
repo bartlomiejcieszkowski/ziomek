@@ -16,7 +16,7 @@ class Settings(BaseModel):
     audio_backend: str = "sounddevice"
     audio_device: str | int | None = None
     host: str = "localhost"
-    no_vscode: bool = False
+    no_gamepad: bool = False
     no_browser: bool = False
     stt_engine: str = "faster_whisper"
     stt_model: str = "tiny.en"
@@ -83,7 +83,7 @@ class Settings(BaseModel):
         cache_dir: str | None = None,
         host: str | None = None,
         no_browser: bool | None = None,
-        no_vscode: bool | None = None,
+        no_gamepad: bool | None = None,
         stt_engine: str | None = None,
         stt_model: str | None = None,
         stt_model_dir: str | None = None,
@@ -99,7 +99,7 @@ class Settings(BaseModel):
         cli_device_val = cli_device if cli_device is not None else env_device_val
         cli_host_val = host if host is not None else (cli_host if cli_host is not None else env_host_val)
         no_browser_val = no_browser if no_browser is not None else file_settings.no_browser
-        no_vscode_val = no_vscode if no_vscode is not None else file_settings.no_vscode
+        no_gamepad_val = no_gamepad if no_gamepad is not None else file_settings.no_gamepad
         stt_engine_val = stt_engine or file_settings.stt_engine
         stt_model_val = stt_model or file_settings.stt_model
         stt_model_dir_val = stt_model_dir or file_settings.stt_model_dir
@@ -114,7 +114,7 @@ class Settings(BaseModel):
             voice=voice or file_settings.voice,
             cache_dir=cache_dir or file_settings.cache_dir,
             no_browser=no_browser_val,
-            no_vscode=no_vscode_val,
+            no_gamepad=no_gamepad_val,
             stt_engine=stt_engine_val,
             stt_model=stt_model_val,
             stt_model_dir=stt_model_dir_val,
@@ -144,8 +144,10 @@ class Settings(BaseModel):
 # audio_device:
 
 # Client settings
-# no_vscode: false
+# Do not open the served page in the browser on startup
 # no_browser: false
+# Do not poll gamepad buttons
+# no_gamepad: false
 
 # STT (Speech-to-Text) settings
 # stt_engine: faster_whisper

@@ -149,6 +149,33 @@ def test_server_with_noop_backend():
     assert server._audio_player.supports_mixing() is True
 
 
+def test_settings_has_no_gamepad_and_no_no_vscode():
+    """The split-era no_vscode flag is gone; gamepad polling is gated by no_gamepad."""
+    s = Settings()
+    assert s.no_gamepad is False
+    assert "no_vscode" not in Settings.model_fields
+
+
+def test_no_gamepad_from_config_file():
+    """A config file can enable the gate."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "ziomek_config.yaml")
+        with open(path, "w") as f:
+            f.write("no_gamepad: true\n")
+        s = Settings.load(path)
+        assert s.no_gamepad is True
+
+
+def test_no_gamepad_cli_beats_config_file():
+    """Precedence: CLI > config file."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "ziomek_config.yaml")
+        with open(path, "w") as f:
+            f.write("no_gamepad: false\n")
+        s = Settings.compose(file_path=path, no_gamepad=True)
+        assert s.no_gamepad is True
+
+
 def test_scaffold_config_creates_file():
     """Settings.scaffold_config creates a default YAML config file."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -161,6 +188,8 @@ def test_scaffold_config_creates_file():
         assert "audio_backend" in content
         assert "sounddevice" in content
         assert "audio_device" in content
+        assert "no_gamepad" in content
+        assert "no_vscode" not in content
 
 
 def test_e2e_noop_backend_full_chain():

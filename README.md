@@ -85,8 +85,8 @@ uv run ziomek --host 0.0.0.0 --port 5004 --log-level INFO --voice cosette --cach
 | `--voice` | default | Voice name (cosette) |
 | `--cache-dir` | ~ | Voice cache directory |
 | `--log-level` | INFO | Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL) |
-| `--no-vscode` | false | Disable VS Code WebSocket relay and gamepad polling |
-| `--no-browser` | false | Disable local browser view |
+| `--no-gamepad` | false | Do not poll gamepad buttons |
+| `--no-browser` | false | Do not open the served page in the browser on startup |
 | `--stt-engine` | faster_whisper | STT engine (faster_whisper) |
 | `--stt-model` | tiny | STT model (tiny, base, small, medium) |
 | `--dev` | false | Enable debug endpoints and debug page |
@@ -96,10 +96,10 @@ uv run ziomek --host 0.0.0.0 --port 5004 --log-level INFO --voice cosette --cach
 
 | Command | What runs |
 |---------|-----------|
-| `uv run ziomek` | Full server (browser + VS Code relay + gamepad + STT) |
-| `uv run ziomek --no-vscode` | Browser view only (no extension needed) |
-| `uv run ziomek --no-browser` | VS Code relay only (headless) |
-| `uv run ziomek --no-browser --no-vscode` | Standalone API only |
+| `uv run ziomek` | Full server (page in browser + gamepad + STT + MCP) |
+| `uv run ziomek --no-browser` | Headless server (page not opened) |
+| `uv run ziomek --no-gamepad` | Server without gamepad polling |
+| `uv run ziomek --no-browser --no-gamepad` | Standalone API only |
 | `uv run ziomek --dev` | Full server with debug page at `/debug` |
 | `uv run ziomek -v` | Full server with verbose DEBUG logging |
 

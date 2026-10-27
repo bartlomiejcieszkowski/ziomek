@@ -14,7 +14,7 @@ from ziomek.server import create_app
 @pytest.fixture
 def client():
     """Create a test client with STT enabled."""
-    settings = Settings(no_vscode=False)  # Enable STT
+    settings = Settings(no_gamepad=True)
     app = create_app(settings)
     return TestClient(app)
 

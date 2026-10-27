@@ -31,7 +31,7 @@ def serve_cmd(args):
         audio_device=args.audio_device,
         host=args.host,
         log_level=args.log_level,
-        no_vscode=args.no_vscode,
+        no_gamepad=args.no_gamepad,
         no_browser=args.no_browser,
         stt_engine=args.stt_engine,
         stt_model=args.stt_model,
@@ -152,8 +152,8 @@ def main():
     )
 
     # Client/feature flags
-    parser.add_argument("--no-vscode", action="store_true", help="Disable VS Code WebSocket relay and gamepad polling")
-    parser.add_argument("--no-browser", action="store_true", help="Do not open local browser")
+    parser.add_argument("--no-gamepad", action="store_true", help="Do not poll gamepad buttons")
+    parser.add_argument("--no-browser", action="store_true", help="Do not open the served page in the browser on startup")
 
     # STT args
     parser.add_argument(

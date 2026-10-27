@@ -25,7 +25,7 @@ def real_server():
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         port = s.getsockname()[1]
 
-    settings = Settings.compose(cli_backend="noop", no_vscode=True)
+    settings = Settings.compose(cli_backend="noop", no_gamepad=True)
     app = create_app(settings)
 
     config = uvicorn.Config(

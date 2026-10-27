@@ -8,7 +8,7 @@ from ziomek.server import create_app
 def client():
     from ziomek.config import Settings
 
-    settings = Settings(no_vscode=True)
+    settings = Settings(no_gamepad=True)
     app = create_app(settings)
     return TestClient(app)
 
@@ -48,7 +48,7 @@ def test_health_status_has_new_fields():
     from ziomek.config import Settings
     from ziomek.server import create_app
 
-    settings = Settings(no_vscode=True)
+    settings = Settings(no_gamepad=True)
     app = create_app(settings)
     client = TestClient(app)
     resp = client.get("/status")
@@ -81,7 +81,7 @@ def test_health_status_null_when_model_not_loaded():
     from ziomek.config import Settings
     from ziomek.server import create_app
 
-    settings = Settings(no_vscode=True)
+    settings = Settings(no_gamepad=True)
     app = create_app(settings)
     client = TestClient(app)
     resp = client.get("/status")
@@ -99,7 +99,7 @@ def test_create_app_skips_stt_when_extra_missing():
     from ziomek.config import Settings
     from ziomek.server import create_app
 
-    settings = Settings(no_vscode=True)
+    settings = Settings(no_gamepad=True)
     with patch("ziomek.server.stt_installed", return_value=False):
         app = create_app(settings)
 

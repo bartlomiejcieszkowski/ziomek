@@ -5,6 +5,7 @@ import logging
 import sys
 import threading
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
@@ -17,6 +18,7 @@ from ziomek import __version__
 from ziomek.api.stt_ws import router as stt_ws_router
 from ziomek.avatar.skins import SkinRegistry
 from ziomek.avatar.state_machine import AvatarInput, AvatarStateMachine
+from ziomek.browser import open_view_page
 from ziomek.config import Settings
 from ziomek.gamepad import GamepadManager
 from ziomek.logging import RequestIDMiddleware, get_log_buffer, setup_logging
@@ -100,11 +102,20 @@ def create_app(
     mcp_stdio: bool = False,
     mcp_http: bool = False,
     mcp_config_exposed: bool = False,
+    open_browser: bool = False,
 ) -> FastAPI:
     global _tts_model, _voice_cache, _audio_player, _state_machine, _skin_registry, _settings
     if settings is None:
         settings = Settings()
     _settings = settings
+
+    # Open the served page on startup, but only when the server actually starts
+    # and opening is not disabled (no_browser).
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        if open_browser:
+            open_view_page(settings)
+        yield
 
     app = FastAPI(
         title="ziomek",
@@ -112,6 +123,7 @@ def create_app(
         description="Humanize AI — TTS speech synthesis, avatar state machine, gamepad, and STT.",
         docs_url="/docs",
         redoc_url="/redoc",
+        lifespan=lifespan,
     )
     # Add CORS middleware for VS Code webviews
     app.add_middleware(
@@ -148,8 +160,8 @@ def create_app(
             settings.stt_engine,
             settings.stt_model,
         )
-    # Start gamepad thread if not in VS Code mode
-    if not settings.no_vscode:
+    # Start gamepad polling unless it is disabled
+    if not settings.no_gamepad:
         _start_gamepad_thread(_state_machine)
         _logger.info("Gamepad polling thread started")
 
@@ -204,7 +216,7 @@ def run_server(
     audio_device: str | int | None = None,
     host: str | None = None,
     log_level: str = "INFO",
-    no_vscode: bool = False,
+    no_gamepad: bool = False,
     no_browser: bool = False,
     stt_engine: str | None = None,
     stt_model: str | None = None,
@@ -230,8 +242,8 @@ def run_server(
         audio_device: Audio device index, name, or "default".
         host: Host to bind (default: localhost).
         log_level: Logging level.
-        no_vscode: Disable VS Code WebSocket relay and gamepad polling.
-        no_browser: Do not open local browser.
+        no_gamepad: Do not poll gamepad buttons.
+        no_browser: Do not open the served page in the browser on startup.
         stt_engine: STT engine name (faster_whisper).
         stt_model: STT model name.
         stt_model_dir: STT model download directory.
@@ -255,7 +267,7 @@ def run_server(
         voice=voice,
         cache_dir=cache_dir,
         no_browser=no_browser,
-        no_vscode=no_vscode,
+        no_gamepad=no_gamepad,
         stt_engine=stt_engine,
         stt_model=stt_model,
         stt_model_dir=stt_model_dir,
@@ -270,6 +282,7 @@ def run_server(
         mcp_stdio=mcp_stdio,
         mcp_http=mcp_http,
         mcp_config_exposed=mcp_config_exposed,
+        open_browser=not settings.no_browser,
     )
     effective_port = port if port is not None else settings.port
     print(
