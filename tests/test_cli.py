@@ -121,7 +121,7 @@ class TestSttMissingExtraWarning:
         run_server.assert_called_once()
 
     def test_warns_even_with_no_gamepad(self, capsys):
-        """The engine is created in every mode, so a missing extra is always reported."""
+        """Gamepad gating does not gate STT, so a missing extra is still reported."""
         with (
             patch("sys.argv", ["ziomek", "--no-gamepad"]),
             patch("ziomek.cli.mcp_installed", return_value=True),
@@ -133,6 +133,34 @@ class TestSttMissingExtraWarning:
         err = capsys.readouterr().err
         assert "ziomek[stt]" in err
         run_server.assert_called_once()
+
+    def test_does_not_warn_when_stt_is_disabled(self, capsys):
+        """With --no-stt we never use STT, so a missing extra is not worth reporting."""
+        with (
+            patch("sys.argv", ["ziomek", "--no-stt"]),
+            patch("ziomek.cli.mcp_installed", return_value=True),
+            patch("ziomek.cli.stt_installed", return_value=False),
+            patch("ziomek.cli.run_server") as run_server,
+        ):
+            main()
+
+        assert capsys.readouterr().err == ""
+        run_server.assert_called_once()
+
+
+class TestSttFlagPlumbing:
+    """--no-stt reaches run_server as no_stt."""
+
+    def test_no_stt_passed_to_run_server(self):
+        with (
+            patch("sys.argv", ["ziomek", "--no-stt"]),
+            patch("ziomek.cli.mcp_installed", return_value=True),
+            patch("ziomek.cli.stt_installed", return_value=True),
+            patch("ziomek.cli.run_server") as run_server,
+        ):
+            main()
+
+        assert run_server.call_args.kwargs["no_stt"] is True
 
 
 class TestGamepadFlagPlumbing:

@@ -18,6 +18,7 @@ class Settings(BaseModel):
     host: str = "localhost"
     no_gamepad: bool = False
     no_browser: bool = False
+    no_stt: bool = False
     stt_engine: str = "faster_whisper"
     stt_model: str = "tiny.en"
     stt_model_dir: str | None = None
@@ -84,6 +85,7 @@ class Settings(BaseModel):
         host: str | None = None,
         no_browser: bool | None = None,
         no_gamepad: bool | None = None,
+        no_stt: bool | None = None,
         stt_engine: str | None = None,
         stt_model: str | None = None,
         stt_model_dir: str | None = None,
@@ -100,6 +102,7 @@ class Settings(BaseModel):
         cli_host_val = host if host is not None else (cli_host if cli_host is not None else env_host_val)
         no_browser_val = no_browser if no_browser is not None else file_settings.no_browser
         no_gamepad_val = no_gamepad if no_gamepad is not None else file_settings.no_gamepad
+        no_stt_val = no_stt if no_stt is not None else file_settings.no_stt
         stt_engine_val = stt_engine or file_settings.stt_engine
         stt_model_val = stt_model or file_settings.stt_model
         stt_model_dir_val = stt_model_dir or file_settings.stt_model_dir
@@ -115,6 +118,7 @@ class Settings(BaseModel):
             cache_dir=cache_dir or file_settings.cache_dir,
             no_browser=no_browser_val,
             no_gamepad=no_gamepad_val,
+            no_stt=no_stt_val,
             stt_engine=stt_engine_val,
             stt_model=stt_model_val,
             stt_model_dir=stt_model_dir_val,
@@ -150,6 +154,8 @@ class Settings(BaseModel):
 # no_gamepad: false
 
 # STT (Speech-to-Text) settings
+# Do not start the STT engine
+# no_stt: false
 # stt_engine: faster_whisper
 # stt_model: tiny.en
 # stt_model_dir:

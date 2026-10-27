@@ -87,6 +87,7 @@ uv run ziomek --host 0.0.0.0 --port 5004 --log-level INFO --voice cosette --cach
 | `--log-level` | INFO | Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL) |
 | `--no-gamepad` | false | Do not poll gamepad buttons |
 | `--no-browser` | false | Do not open the served page in the browser on startup |
+| `--no-stt` | false | Do not start the STT engine |
 | `--stt-engine` | faster_whisper | STT engine (faster_whisper) |
 | `--stt-model` | tiny | STT model (tiny, base, small, medium) |
 | `--dev` | false | Enable debug endpoints and debug page |
@@ -100,6 +101,7 @@ uv run ziomek --host 0.0.0.0 --port 5004 --log-level INFO --voice cosette --cach
 | `uv run ziomek --no-browser` | Headless server (page not opened) |
 | `uv run ziomek --no-gamepad` | Server without gamepad polling |
 | `uv run ziomek --no-browser --no-gamepad` | Standalone API only |
+| `uv run ziomek --no-stt` | Server without speech-to-text (no microphone capture) |
 | `uv run ziomek --dev` | Full server with debug page at `/debug` |
 | `uv run ziomek -v` | Full server with verbose DEBUG logging |
 

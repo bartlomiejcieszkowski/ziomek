@@ -142,8 +142,8 @@ def create_app(
     # Initialize avatar components
     _state_machine = AvatarStateMachine()
     _skin_registry = SkinRegistry()
-    # Initialize STT engine only when the optional 'stt' extra is installed
-    if stt_installed():
+    # Initialize STT engine only when it is enabled and the optional 'stt' extra is installed
+    if not settings.no_stt and stt_installed():
         global _stt_engine
         from ziomek.api.stt_ws import _stt_callback
 
@@ -218,6 +218,7 @@ def run_server(
     log_level: str = "INFO",
     no_gamepad: bool = False,
     no_browser: bool = False,
+    no_stt: bool = False,
     stt_engine: str | None = None,
     stt_model: str | None = None,
     stt_model_dir: str | None = None,
@@ -244,6 +245,7 @@ def run_server(
         log_level: Logging level.
         no_gamepad: Do not poll gamepad buttons.
         no_browser: Do not open the served page in the browser on startup.
+        no_stt: Do not start the STT engine.
         stt_engine: STT engine name (faster_whisper).
         stt_model: STT model name.
         stt_model_dir: STT model download directory.
@@ -268,6 +270,7 @@ def run_server(
         cache_dir=cache_dir,
         no_browser=no_browser,
         no_gamepad=no_gamepad,
+        no_stt=no_stt,
         stt_engine=stt_engine,
         stt_model=stt_model,
         stt_model_dir=stt_model_dir,

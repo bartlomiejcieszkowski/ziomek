@@ -33,6 +33,7 @@ def serve_cmd(args):
         log_level=args.log_level,
         no_gamepad=args.no_gamepad,
         no_browser=args.no_browser,
+        no_stt=args.no_stt,
         stt_engine=args.stt_engine,
         stt_model=args.stt_model,
         stt_model_dir=args.stt_model_dir,
@@ -153,9 +154,12 @@ def main():
 
     # Client/feature flags
     parser.add_argument("--no-gamepad", action="store_true", help="Do not poll gamepad buttons")
-    parser.add_argument("--no-browser", action="store_true", help="Do not open the served page in the browser on startup")
+    parser.add_argument(
+        "--no-browser", action="store_true", help="Do not open the served page in the browser on startup"
+    )
 
     # STT args
+    parser.add_argument("--no-stt", action="store_true", help="Do not start the STT engine")
     parser.add_argument(
         "--stt-engine",
         type=str,
@@ -383,7 +387,8 @@ def main():
         sys.exit(1)
 
     # Option 3: warn and continue — the server runs with STT disabled.
-    if not stt_installed():
+    # Only worth reporting when STT would actually be used.
+    if not args.no_stt and not stt_installed():
         print(
             'Warning: STT support requires the "stt" extra, which is not installed. '
             'Install it with: uv pip install "ziomek[stt]" — STT will be disabled for this run.',

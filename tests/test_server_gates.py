@@ -74,3 +74,49 @@ class TestBrowserOpeningOnStartup:
             run_server(no_gamepad=True, no_browser=True)
 
         assert created.call_args.kwargs["open_browser"] is False
+
+
+class TestSttGate:
+    """STT is gated by settings.no_stt, not by other flags."""
+
+    def test_stt_not_started_when_disabled(self):
+        from ziomek.config import Settings
+        from ziomek.server import create_app
+
+        settings = Settings(no_gamepad=True, no_stt=True)
+        with (
+            patch("ziomek.server.stt_installed", return_value=True),
+            patch("ziomek.server.STTEngine") as engine,
+        ):
+            app = create_app(settings)
+
+        assert app is not None
+        engine.assert_not_called()
+
+    def test_stt_started_when_enabled(self):
+        from ziomek.config import Settings
+        from ziomek.server import create_app
+
+        settings = Settings(no_gamepad=True)
+        with (
+            patch("ziomek.server.stt_installed", return_value=True),
+            patch("ziomek.server.STTEngine") as engine,
+        ):
+            create_app(settings)
+
+        engine.assert_called_once()
+
+    def test_run_server_passes_no_stt_to_settings(self):
+        from ziomek.config import Settings
+        from ziomek.server import run_server
+
+        with (
+            patch("ziomek.server.Settings.compose", return_value=Settings()) as compose,
+            patch("ziomek.server.create_app") as created,
+            patch("ziomek.server.uvicorn.run"),
+            patch("ziomek.server.setup_logging"),
+        ):
+            run_server(no_stt=True)
+
+        assert compose.call_args.kwargs["no_stt"] is True
+        assert created.call_args.kwargs["open_browser"] is True

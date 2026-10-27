@@ -176,6 +176,32 @@ def test_no_gamepad_cli_beats_config_file():
         assert s.no_gamepad is True
 
 
+def test_settings_has_no_stt_flag():
+    """STT is gated by the no_stt flag, not by any other flag."""
+    s = Settings()
+    assert s.no_stt is False
+
+
+def test_no_stt_from_config_file():
+    """A config file can disable STT."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "ziomek_config.yaml")
+        with open(path, "w") as f:
+            f.write("no_stt: true\n")
+        s = Settings.load(path)
+        assert s.no_stt is True
+
+
+def test_no_stt_cli_beats_config_file():
+    """Precedence: CLI > config file."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "ziomek_config.yaml")
+        with open(path, "w") as f:
+            f.write("no_stt: false\n")
+        s = Settings.compose(file_path=path, no_stt=True)
+        assert s.no_stt is True
+
+
 def test_scaffold_config_creates_file():
     """Settings.scaffold_config creates a default YAML config file."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -189,6 +215,7 @@ def test_scaffold_config_creates_file():
         assert "sounddevice" in content
         assert "audio_device" in content
         assert "no_gamepad" in content
+        assert "no_stt" in content
         assert "no_vscode" not in content
 
 
