@@ -205,3 +205,82 @@ class TestDownloadModel:
             pytest.skip("faster_whisper not installed")
         except Exception:
             pytest.skip("faster_whisper download failed (memory/resource issue)")
+
+
+class TestStopReapsWorkerProcesses:
+    """RealtimeSTT spawns non-daemon worker processes on Windows (runtime.py:31), so stop() must reap them."""
+
+    class FakeProcess:
+        def __init__(self, join_releases: bool = True) -> None:  # noqa: ANN001
+            self.joined_with = []
+            self.terminated = False
+            self._alive = True
+            self._join_releases = join_releases
+
+        def join(self, timeout: float | None = None) -> None:
+            self.joined_with.append(timeout)
+            if self._join_releases:
+                self._alive = False
+
+        def is_alive(self) -> bool:
+            return self._alive
+
+        def terminate(self) -> None:
+            self.terminated = True
+            self._alive = False
+
+    def _engine_with_fake_processes(self, monkeypatch, processes):
+        class FakeRecorder:
+            def __init__(self, **kwargs):  # noqa: ANN001
+                self.transcript_process = processes["transcript"]
+                self.reader_process = processes["reader"]
+
+            def text(self):  # noqa: ANN201
+                return ""
+
+            def start_recording(self):  # noqa: ANN201
+                pass
+
+            def shutdown(self):  # noqa: ANN201
+                pass
+
+        monkeypatch.setattr("RealtimeSTT.AudioToTextRecorder", FakeRecorder)
+        engine = STTEngine()
+        engine.start_from_file()
+        return engine
+
+    def test_stop_joins_worker_processes(self, monkeypatch):
+        processes = {"transcript": self.FakeProcess(), "reader": self.FakeProcess()}
+        engine = self._engine_with_fake_processes(monkeypatch, processes)
+        engine.stop()
+        assert processes["transcript"].joined_with, "transcript worker was not joined"
+        assert processes["reader"].joined_with, "reader worker was not joined"
+
+    def test_stop_terminates_workers_that_do_not_exit_on_join(self, monkeypatch):
+        processes = {
+            "transcript": self.FakeProcess(join_releases=False),
+            "reader": self.FakeProcess(join_releases=False),
+        }
+        engine = self._engine_with_fake_processes(monkeypatch, processes)
+        engine.stop()
+        assert processes["transcript"].terminated, "stubborn transcript worker was not terminated"
+        assert processes["reader"].terminated, "stubborn reader worker was not terminated"
+
+    def test_no_leftover_child_processes_after_real_stop(self):
+        """Real run: after a full start/transcribe/stop cycle no child processes remain."""
+        try:
+            from RealtimeSTT import AudioToTextRecorder  # noqa: F401
+        except ImportError:
+            pytest.skip("RealtimeSTT not installed")
+
+        import multiprocessing
+
+        from ziomek.stt import STTEngine as _
+
+        engine = STTEngine(model_name="tiny.en")
+        engine.start_from_file()
+        engine.transcribe_chunk(np.zeros(16000, dtype=np.float32), 16000)
+        engine.stop()
+
+        alive = [p for p in multiprocessing.active_children() if p.is_alive()]
+        assert not alive, f"leftover worker processes: {[(p.name, p.pid) for p in alive]}"

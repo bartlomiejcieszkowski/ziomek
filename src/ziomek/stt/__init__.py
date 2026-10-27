@@ -64,6 +64,10 @@ _INT16_MAX_ABS_VALUE = 32767.0
 # Maximum time to wait for a transcription result (seconds).
 _TRANSCRIBE_TIMEOUT = 30
 
+# Joining RealtimeSTT's worker processes on shutdown (mirrors its own timeouts).
+_WORKER_JOIN_TIMEOUT = 10
+_FORCEFUL_JOIN_TIMEOUT = 1
+
 
 def _decode_audio(audio_data: bytes | np.ndarray, sample_rate: int) -> tuple[np.ndarray, int]:
     """Return a mono int16 numpy array and its sample rate.
@@ -429,6 +433,7 @@ class STTEngine:
             if self._recorder:
                 try:
                     self._recorder.shutdown()
+                    self._reap_workers(self._recorder)
                 except Exception:
                     pass
                 self._recorder = None
@@ -463,12 +468,36 @@ class STTEngine:
         self._running = False
         if self._recorder:
             self._recorder.shutdown()
+            self._reap_workers(self._recorder)
             self._recorder = None
         if self._thread:
             self._thread.join(timeout=2)
             self._thread = None
         with self._lock:
             self._stats.state = STTState.IDLE
+
+    def _reap_workers(self, recorder) -> None:
+        """Join RealtimeSTT's worker processes, terminating any that outlive the join.
+
+        RealtimeSTT skips the reader process when the recorder was started without
+        a microphone (`RealtimeSTT/core/shutdown.py:214-219`), so non-daemon child
+        processes can outlive `shutdown()` and block interpreter exit on Windows.
+        """
+        for name in ("reader_process", "transcript_process"):
+            process = getattr(recorder, name, None)
+            if process is None:
+                continue
+            try:
+                process.join(timeout=_WORKER_JOIN_TIMEOUT)
+            except Exception:
+                logger.exception("Failed to join STT worker %s", name)
+                continue
+            if process.is_alive():
+                try:
+                    process.terminate()
+                    process.join(timeout=_FORCEFUL_JOIN_TIMEOUT)
+                except Exception:
+                    logger.exception("Failed to terminate STT worker %s", name)
 
     def transcribe_chunk(self, audio_data: bytes | np.ndarray, sample_rate: int = 16000) -> STTResult:
         """Transcribe a single audio chunk (non-streaming mode).
