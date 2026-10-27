@@ -3,7 +3,6 @@
 from unittest.mock import patch
 
 from ziomek.browser import open_view_page
-
 from ziomek.config import Settings
 
 
