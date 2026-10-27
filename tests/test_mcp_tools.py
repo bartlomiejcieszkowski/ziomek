@@ -63,9 +63,7 @@ class TestMcpCallTool:
     def test_call_unknown_tool(self):
         """Unknown tool returns error."""
         result = asyncio.run(
-            mcp_tools_module._on_call_tool(
-                None, CallToolRequestParams(name="nonexistent", arguments={})
-            )
+            mcp_tools_module._on_call_tool(None, CallToolRequestParams(name="nonexistent", arguments={}))
         )
         assert result.is_error is True
         content = result.content[0]
@@ -80,9 +78,7 @@ class TestMcpCallTool:
                     with patch("ziomek.server._audio_player", None):
                         with patch("ziomek.server._tts_model", None):
                             with patch("ziomek.server.get_uptime", return_value=123.45):
-                                result = asyncio.run(
-                                    mcp_tools_module._handle_status()
-                                )
+                                result = asyncio.run(mcp_tools_module._handle_status())
                                 assert result.is_error is False
                                 data = json.loads(result.content[0].text)
                                 assert "tts_ready" in data
@@ -95,9 +91,7 @@ class TestMcpCallTool:
         mock_model.ready = False
         with patch("ziomek.server._tts_model", mock_model):
             with patch("ziomek.server._settings", None):
-                result = asyncio.run(
-                    mcp_tools_module._handle_speak({"text": "hello"})
-                )
+                result = asyncio.run(mcp_tools_module._handle_speak({"text": "hello"}))
                 assert result.is_error is True
                 data = json.loads(result.content[0].text)
                 assert "error" in data
@@ -105,9 +99,7 @@ class TestMcpCallTool:
     def test_call_transcribe_tool_no_engine(self):
         """Transcribe returns error when STT engine not initialized."""
         with patch("ziomek.server._stt_engine", None):
-            result = asyncio.run(
-                mcp_tools_module._handle_transcribe({"audio_b64": "dGVzdA=="})
-            )
+            result = asyncio.run(mcp_tools_module._handle_transcribe({"audio_b64": "dGVzdA=="}))
             assert result.is_error is True
             data = json.loads(result.content[0].text)
             assert "error" in data
@@ -115,9 +107,7 @@ class TestMcpCallTool:
     def test_call_transcribe_tool_invalid_base64(self):
         """Transcribe returns error for invalid base64."""
         with patch("ziomek.server._stt_engine", None):
-            result = asyncio.run(
-                mcp_tools_module._handle_transcribe({"audio_b64": "not-valid-base64!!!"})
-            )
+            result = asyncio.run(mcp_tools_module._handle_transcribe({"audio_b64": "not-valid-base64!!!"}))
             assert result.is_error is True
             data = json.loads(result.content[0].text)
             assert "error" in data
@@ -125,9 +115,7 @@ class TestMcpCallTool:
     def test_call_set_expression_tool_no_machine(self):
         """Set expression returns error when state machine not initialized."""
         with patch("ziomek.server._state_machine", None):
-            result = asyncio.run(
-                mcp_tools_module._handle_set_expression({"expression": "happy"})
-            )
+            result = asyncio.run(mcp_tools_module._handle_set_expression({"expression": "happy"}))
             assert result.is_error is True
             data = json.loads(result.content[0].text)
             assert "error" in data
@@ -135,9 +123,7 @@ class TestMcpCallTool:
     def test_call_get_expression_tool_no_machine(self):
         """Get expression returns error when state machine not initialized."""
         with patch("ziomek.server._state_machine", None):
-            result = asyncio.run(
-                mcp_tools_module._handle_get_expression()
-            )
+            result = asyncio.run(mcp_tools_module._handle_get_expression())
             assert result.is_error is True
             data = json.loads(result.content[0].text)
             assert "error" in data

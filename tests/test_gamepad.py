@@ -1,4 +1,5 @@
 """Tests for ziomek.gamepad — GamepadManager and GamepadState."""
+
 from __future__ import annotations
 
 from ziomek.gamepad import GamepadManager, GamepadState

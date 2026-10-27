@@ -44,7 +44,9 @@ def _get_server_globals() -> dict[str, Any]:
             "engine_name": _stt_engine.stats.engine_name if _stt_engine else None,
             "model_name": _stt_engine.stats.model_name if _stt_engine else None,
             "transcription_count": _stt_engine.stats.transcription_count if _stt_engine else 0,
-        } if _stt_engine else None,
+        }
+        if _stt_engine
+        else None,
         "gamepad_manager_initialized": _gamepad_manager is not None,
     }
     return state
@@ -116,11 +118,13 @@ async def debug_config_reload() -> JSONResponse:
 
     try:
         settings = Settings.load()
-        return JSONResponse(content={
-            "status": "reloaded",
-            "config_path": "ziomek_config.yaml or ~/.ziomek/ziomek_config.yaml",
-            "settings": settings.model_dump(),
-        })
+        return JSONResponse(
+            content={
+                "status": "reloaded",
+                "config_path": "ziomek_config.yaml or ~/.ziomek/ziomek_config.yaml",
+                "settings": settings.model_dump(),
+            }
+        )
     except Exception as e:
         return JSONResponse(
             status_code=500,

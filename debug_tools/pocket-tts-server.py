@@ -148,7 +148,11 @@ class PocketTTSHandler(BaseHTTPRequestHandler):
             audio_b64 = base64.b64encode(wav_bytes).decode("utf-8")
 
             # Calculate duration
-            duration = len(audio_np) / sample_rate if isinstance(audio_np, (list, tuple)) or hasattr(audio_np, "__len__") else 0
+            duration = (
+                len(audio_np) / sample_rate
+                if isinstance(audio_np, (list, tuple)) or hasattr(audio_np, "__len__")
+                else 0
+            )
 
             self._send_json(
                 {
@@ -223,12 +227,14 @@ class PocketTTSHandler(BaseHTTPRequestHandler):
             wav_bytes = wav_buffer.getvalue()
 
             # Calculate duration
-            duration = len(audio_np) / sample_rate if isinstance(audio_np, (list, tuple)) or hasattr(audio_np, "__len__") else 0
+            duration = (
+                len(audio_np) / sample_rate
+                if isinstance(audio_np, (list, tuple)) or hasattr(audio_np, "__len__")
+                else 0
+            )
 
             # Play in background thread so we can respond immediately
-            play_thread = threading.Thread(
-                target=self._play_wav, args=(wav_bytes, sample_rate), daemon=True
-            )
+            play_thread = threading.Thread(target=self._play_wav, args=(wav_bytes, sample_rate), daemon=True)
             _active_play_threads.append(play_thread)
             play_thread.start()
 

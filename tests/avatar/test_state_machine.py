@@ -1,4 +1,5 @@
 """Tests for ziomek avatar state machine."""
+
 import time as _time
 
 import pytest

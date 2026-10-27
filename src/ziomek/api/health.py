@@ -61,7 +61,13 @@ async def status():
         "cache_stats": cache_stats,
         "endpoints": {
             "tts": ["POST /api/tts/generate", "POST /api/tts/speak", "GET /api/tts/status", "GET /api/tts/voices"],
-            "stt": ["GET /api/stt/status", "POST /api/stt/start", "POST /api/stt/stop", "POST /api/stt/transcribe", "WS /api/stt/stream"],
+            "stt": [
+                "GET /api/stt/status",
+                "POST /api/stt/start",
+                "POST /api/stt/stop",
+                "POST /api/stt/transcribe",
+                "WS /api/stt/stream",
+            ],
             "avatar": [
                 "POST /api/avatar/input",
                 "GET /api/avatar/state",

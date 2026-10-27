@@ -69,26 +69,34 @@ def _run_benchmark(
             rms = float(np.sqrt(np.mean(audio_np.astype(float) ** 2))) if len(audio_np) > 0 else 0.0
             peak = float(np.max(np.abs(audio_np))) if len(audio_np) > 0 else 0.0
 
-            results.append({
-                "voice": voice,
-                "text": text,
-                "iteration": i + 1,
-                "duration_s": round(duration, 3),
-                "gen_time_ms": round(elapsed_ms, 1),
-                "rms": round(rms, 4),
-                "peak": round(peak, 4),
-                "sample_rate": sample_rate,
-            })
+            results.append(
+                {
+                    "voice": voice,
+                    "text": text,
+                    "iteration": i + 1,
+                    "duration_s": round(duration, 3),
+                    "gen_time_ms": round(elapsed_ms, 1),
+                    "rms": round(rms, 4),
+                    "peak": round(peak, 4),
+                    "sample_rate": sample_rate,
+                }
+            )
 
             # Optionally save WAV file
             if output_dir:
-                wav_path = Path(output_dir) / f"{voice}_{text[:20].replace(' ', '_')}_{i+1:02d}.wav"
+                wav_path = Path(output_dir) / f"{voice}_{text[:20].replace(' ', '_')}_{i + 1:02d}.wav"
                 wavfile.write(wav_path, sample_rate, audio_np)
                 logger.info("  WAV saved to: %s", wav_path)
 
             logger.info(
                 "  voice=%s text=%r iter=%d gen=%.1fms dur=%.3fs rms=%.4f peak=%.4f",
-                voice, text[:30], i + 1, elapsed_ms, duration, rms, peak,
+                voice,
+                text[:30],
+                i + 1,
+                elapsed_ms,
+                duration,
+                rms,
+                peak,
             )
 
     return results
@@ -122,7 +130,9 @@ def main() -> None:
     parser.add_argument("--voices", nargs="+", default=["cosette", "default"], help="Voices to benchmark")
     parser.add_argument("--iterations", type=int, default=3, help="Iterations per text per voice")
     parser.add_argument("--output", type=str, default=None, help="CSV output file path")
-    parser.add_argument("--output-dir", type=str, default=None, help="Directory to save WAV files (default: no WAV output)")
+    parser.add_argument(
+        "--output-dir", type=str, default=None, help="Directory to save WAV files (default: no WAV output)"
+    )
     parser.add_argument("--log-level", default="INFO", help="Log level")
     args = parser.parse_args()
 

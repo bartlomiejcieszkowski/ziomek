@@ -46,6 +46,7 @@ class TestSTTWebSocket:
     def test_ws_send_start(self, client):
         """Client sends start command, receives status."""
         import ziomek.server as server_module
+
         mock_engine = MagicMock()
         mock_engine.state.value = "recording"
         mock_engine.start_recording = MagicMock()
@@ -64,6 +65,7 @@ class TestSTTWebSocket:
     def test_ws_send_stop(self, client):
         """Client sends stop command, receives status."""
         import ziomek.server as server_module
+
         mock_engine = MagicMock()
         mock_engine.state.value = "idle"
         mock_engine.stop_recording = MagicMock()
@@ -82,6 +84,7 @@ class TestSTTWebSocket:
     def test_ws_send_status(self, client):
         """Client sends status command, receives engine info."""
         import ziomek.server as server_module
+
         mock_engine = MagicMock()
         mock_engine.stats.engine_name = "faster_whisper"
         mock_engine.stats.model_name = "tiny"
@@ -104,6 +107,7 @@ class TestSTTWebSocket:
     def test_ws_send_reconfigure(self, client):
         """Client sends reconfigure command."""
         import ziomek.server as server_module
+
         mock_engine = MagicMock()
         mock_engine.reconfigure = MagicMock(return_value=(True, "OK"))
         server_module._stt_engine = mock_engine
@@ -111,11 +115,13 @@ class TestSTTWebSocket:
         try:
             with client.websocket_connect("/api/stt/stream") as ws:
                 ws.receive_json()  # Consume "connected"
-                ws.send_json({
-                    "action": "reconfigure",
-                    "engine": "faster_whisper",
-                    "model": "base.en",
-                })
+                ws.send_json(
+                    {
+                        "action": "reconfigure",
+                        "engine": "faster_whisper",
+                        "model": "base.en",
+                    }
+                )
                 data = ws.receive_json()
                 assert data["type"] == "reconfigured"
                 assert data["success"] is True
@@ -144,6 +150,7 @@ class TestSTTWebSocket:
     def test_ws_no_engine(self, client):
         """Client commands fail gracefully when engine is None."""
         import ziomek.server as server_module
+
         server_module._stt_engine = None
 
         with client.websocket_connect("/api/stt/stream") as ws:

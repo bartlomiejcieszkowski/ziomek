@@ -4,6 +4,7 @@ Wraps pygame joystick for gamepad input detection and polling.
 Thread-safe: state is protected by a lock so poll() can be called
 from any thread (e.g. the background poll loop).
 """
+
 from __future__ import annotations
 
 import threading
@@ -13,6 +14,7 @@ from dataclasses import dataclass, field
 @dataclass
 class GamepadState:
     """Current state of the gamepad."""
+
     buttons: list[float] = field(default_factory=list)
     axes: list[float] = field(default_factory=list)
     connected: bool = False
@@ -54,14 +56,8 @@ class GamepadManager:
             return GamepadState()
 
         with self._lock:
-            buttons = [
-                self._joystick.get_button(i)
-                for i in range(self._joystick.get_numbuttons())
-            ]
-            axes = [
-                self._joystick.get_axis(i)
-                for i in range(self._joystick.get_numaxes())
-            ]
+            buttons = [self._joystick.get_button(i) for i in range(self._joystick.get_numbuttons())]
+            axes = [self._joystick.get_axis(i) for i in range(self._joystick.get_numaxes())]
             self._state = GamepadState(
                 buttons=buttons,
                 axes=axes,

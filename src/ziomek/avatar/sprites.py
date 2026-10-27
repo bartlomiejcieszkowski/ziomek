@@ -1,4 +1,5 @@
 """ziomek avatar sprite sheet parser."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -45,4 +46,5 @@ def parse_png_sprite(data: bytes) -> SpriteMetadata:
 
 def sprite_to_base64(data: bytes) -> str:
     import base64
+
     return f"data:image/png;base64,{base64.b64encode(data).decode('utf-8')}"

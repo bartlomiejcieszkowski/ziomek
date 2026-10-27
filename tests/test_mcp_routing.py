@@ -46,9 +46,7 @@ class TestMcpPortRouting:
         assert call_kwargs.get("mcp_http") is True
         # uvicorn.run should be called once on main port
         assert mock_uvicorn.call_count == 1
-        mock_uvicorn.assert_called_with(
-            mock_app, host="localhost", port=5004
-        )
+        mock_uvicorn.assert_called_with(mock_app, host="localhost", port=5004)
 
     @patch("ziomek.server.create_app")
     @patch("ziomek.server.setup_logging")
@@ -80,9 +78,7 @@ class TestMcpPortRouting:
 
         # Should still call uvicorn.run for main server
         assert mock_uvicorn.call_count == 1
-        mock_uvicorn.assert_called_with(
-            mock_app, host="localhost", port=5004
-        )
+        mock_uvicorn.assert_called_with(mock_app, host="localhost", port=5004)
 
     @patch("ziomek.server.create_app")
     @patch("ziomek.server.setup_logging")
@@ -112,9 +108,7 @@ class TestMcpPortRouting:
 
         # Should call uvicorn.run once (no MCP)
         assert mock_uvicorn.call_count == 1
-        mock_uvicorn.assert_called_with(
-            mock_app, host="localhost", port=5004
-        )
+        mock_uvicorn.assert_called_with(mock_app, host="localhost", port=5004)
 
     @patch("ziomek.server.create_app")
     @patch("ziomek.server.setup_logging")
@@ -144,6 +138,4 @@ class TestMcpPortRouting:
 
         # Should call uvicorn.run once (MCP stdio runs in thread)
         assert mock_uvicorn.call_count == 1
-        mock_uvicorn.assert_called_with(
-            mock_app, host="localhost", port=5004
-        )
+        mock_uvicorn.assert_called_with(mock_app, host="localhost", port=5004)

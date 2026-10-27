@@ -7,6 +7,7 @@ from ziomek.server import create_app
 @pytest.fixture
 def client():
     from ziomek.config import Settings
+
     settings = Settings(no_gamepad=True)
     app = create_app(settings)
     return TestClient(app)
@@ -31,14 +32,17 @@ def test_expression_endpoint(client):
 
 def test_input_endpoint(client):
     """Verify /api/avatar/input accepts gamepad state."""
-    resp = client.post("/api/avatar/input", json={
-        "buttons": [{"pressed": True, "value": 0}],
-        "axes": [0, 0, 0],
-        "connected": True,
-        "streaming": False,
-        "chatFocused": False,
-        "errorState": False,
-    })
+    resp = client.post(
+        "/api/avatar/input",
+        json={
+            "buttons": [{"pressed": True, "value": 0}],
+            "axes": [0, 0, 0],
+            "connected": True,
+            "streaming": False,
+            "chatFocused": False,
+            "errorState": False,
+        },
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert "expression" in data

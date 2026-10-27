@@ -98,22 +98,25 @@ class TestSTTTranscribe:
     def _make_wav_b64(self, duration_ms=100):
         """Create a minimal WAV audio blob for testing."""
         buf = io.BytesIO()
-        with wave.open(buf, 'wb') as wav_file:
+        with wave.open(buf, "wb") as wav_file:
             wav_file.setnchannels(1)
             wav_file.setsampwidth(2)
             wav_file.setframerate(16000)
             # Write silent audio
-            frames = b'\x00\x00' * (duration_ms * 16 // 1000)
+            frames = b"\x00\x00" * (duration_ms * 16 // 1000)
             wav_file.writeframes(frames)
-        return base64.b64encode(buf.getvalue()).decode('utf-8')
+        return base64.b64encode(buf.getvalue()).decode("utf-8")
 
     def test_transcribe_returns_result(self, client):
         """Transcribe endpoint returns text result."""
         wav_b64 = self._make_wav_b64()
-        resp = client.post("/api/stt/transcribe", json={
-            "audio_b64": wav_b64,
-            "sample_rate": 16000,
-        })
+        resp = client.post(
+            "/api/stt/transcribe",
+            json={
+                "audio_b64": wav_b64,
+                "sample_rate": 16000,
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert "text" in data

@@ -131,6 +131,7 @@ def test_setup_logging_configures_handler():
     import logging
 
     from ziomek.logging import setup_logging
+
     root_logger = logging.getLogger("ziomek")
     root_logger.handlers.clear()
 

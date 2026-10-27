@@ -38,11 +38,7 @@ class TestMcpReadResources:
 
     def test_read_voices_resource(self):
         """voices:// returns list of voices."""
-        result = asyncio.run(
-            mcp_resources_module._on_read_resource(
-                None, ReadResourceRequestParams(uri="voices://")
-            )
-        )
+        result = asyncio.run(mcp_resources_module._on_read_resource(None, ReadResourceRequestParams(uri="voices://")))
         assert len(result.contents) == 1
         content = result.contents[0]
         assert isinstance(content, TextResourceContents)
@@ -54,11 +50,7 @@ class TestMcpReadResources:
 
     def test_read_models_resource(self):
         """models:// returns list of models."""
-        result = asyncio.run(
-            mcp_resources_module._on_read_resource(
-                None, ReadResourceRequestParams(uri="models://")
-            )
-        )
+        result = asyncio.run(mcp_resources_module._on_read_resource(None, ReadResourceRequestParams(uri="models://")))
         assert len(result.contents) == 1
         content = result.contents[0]
         assert isinstance(content, TextResourceContents)
@@ -71,9 +63,7 @@ class TestMcpReadResources:
     def test_read_expressions_resource(self):
         """expressions:// returns list of expressions."""
         result = asyncio.run(
-            mcp_resources_module._on_read_resource(
-                None, ReadResourceRequestParams(uri="expressions://")
-            )
+            mcp_resources_module._on_read_resource(None, ReadResourceRequestParams(uri="expressions://"))
         )
         assert len(result.contents) == 1
         content = result.contents[0]
@@ -87,9 +77,7 @@ class TestMcpReadResources:
         """config:// returns server config."""
         with patch("ziomek.server._settings", None):
             result = asyncio.run(
-                mcp_resources_module._on_read_resource(
-                    None, ReadResourceRequestParams(uri="config://")
-                )
+                mcp_resources_module._on_read_resource(None, ReadResourceRequestParams(uri="config://"))
             )
             assert len(result.contents) == 1
             content = result.contents[0]
@@ -117,9 +105,7 @@ class TestMcpReadResources:
 
         with patch("ziomek.server._settings", mock_settings):
             result = asyncio.run(
-                mcp_resources_module._on_read_resource(
-                    None, ReadResourceRequestParams(uri="config://")
-                )
+                mcp_resources_module._on_read_resource(None, ReadResourceRequestParams(uri="config://"))
             )
             assert len(result.contents) == 1
             content = result.contents[0]

@@ -191,4 +191,3 @@ async def _on_read_resource(_ctx: ServerRequestContext, params: Any) -> ReadReso
                 )
             ],
         )
-

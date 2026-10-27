@@ -28,7 +28,7 @@ def test_generate_returns_valid_wav():
     model.sample_rate = 24000
     mock_audio = torch.zeros(24000)  # 1 second of silence
 
-    with patch.object(model, 'generate_audio', return_value=mock_audio):
+    with patch.object(model, "generate_audio", return_value=mock_audio):
         voice_cache = VoiceStateCache(model)
         voice_cache.load_voice = MagicMock(return_value={})
         audio_b64, duration, sr = generate_wav(model, voice_cache, "test")
