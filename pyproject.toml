@@ -41,6 +41,8 @@ packages = ["src/ziomek"]
 
 [tool.ruff]
 line-length = 120
+# Markdown plans are historical records; formatting them is churn, not signal.
+extend-exclude = ["docs"]
 
 [tool.ruff.lint]
 select = ["I"]
