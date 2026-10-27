@@ -35,10 +35,14 @@ class TestBenchmarkMock:
             # Mock sys.argv to avoid argparse errors
             sys.argv = [
                 "benchmark",
-                "--voices", "cosette",
-                "--iterations", "1",
-                "--output", str(csv_path),
-                "--log-level", "ERROR",
+                "--voices",
+                "cosette",
+                "--iterations",
+                "1",
+                "--output",
+                str(csv_path),
+                "--log-level",
+                "ERROR",
             ]
 
             # Create a mock TTSModelWrapper with a ready model
@@ -167,8 +171,11 @@ class TestBenchmarkReal:
             voice_cache = VoiceStateCache(model)
 
             results = _run_benchmark(
-                model, voice_cache, "cosette",
-                ["Hello world"], 1,
+                model,
+                voice_cache,
+                "cosette",
+                ["Hello world"],
+                1,
                 output_dir=str(output_dir),
             )
 
