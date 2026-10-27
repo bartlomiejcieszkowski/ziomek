@@ -1,86 +1,218 @@
-"""Tests for MCP HTTP transport."""
+"""Tests for MCP HTTP transport routing."""
 
 import json
+from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
+from fastapi import FastAPI
+from starlette.testclient import TestClient
 
-from ziomek.config import Settings
-from ziomek.server import create_app
+from ziomek import __version__
+from ziomek.mcp import set_expose_full_config
+from ziomek.mcp.http import create_http_app, register_mcp_http_routes
 
-
-@pytest.fixture
-def http_mcp_client():
-    """Create a test client with MCP HTTP enabled."""
-    settings = Settings(mcp_port=5004, mcp_transport="http")
-    app = create_app(settings, mcp_http=True)
-    with TestClient(app) as c:
-        yield c
+# Accept both so the transport can answer with JSON or SSE.
+RPC_HEADERS = {"Accept": "application/json, text/event-stream"}
+ALIASES = ("/mcp/sse", "/mcp/message")
 
 
-class TestMcpHttpHealth:
-    """Test MCP HTTP health endpoint."""
-
-    def test_mcp_health_returns_ok(self, http_mcp_client):
-        resp = http_mcp_client.get("/mcp/health")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "ok"
-        assert data["transport"] == "http"
-        assert data["endpoints"]["sse"] == "/mcp/sse"
-        assert data["endpoints"]["message"] == "/mcp/message"
-
-
-class TestMcpHttpRoute:
-    """Test MCP HTTP routes are registered."""
-
-    def test_mcp_page_returns_html(self, http_mcp_client):
-        resp = http_mcp_client.get("/mcp")
-        assert resp.status_code == 200
-        assert "text/html" in resp.headers.get("content-type", "")
-        assert "ziomek MCP" in resp.text
-
-    def test_mcp_sse_endpoint_exists(self, http_mcp_client):
-        # /mcp/sse is our SSE passthrough route that delegates to the MCP SDK.
-        # The MCP SDK opens an infinite SSE stream, which TestClient can't consume.
-        # We expect an exception (e.g., broken pipe or timeout) when trying to read.
-        with pytest.raises(Exception):
-            http_mcp_client.get("/mcp/sse")
+def _mock_settings():
+    """Settings stand-in so the config resource has something to read."""
+    settings = MagicMock()
+    settings.host = "localhost"
+    settings.port = 5004
+    settings.voice = "cosette"
+    settings.cache_dir = "/tmp/cache"
+    settings.log_level = "INFO"
+    settings.stt_engine = "faster_whisper"
+    settings.stt_model = "tiny.en"
+    settings.stt_model_dir = "/tmp/models"
+    settings.model_path = None
+    return settings
 
 
-class TestMcpHttpDisabled:
-    """Test MCP HTTP routes are not registered when disabled."""
-
-    def test_mcp_health_not_available(self):
-        settings = Settings(mcp_port=5004, mcp_transport="stdio")
-        app = create_app(settings, mcp_http=False)
-        with TestClient(app) as c:
-            resp = c.get("/mcp/health")
-            assert resp.status_code == 404
-
-    def test_mcp_page_not_available(self):
-        settings = Settings(mcp_port=5004, mcp_transport="stdio")
-        app = create_app(settings, mcp_http=False)
-        with TestClient(app) as c:
-            resp = c.get("/mcp")
-            assert resp.status_code == 404
+def _client(app) -> TestClient:
+    """TestClient on a localhost host so transport security accepts the request."""
+    return TestClient(app, base_url="http://localhost")
 
 
-class TestMcpHttpConfig:
-    """Test MCP config loading from YAML."""
+def _payload(response):
+    """Read a JSON-RPC result from either a JSON or an SSE response body."""
+    if response.headers.get("content-type", "").startswith("text/event-stream"):
+        for line in response.text.splitlines():
+            if line.startswith("data: "):
+                return json.loads(line[6:])
+        raise AssertionError(f"No JSON-RPC message in SSE body: {response.text!r}")
+    return response.json()
 
-    def test_mcp_port_default(self):
-        settings = Settings()
-        assert settings.mcp_port == 5004
 
-    def test_mcp_transport_default(self):
-        settings = Settings()
-        assert settings.mcp_transport == "stdio"
+def _rpc(client, path, body, session_id=None):
+    headers = {**RPC_HEADERS, "content-type": "application/json"}
+    if session_id:
+        headers["mcp-session-id"] = session_id
+    return client.post(path, headers=headers, json=body)
 
-    def test_mcp_port_from_compose(self):
-        settings = Settings.compose(mcp_port=9999)
-        assert settings.mcp_port == 9999
 
-    def test_mcp_transport_from_compose(self):
-        settings = Settings.compose(mcp_transport="http")
-        assert settings.mcp_transport == "http"
+def _initialize_request(client, path="/mcp"):
+    return _rpc(
+        client,
+        path,
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "test", "version": "0.0.0"},
+            },
+        },
+    )
+
+
+def _session(client, path="/mcp"):
+    """Open a session and return its id; requests without one are rejected with 400."""
+    session_id = _initialize_request(client, path).headers.get("mcp-session-id")
+    assert session_id, f"expected a session id for {path}"
+    return session_id
+
+
+class TestMcpTransportRouting:
+    """The handler is path-agnostic, so aliases must reach the same session manager."""
+
+    def test_initialize_on_canonical_path(self):
+        app = create_http_app()
+        with _client(app) as client:
+            response = _initialize_request(client)
+            assert response.status_code == 200
+            assert _payload(response)["result"]["capabilities"]
+
+    def test_alias_paths_reach_the_same_session(self):
+        """A session opened on /mcp must be served by the alias routes too."""
+        app = create_http_app()
+        with _client(app) as client:
+            session_id = _initialize_request(client).headers.get("mcp-session-id")
+            assert session_id, "expected a session id on the opening request"
+
+            for path in ALIASES:
+                response = _rpc(
+                    client,
+                    path,
+                    {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+                    session_id=session_id,
+                )
+                assert response.status_code == 200, f"{path} did not route to the session manager"
+                assert response.headers.get("mcp-session-id") == session_id
+
+    def test_routes_work_when_registered_on_the_main_app(self):
+        app = FastAPI()
+        register_mcp_http_routes(app)
+        with _client(app) as client:
+            session_id = _initialize_request(client).headers.get("mcp-session-id")
+            assert session_id
+            for path in ALIASES:
+                response = _rpc(
+                    client,
+                    path,
+                    {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+                    session_id=session_id,
+                )
+                assert response.status_code == 200, f"{path} is not routed to the session manager"
+
+
+class TestMcpHealthAndInfo:
+    """Health advertises the canonical path and the aliases; info lives on its own path."""
+
+    def test_health_advertises_transport_and_aliases(self):
+        app = create_http_app()
+        with _client(app) as client:
+            data = client.get("/mcp/health").json()
+            assert data["status"] == "ok"
+            assert data["transport"] == "http"
+            assert data["endpoints"]["mcp"] == "/mcp"
+            for path in ALIASES:
+                assert data["endpoints"][path.rsplit("/", 1)[-1]] == path
+
+    def test_info_page_is_not_on_the_transport_path(self):
+        app = create_http_app()
+        with _client(app) as client:
+            html = client.get("/mcp/info")
+            assert html.status_code == 200
+            assert "ziomek MCP Server" in html.text
+            # The transport path serves JSON-RPC, not an HTML page.
+            rpc = _initialize_request(client)
+            assert "text/html" not in rpc.headers.get("content-type", "")
+
+    def test_server_info_version_matches_the_package(self):
+        app = create_http_app()
+        with _client(app) as client:
+            response = _initialize_request(client)
+            server_info = _payload(response)["result"]["serverInfo"]
+            assert server_info["version"] == __version__
+
+
+class TestMcpResources:
+    """Resource handlers still work over the HTTP transport."""
+
+    def test_list_resources(self):
+        app = create_http_app()
+        with _client(app) as client:
+            session_id = _session(client)
+            data = _payload(
+                _rpc(
+                    client,
+                    "/mcp",
+                    {"jsonrpc": "2.0", "id": 1, "method": "resources/list", "params": {}},
+                    session_id=session_id,
+                )
+            )
+            uris = [r["uri"] for r in data["result"]["resources"]]
+            assert "voices://" in uris
+            assert "models://" in uris
+            assert "expressions://" in uris
+            assert "config://" in uris
+
+    def test_read_config_readonly(self):
+        """Config resource is read-only by default and does not mark itself as fully exposed."""
+        app = create_http_app()
+        set_expose_full_config(False)
+        try:
+            with _client(app) as client, patch("ziomek.server._settings", _mock_settings()):
+                session_id = _session(client)
+                data = _payload(
+                    _rpc(
+                        client,
+                        "/mcp",
+                        {"jsonrpc": "2.0", "id": 1, "method": "resources/read", "params": {"uri": "config://"}},
+                        session_id=session_id,
+                    )
+                )
+                content = json.loads(data["result"]["contents"][0]["text"])
+                assert content["port"] == 5004
+                assert "full_config" not in content
+        finally:
+            set_expose_full_config(False)
+
+    def test_read_config_full(self):
+        """With the expose flag the config is marked as fully exposed."""
+        app = FastAPI()
+        register_mcp_http_routes(app, expose_full_config=True)
+        try:
+            with _client(app) as client, patch("ziomek.server._settings", _mock_settings()):
+                session_id = _session(client)
+                data = _payload(
+                    _rpc(
+                        client,
+                        "/mcp",
+                        {"jsonrpc": "2.0", "id": 1, "method": "resources/read", "params": {"uri": "config://"}},
+                        session_id=session_id,
+                    )
+                )
+                content = json.loads(data["result"]["contents"][0]["text"])
+                assert content["full_config"] is True
+        finally:
+            set_expose_full_config(False)
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
