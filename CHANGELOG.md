@@ -2,6 +2,35 @@
 
 All notable changes to this project are documented here.
 
+## [0.4.0] - 2026-10-28
+
+### Added
+
+- `--no-stt` flag and `no_stt` config key; the STT engine is created only when the optional `stt` extra is installed, and the install hint names `ziomek[stt]` rather than the library alone
+- CLI exits with an error when MCP flags are used without the `mcp` package installed
+- `--no-browser` now works: the served avatar page is opened on successful startup unless it is set
+- File-based transcription path (`start_from_file()`) for benchmarks and tests; microphone mode is unchanged for the server
+- STT benchmark results record the voice used; summary and CSV group by voice, model, and category
+- `ruff format` gate in CI, with formatting applied across the codebase
+
+### Changed
+
+- `--no-vscode` renamed to `--no-gamepad` (its only real effect was skipping gamepad polling); stale `no_vscode` keys in existing config files are ignored — breaking for flag users
+- Default-port references corrected to 5004 in CLI help, the config scaffold, docstrings, and the pi-ziomek client defaults
+- Benchmark per-iteration output moved to debug level; the summary prints the test text snippet
+- `.gitignore` narrowed from all `*.csv` to `tts_accuracy.csv` plus `benchmarks/`
+
+### Fixed
+
+- MCP HTTP endpoint answers JSON-RPC at `/mcp` (it returned 405); the session manager runs inside the app lifespan; the info page moved to `/mcp/info`; `/mcp/sse` and `/mcp/message` stay as aliases
+- RealtimeSTT worker processes are reaped on stop, so pytest no longer hangs at exit on Windows
+- Audio handed to transcription is normalized float32 (int16 caused ONNX dtype errors)
+- TTS model is loaded before the accuracy benchmark runs
+- Missing `.close()` on FasterWhisperEngine suppressed during shutdown
+- Third-party loggers (RealtimeSTT, whisper, ctranslate2, torch) silenced; stdout and stderr wrapped as UTF-8 for non-ASCII transcriptions
+- pi-ziomek TTS client calls the endpoints the server actually exposes (`/generate`, `/speak`, `/voices`); unsupported `cancel()` and `getLastWavPath()` removed
+- MCP server version reads from `VERSION` instead of a hardcoded string
+
 ## [0.3.0] - 2026-10-22
 
 ### Added
