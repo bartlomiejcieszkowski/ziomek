@@ -17,6 +17,8 @@ from typing import Any, Callable
 
 import numpy as np
 
+from ziomek import event_loop
+
 # Import RealtimeSTT at module level so tests can patch it
 try:
     import RealtimeSTT  # noqa: F401
@@ -198,6 +200,7 @@ class STTEngine:
     def set_event_loop(self, loop: asyncio.AbstractEventLoop) -> None:
         """Remember the server's event loop so async callbacks run on it."""
         self._event_loop = loop
+        event_loop.set_event_loop(loop)
 
     def _notify_transcription(self, result: STTResult) -> None:
         """Notify transcription callback (handles async callbacks safely)."""
@@ -209,15 +212,9 @@ class STTEngine:
             try:
                 # Transcriptions arrive from RealtimeSTT's worker thread, which has no
                 # event loop of its own, so prefer the loop captured at startup.
-                loop = self._event_loop
-                if loop is None:
-                    try:
-                        loop = asyncio.get_running_loop()
-                    except RuntimeError:
-                        loop = None
-                if loop is not None and loop.is_running():
-                    asyncio.run_coroutine_threadsafe(self._on_transcription(result), loop)
-                elif inspect.iscoroutinefunction(self._on_transcription):
+                if event_loop.call_on_event_loop(self._on_transcription, result, loop=self._event_loop):
+                    return
+                if inspect.iscoroutinefunction(self._on_transcription):
                     # Can't run async without a loop — skip
                     logger.warning("Async transcription callback but no event loop")
                 else:

@@ -14,7 +14,9 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
-from ziomek import __version__
+from ziomek import __version__, event_loop
+from ziomek.api import avatar_ws
+from ziomek.api.avatar_ws import router as avatar_ws_router
 from ziomek.api.stt_ws import router as stt_ws_router
 from ziomek.avatar.skins import SkinRegistry
 from ziomek.avatar.state_machine import AvatarInput, AvatarStateMachine
@@ -113,8 +115,9 @@ def create_app(
     # and opening is not disabled (no_browser).
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        # RealtimeSTT calls its callback from a worker thread, so the engine needs
-        # the loop this app runs on to schedule async callbacks.
+        # Callbacks fired from worker threads (RealtimeSTT's process, the gamepad
+        # polling thread) need the loop this app runs on to be scheduled on it.
+        event_loop.set_event_loop(asyncio.get_running_loop())
         if _stt_engine is not None:
             _stt_engine.set_event_loop(asyncio.get_running_loop())
         if open_browser:
@@ -145,6 +148,9 @@ def create_app(
     _audio_player = AudioPlayer(backend_name=settings.audio_backend)
     # Initialize avatar components
     _state_machine = AvatarStateMachine()
+    # The state machine pushes expression changes to the view page through the
+    # WebSocket route instead of being polled by it.
+    _state_machine.on_change = avatar_ws.notify_change
     _skin_registry = SkinRegistry()
     # Initialize STT engine only when it is enabled and the optional 'stt' extra is installed
     if not settings.no_stt and stt_installed():
@@ -177,6 +183,7 @@ def create_app(
     app.include_router(avatar.router)
     app.include_router(health.router)
     app.include_router(stt_ws_router)
+    app.include_router(avatar_ws_router)
 
     # Debug endpoints (only in dev mode)
     if dev_mode:

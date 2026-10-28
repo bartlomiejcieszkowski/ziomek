@@ -177,6 +177,9 @@ class AvatarStateMachine:
         self._prev_error_state = False
         self._current_expression_type: str | None = None
         self._current_message: str | None = None
+        # Optional hook called when an expression changes, so the view page is
+        # pushed instead of polled. Set by the server when a WebSocket route is wired.
+        self.on_change: Callable[[str, int], None] | None = None
         self._message_expiry_timestamp: float = 0
         self._timed_expression_timer: object | None = None
         self._message_timer: object | None = None
@@ -453,3 +456,5 @@ class AvatarStateMachine:
             cycleCount=expr_def.cycleCount,
             timer=0.0,
         )
+        if self.on_change is not None:
+            self.on_change(name, self._current.cycleIndex)

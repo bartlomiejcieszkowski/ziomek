@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ziomek Avatar</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #1a1a2e;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      user-select: none;
+    }
+    canvas {
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    #container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    #status {
+      color: #666;
+      font-size: 12px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <canvas id="avatar" width="100" height="100"></canvas>
+    <div id="status">Loading...</div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('avatar');
+    const ctx = canvas.getContext('2d');
+    const statusEl = document.getElementById('status');
+
+    let spriteData = null;
+    let spriteImg = null;
+    let spriteWidth = 0;
+    let spriteHeight = 0;
+    let frameWidth = 0;
+    let frameHeight = 0;
+    let rows = 1;
+
+    // Current animation state
+    let currentExpression = '';
+    let currentCycleIndex = -1;
+    let animFrameIndex = 0;
+    let animTimer = null;
+    const FRAME_DURATION = 200; // ms per frame
+
+    /**
+     * Load sprite sheet from a base64-encoded PNG data URL.
+     */
+    function loadSprite(dataUrl, width, height) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          spriteImg = img;
+          spriteWidth = img.width;
+          spriteHeight = img.height;
+          rows = Math.max(1, Math.round(img.height / img.width));
+          frameWidth = Math.floor(img.width / 1);
+          frameHeight = Math.floor(img.height / rows);
+          canvas.width = frameWidth;
+          canvas.height = frameHeight;
+          resolve();
+        };
+        img.onerror = reject;
+        img.src = dataUrl;
+      });
+    }
+
+    /** Draw current frame for the given expression and cycle index */
+    function drawFrame(expression, cycleIndex) {
+      if (!spriteImg) {
+        statusEl.textContent = 'No sprite data';
+        return;
+      }
+
+      statusEl.textContent = `${expression} ${cycleIndex}`;
+
+      const rowMap = {
+        happy: 0, surprised: 1, curious: 2, looking: 2, thinking: 2,
+        focused: 3, bored: 3, dying: 4, neutral: 1,
+      };
+      const row = rowMap[expression] ?? 1;
+      const col = cycleIndex % rows;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(
+        spriteImg,
+        col * frameWidth, row * frameHeight,  // source X, Y
+        frameWidth, frameHeight,               // source W, H
+        0, 0, canvas.width, canvas.height      // dest X, Y, W, H
+      );
+
+      currentExpression = expression;
+      currentCycleIndex = cycleIndex;
+    }
+
+    /** Start animation timer for cycle progression */
+    function startAnimation() {
+      if (animTimer) clearInterval(animTimer);
+      animFrameIndex = 0;
+
+      animTimer = setInterval(() => {
+        animFrameIndex++;
+        const expr = currentExpression;
+        const cycle = currentCycleIndex >= 0 ? currentCycleIndex : animFrameIndex % rows;
+        drawFrame(expr, cycle);
+      }, FRAME_DURATION);
+    }
+
+    /** Try to load sprite from an external URL (JSON API) */
+    function fetchSpriteFromUrl(url) {
+      return fetch(url)
+        .then(res => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
+        .then(data => {
+          const sprite_b64 = data.sprite_b64;
+          if (!sprite_b64) throw new Error('No sprite_b64 in response');
+          // Server returns the data URL already prefixed, so use it directly
+          return loadSprite(sprite_b64, data.width, data.height);
+        })
+        .catch(err => {
+          statusEl.textContent = 'Sprite load error: ' + err.message;
+          console.error('[ziomek] Sprite load error:', err);
+        });
+    }
+
+    /** Connect to the avatar state WebSocket (relative so it works on any host/port) */
+    function connectStateWebSocket() {
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const ws = new WebSocket(`${protocol}//${location.host}/api/avatar/ws`);
+
+      ws.onopen = () => {
+        statusEl.textContent = 'Connected';
+      };
+
+      ws.onmessage = (event) => {
+        let msg;
+        try {
+          msg = JSON.parse(event.data);
+        } catch (err) {
+          console.error('[ziomek] Bad WebSocket message:', event.data);
+          return;
+        }
+
+        if (msg && msg.type === 'state') {
+          drawFrame(msg.expression, msg.cycleIndex);
+        }
+      };
+
+      ws.onclose = () => {
+        statusEl.textContent = 'Disconnected';
+      };
+
+      ws.onerror = (err) => {
+        console.error('[ziomek] WebSocket error:', err);
+      };
+    }
+
+    /** Initialize — load sprite, connect, start animation */
+    function init() {
+      fetchSpriteFromUrl('/api/avatar/sprite')
+        .then(() => {
+          connectStateWebSocket();
+          startAnimation();
+        });
+    }
+
+    init();
+  </script>
+</body>
+</html>
