@@ -1,13 +1,15 @@
 """Tests for the STT engine module."""
 
+import asyncio
 import logging
 import sys
+import threading
 from unittest.mock import patch
 
 import numpy as np
 import pytest
 
-from ziomek.stt import STTEngine, STTState, stt_installed
+from ziomek.stt import STTEngine, STTResult, STTState, stt_installed
 
 
 class TestSttInstalled:
@@ -284,3 +286,45 @@ class TestStopReapsWorkerProcesses:
 
         alive = [p for p in multiprocessing.active_children() if p.is_alive()]
         assert not alive, f"leftover worker processes: {[(p.name, p.pid) for p in alive]}"
+
+
+class TestAsyncCallbackScheduling:
+    """Async callbacks must run on the event loop captured at startup."""
+
+    def test_uses_the_loop_captured_at_startup(self):
+        received = []
+        done = threading.Event()
+
+        async def callback(result):
+            received.append(result.text)
+            done.set()
+
+        loop = asyncio.new_event_loop()
+        thread = threading.Thread(target=loop.run_forever, daemon=True)
+        thread.start()
+        try:
+            engine = STTEngine(on_transcription=callback)
+            engine.set_event_loop(loop)
+
+            # Transcriptions arrive from RealtimeSTT's worker thread, which has no loop.
+            engine._notify_transcription(STTResult(text="hello", is_final=True))
+
+            assert done.wait(2.0), "callback was not scheduled on the stored loop"
+            assert received == ["hello"]
+        finally:
+            loop.call_soon_threadsafe(loop.stop)
+            thread.join(timeout=2)
+            loop.close()
+
+    def test_result_is_still_queued_when_no_loop_is_available(self, caplog):
+        caplog.set_level(logging.WARNING, logger="ziomek.stt")
+
+        async def callback(result):
+            pass
+
+        engine = STTEngine(on_transcription=callback)
+        engine._notify_transcription(STTResult(text="hello", is_final=True))
+
+        messages = " ".join(record.message for record in caplog.records).lower()
+        assert "no event loop" in messages
+        assert len(engine._transcription_queue) == 1

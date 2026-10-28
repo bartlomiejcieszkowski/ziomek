@@ -113,6 +113,10 @@ def create_app(
     # and opening is not disabled (no_browser).
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        # RealtimeSTT calls its callback from a worker thread, so the engine needs
+        # the loop this app runs on to schedule async callbacks.
+        if _stt_engine is not None:
+            _stt_engine.set_event_loop(asyncio.get_running_loop())
         if open_browser:
             open_view_page(settings)
         yield

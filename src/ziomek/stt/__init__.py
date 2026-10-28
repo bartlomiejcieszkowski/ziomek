@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import enum
+import inspect
 import io
 import logging
 import threading
@@ -11,7 +13,7 @@ import wave
 from dataclasses import dataclass, field
 from importlib.util import find_spec
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 import numpy as np
 
@@ -168,7 +170,7 @@ class STTEngine:
         engine_name: str = "faster_whisper",
         model_name: str = "tiny.en",
         model_dir: str | None = None,
-        on_transcription: Callable[[STTResult], None] | None = None,
+        on_transcription: Callable[[STTResult], Any] | None = None,
         verbose: bool = False,
     ) -> None:
         self._engine_name = engine_name
@@ -190,6 +192,12 @@ class STTEngine:
         self._recording_active = False
         self._use_microphone = True
         self._transcription_done = threading.Event()
+        # Set by the server at startup so callbacks can be scheduled from worker threads.
+        self._event_loop: asyncio.AbstractEventLoop | None = None
+
+    def set_event_loop(self, loop: asyncio.AbstractEventLoop) -> None:
+        """Remember the server's event loop so async callbacks run on it."""
+        self._event_loop = loop
 
     def _notify_transcription(self, result: STTResult) -> None:
         """Notify transcription callback (handles async callbacks safely)."""
@@ -199,24 +207,21 @@ class STTEngine:
         # Call callback if provided
         if self._on_transcription:
             try:
-                import asyncio
-
-                loop = None
-                try:
-                    loop = asyncio.get_running_loop()
-                except RuntimeError:
-                    pass
-                if loop and loop.is_running():
+                # Transcriptions arrive from RealtimeSTT's worker thread, which has no
+                # event loop of its own, so prefer the loop captured at startup.
+                loop = self._event_loop
+                if loop is None:
+                    try:
+                        loop = asyncio.get_running_loop()
+                    except RuntimeError:
+                        loop = None
+                if loop is not None and loop.is_running():
                     asyncio.run_coroutine_threadsafe(self._on_transcription(result), loop)
+                elif inspect.iscoroutinefunction(self._on_transcription):
+                    # Can't run async without a loop — skip
+                    logger.warning("Async transcription callback but no event loop")
                 else:
-                    # No running loop — call directly (sync callback)
-                    import inspect
-
-                    if inspect.iscoroutinefunction(self._on_transcription):
-                        # Can't run async without a loop — skip
-                        logger.warning("Async transcription callback but no event loop")
-                    else:
-                        self._on_transcription(result)
+                    self._on_transcription(result)
             except Exception:
                 logger.exception("Failed to notify transcription callback")
 

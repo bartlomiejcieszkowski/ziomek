@@ -1,5 +1,6 @@
 """Tests for the gamepad gate and for opening the served page on successful startup."""
 
+import asyncio
 from unittest.mock import patch
 
 import pytest
@@ -120,3 +121,36 @@ class TestSttGate:
 
         assert compose.call_args.kwargs["no_stt"] is True
         assert created.call_args.kwargs["open_browser"] is True
+
+
+class TestEventLoopRegistration:
+    """The app hands its event loop to the STT engine so worker-thread callbacks can run."""
+
+    def test_loop_is_registered_on_startup(self):
+        settings = Settings(no_gamepad=True, no_browser=True)
+        captured = {}
+
+        with (
+            patch("ziomek.server.STTEngine") as engine_cls,
+            patch("ziomek.server.stt_installed", return_value=True),
+        ):
+            app = create_app(settings)
+            engine = engine_cls.return_value
+
+            def fake_set_event_loop(loop):
+                captured["loop"] = loop
+
+            engine.set_event_loop = fake_set_event_loop
+
+            # Entering the TestClient context runs the startup handler.
+            with TestClient(app):
+                assert captured.get("loop") is not None
+                assert isinstance(captured["loop"], asyncio.AbstractEventLoop)
+
+    def test_nothing_registered_when_the_engine_was_not_created(self):
+        settings = Settings(no_gamepad=True, no_browser=True, no_stt=True)
+        with patch("ziomek.server.STTEngine") as engine_cls:
+            app = create_app(settings)
+            engine_cls.assert_not_called()
+            with TestClient(app):
+                pass
