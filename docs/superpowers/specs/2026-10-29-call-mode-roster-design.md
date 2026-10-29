@@ -48,7 +48,7 @@ Names are optional at join; if none is given we generate one from the pool.
 
 ### Call lifecycle and hold
 
-One call at a time, opened by the first join; closing it clears participants and resets usage counts. A participant is dropped by a configurable inactivity timer set in config — your example was 3000 seconds — which releases its name and voice.
+One call at a time, opened by the first join; closing it clears participants and resets usage counts. Tool calls take an optional `call_id` argument that is reserved but unused: the client does not have to fill it, and there is a default. Nothing reads it yet — accepting it is all that exists, so multi-call support is not implied by it. A participant is dropped by a configurable inactivity timer set in config — your example was 3000 seconds — which releases its name and voice.
 
 Agents manage their own membership through tool calls: join, leave, and **hold** — "I'm going to be quiet for a while", which suspends the timer. So each record needs a state, active or held.
 
