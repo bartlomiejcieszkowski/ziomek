@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here.
 
+## [0.4.2] - 2026-10-29
+
+### Fixed
+
+- Installed wheel ships the page assets and the sprite sheet through `[tool.hatch.build.targets.wheel.force-include]`; `only-packages` dropped them, so an installed package answered 404 for the avatar view under `uvx`
+- Packaging guard test reads `pyproject.toml` with `tomllib` so data files cannot be dropped from the wheel again
+
 ## [0.4.1] - 2026-10-29
 
 ### Fixed
