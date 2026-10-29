@@ -59,8 +59,20 @@ def remove_client(websocket: WebSocket) -> None:
     logger.info("Avatar WebSocket client disconnected (total: %d)", len(_connected_clients))
 
 
-def state_message(expression: str, cycle_index: int) -> dict[str, Any]:
+def state_message(
+    expression: str,
+    cycle_index: int,
+    name: str | None = None,
+    status_text: str | None = None,
+) -> dict[str, Any]:
     """Build the state message the page renders."""
+    return {
+        "type": "state",
+        "expression": expression,
+        "cycleIndex": cycle_index,
+        "name": name,
+        "status_text": status_text,
+    }
     return {"type": "state", "expression": expression, "cycleIndex": cycle_index}
 
 
