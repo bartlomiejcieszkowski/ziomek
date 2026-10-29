@@ -25,6 +25,8 @@ try:
 except ImportError:
     pass  # Optional dependency
 
+from . import shutdown_patch
+
 # RealtimeSTT's final-transcription worker is fed directly by
 # :meth:`STTEngine.transcribe_chunk`. The VAD/recording lifecycle never runs
 # without microphone input, so audio must be submitted to the worker as a
@@ -324,6 +326,8 @@ class STTEngine:
                 'Install it with: uv pip install "ziomek[stt]"',
             )
             return
+
+        shutdown_patch.apply_patch()
 
         if self._engine_name == "whisper_cpp":
             logger.warning(
