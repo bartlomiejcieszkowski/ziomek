@@ -9,5 +9,5 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # Change to project root
 cd "$SCRIPT_DIR"
 
-# Start the server (port from argument or default 5003)
-uv run python -m ziomek.cli serve --port "${1:-5003}" "$@"
+# Start the server (port from argument or default 5004)
+uv run python -m ziomek.cli serve --port "${1:-5004}" "$@"

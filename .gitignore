@@ -31,3 +31,5 @@ src/tmp_bench/
 # Benchmark outputs
 benchmarks/
 tts_accuracy.csv
+ziomek_config.yaml
+ziomek_server_config.yaml

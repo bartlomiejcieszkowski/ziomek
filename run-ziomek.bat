@@ -5,5 +5,5 @@ REM Runs the ziomek TTS + avatar server via uv
 REM Change to project root
 cd /d "%~dp0"
 
-REM Start the server (port from argument or default 5003)
+REM Start the server (port from argument, otherwise CLI default 5004)
 uv run python -m ziomek.cli serve --port %1
