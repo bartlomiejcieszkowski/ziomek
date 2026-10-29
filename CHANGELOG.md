@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here.
 
+## [0.4.1] - 2026-10-29
+
+### Fixed
+
+- Avatar view page restored, with `/api/avatar/ws` pushing the current expression to connected clients
+- STT callbacks scheduled on the event loop captured at startup instead of the running loop
+- The STT worker's shutdown-time connection error is logged at debug level only; genuine errors stay visible
+
 ## [0.4.0] - 2026-10-28
 
 ### Added
