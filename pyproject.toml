@@ -39,6 +39,13 @@ only-packages = true
 [tool.hatch.build.targets.wheel]
 packages = ["src/ziomek"]
 
+# only-packages ships Python files only, so the pages and the sprite sheet would be
+# missing from an installed wheel (the avatar view answers 404). They are read through
+# importlib.resources, so they must be installed as package data.
+[tool.hatch.build.targets.wheel.force-include]
+"src/ziomek/client/resources" = "ziomek/client/resources"
+"src/ziomek/resources" = "ziomek/resources"
+
 [tool.ruff]
 line-length = 120
 # Markdown plans are historical records; formatting them is churn, not signal.
