@@ -4,7 +4,7 @@
 
 Two things exist today:
 
-- `src/ziomek/api/avatar.py` serves `src/ziomek/client/resources/renderer.html` and pushes state over WebSocket (`src/ziomek/api/avatar_ws.py`). The payload carries expression and cycle info in `status`; nothing carries a name or the message text. The renderer draws on messages only (`FRAME_DURATION = 200`) and has no clock of its own.
+- `src/ziomek/api/avatar.py` serves `src/ziomek/resources/renderer.html` and pushes state over WebSocket (`src/ziomek/api/avatar_ws.py`). The payload carries expression and cycle info in `status`; nothing carries a name or the message text. The renderer draws on messages only (`FRAME_DURATION = 200`) and has no clock of its own.
 - `src/ziomek/avatar/state_machine.py` is instantiated once in `src/ziomek/server.py:150` as a global `_state_machine`, and `src/ziomek/mcp/tools.py` writes into it. The gamepad thread (`src/ziomek/server.py:57`) feeds inputs into that same machine.
 
 The goal is a "call" — agents take turns, like a Teams call. An agent can join, take a name and a voice, keep its own expression, and show text below its tile (a status line, and an on-hold area).
