@@ -2,12 +2,29 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
+
+@dataclass
+class TextEntry:
+    """A line of text belonging to a participant, with the author who wrote it."""
+
+    text: str
+    author: str
+
 
 class Participant:
     """A participant in a call, holding its name and its own text."""
 
     def __init__(self, name: str) -> None:
         self.name = name
+        self.texts: list[TextEntry] = []
+
+    def add_text(self, text: str, author: str) -> TextEntry:
+        """Record a line of text and who wrote it."""
+        entry = TextEntry(text=text, author=author)
+        self.texts.append(entry)
+        return entry
 
 
 class Roster:
