@@ -10,6 +10,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Callable, List
 
+from ziomek.roster import Participant
+
 
 class TriggerType:
     BUTTON = "button"
@@ -168,7 +170,8 @@ _AXIS_THRESHOLD = 0.3
 class AvatarStateMachine:
     """Avatar state machine — same logic as TypeScript version."""
 
-    def __init__(self) -> None:
+    def __init__(self, participant: Participant | None = None) -> None:
+        self.participant = participant
         self._current: _CurrentState | None = None
         self._idle_index = 0
         self._prev_buttons: set[int] = set()
@@ -179,7 +182,8 @@ class AvatarStateMachine:
         self._current_message: str | None = None
         # Optional hook called when an expression changes, so the view page is
         # pushed instead of polled. Set by the server when a WebSocket route is wired.
-        self.on_change: Callable[[str, int], None] | None = None
+        # The participant record is the source for the name and text areas.
+        self.on_change: Callable[[Participant | None, str, int], None] | None = None
         self._message_expiry_timestamp: float = 0
         self._timed_expression_timer: object | None = None
         self._message_timer: object | None = None
@@ -457,4 +461,4 @@ class AvatarStateMachine:
             timer=0.0,
         )
         if self.on_change is not None:
-            self.on_change(name, self._current.cycleIndex)
+            self.on_change(self.participant, name, self._current.cycleIndex)

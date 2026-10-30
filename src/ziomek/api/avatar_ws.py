@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from ziomek.event_loop import call_on_event_loop
+from ziomek.roster import Participant
 
 logger = logging.getLogger(__name__)
 
@@ -37,13 +38,7 @@ async def _state_message(websocket: WebSocket) -> None:
     from ziomek.server import _state_machine
 
     state = _state_machine.getCurrentState()
-    await websocket.send_json(
-        {
-            "type": "state",
-            "expression": state.expressionName,
-            "cycleIndex": state.cycleIndex,
-        }
-    )
+    await websocket.send_json(state_message(_state_machine.participant, state.expressionName, state.cycleIndex))
 
 
 def register_client(websocket: WebSocket) -> None:
@@ -60,23 +55,26 @@ def remove_client(websocket: WebSocket) -> None:
 
 
 def state_message(
+    participant: Participant | None,
     expression: str,
     cycle_index: int,
-    name: str | None = None,
-    status_text: str | None = None,
 ) -> dict[str, Any]:
-    """Build the state message the page renders."""
+    """Build the state message the page renders, read from a participant record."""
     return {
         "type": "state",
         "expression": expression,
         "cycleIndex": cycle_index,
-        "name": name,
-        "status_text": status_text,
+        "name": participant.name if participant is not None else None,
+        "status_text": participant.status_text if participant is not None else None,
+        "system_text": participant.system_text if participant is not None else None,
     }
-    return {"type": "state", "expression": expression, "cycleIndex": cycle_index}
 
 
-def notify_change(expression: str, cycle_index: int) -> None:
+def notify_change(
+    participant: Participant | None,
+    expression: str,
+    cycle_index: int,
+) -> None:
     """Push an expression change to every connected client.
 
     Called from the state machine, which can fire from the gamepad polling
@@ -86,7 +84,7 @@ def notify_change(expression: str, cycle_index: int) -> None:
         return
 
     async def _push() -> None:
-        await _broadcast(state_message(expression, cycle_index))
+        await _broadcast(state_message(participant, expression, cycle_index))
 
     call_on_event_loop(_push)
 

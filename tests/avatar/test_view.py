@@ -65,6 +65,19 @@ class TestAvatarWebSocket:
             assert message["type"] == "state"
             assert message["expression"] == "happy"
 
+    def test_initial_state_comes_from_the_participant_record(self, client):
+        from ziomek.roster import Roster
+        from ziomek.server import _state_machine
+
+        participant = Roster().join("John D.")
+        participant.add_text("compiling", author="agent")
+        _state_machine.participant = participant
+
+        with client.websocket_connect("/api/avatar/ws") as ws:
+            message = ws.receive_json()
+            assert message["name"] == "John D."
+            assert message["status_text"] == "compiling"
+
     def test_disconnected_client_is_removed(self, client):
         with client.websocket_connect("/api/avatar/ws") as ws:
             ws.receive_json()
@@ -84,4 +97,16 @@ class TestChangeHook:
         from ziomek.api.avatar_ws import notify_change
 
         # No state machine registered -> the hook must not raise.
-        notify_change("idle", 0)
+        notify_change(None, "idle", 0)
+
+    def test_hook_receives_the_participant_record(self):
+        from ziomek.avatar.state_machine import AvatarStateMachine
+        from ziomek.roster import Roster
+
+        participant = Roster().join("John C.")
+        seen = []
+        machine = AvatarStateMachine(participant=participant)
+        machine.on_change = lambda record, expression, cycle_index: seen.append((record, expression, cycle_index))
+        machine.setExpression("happy")
+
+        assert seen[0][0] is participant
