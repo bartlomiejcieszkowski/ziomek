@@ -80,3 +80,14 @@ class GamepadManager:
 
         pygame.joystick.quit()
         self._initialized = False
+
+
+def route_gamepad_input(input, machine, roster) -> None:
+    """Route gamepad input to the single machine.
+
+    While a call is open the gamepad is not routed to any participant, because it
+    drives one machine and cannot drive several participants at once.
+    """
+    if roster is not None and roster.participants:
+        return
+    machine.update(input)

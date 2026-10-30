@@ -22,7 +22,7 @@ from ziomek.avatar.skins import SkinRegistry
 from ziomek.avatar.state_machine import AvatarInput, AvatarStateMachine
 from ziomek.browser import open_view_page
 from ziomek.config import Settings
-from ziomek.gamepad import GamepadManager
+from ziomek.gamepad import GamepadManager, route_gamepad_input
 from ziomek.logging import RequestIDMiddleware, get_log_buffer, setup_logging
 from ziomek.roster import get_roster, quiet_check
 from ziomek.stt import STTEngine, STTState, stt_installed
@@ -75,7 +75,7 @@ def _start_gamepad_thread(state_machine: AvatarStateMachine) -> None:
                         chatFocused=False,
                         errorState=False,
                     )
-                    state_machine.update(inp)
+                    route_gamepad_input(inp, state_machine, get_roster(_settings))
             except Exception:
                 _logger.exception("gamepad poll loop: unexpected error")
             time.sleep(0.01)  # 100Hz
@@ -179,11 +179,12 @@ def create_app(
         _logger.info("Gamepad polling thread started")
 
     # Include routers
-    from ziomek.api import avatar, debug, health, stt, tts
+    from ziomek.api import avatar, debug, health, roster_view, stt, tts
 
     app.include_router(tts.router)
     app.include_router(stt.router)
     app.include_router(avatar.router)
+    app.include_router(roster_view.router)
     app.include_router(health.router)
     app.include_router(stt_ws_router)
     app.include_router(avatar_ws_router)
