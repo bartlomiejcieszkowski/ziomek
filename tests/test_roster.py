@@ -1,5 +1,6 @@
 """Participant records hold the name and text, not the state machine."""
 
+from ziomek.avatar.state_machine import AvatarStateMachine
 from ziomek.roster import Roster
 
 
@@ -87,3 +88,15 @@ def test_the_display_name_of_a_participant_stays_fixed_while_it_is_in_the_call()
     second = roster.join()
     assert first.name != second.name
     assert first.name == first.display_name
+
+
+def test_join_creates_its_own_state_machine_for_the_participant():
+    roster = Roster(pool=[("John", "alice")], state_machine_factory=AvatarStateMachine)
+    first = roster.join()
+    second = roster.join("Donald", voice="bob")
+
+    assert first.state_machine is not None
+    # Each participant drives its own machine, not a shared one.
+    assert first.state_machine is not second.state_machine
+    # The machine reads the name and text areas from its participant record.
+    assert first.state_machine.participant is first

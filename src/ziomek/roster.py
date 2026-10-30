@@ -105,8 +105,10 @@ class Roster:
         words: list[str] | None = None,
         quiet_for: int = 3000,
         rng: random.Random | None = None,
+        state_machine_factory=None,
     ) -> None:
         self.pool: list[tuple[str, str]] = list(pool or [])
+        self.state_machine_factory = state_machine_factory
         # Words are the second part of a name when the first part is taken in the call.
         self.words: list[str] = list(words or [])
         self.quiet_for = quiet_for
@@ -128,6 +130,9 @@ class Roster:
             participant.voice = self._pick_voice(participant.name)
         # Usage is tracked on the first part of the name, the one that comes from the pool.
         participant.usage = self._count(participant.name.split(" ")[0])
+        # Each participant drives its own state machine, reading the name and text
+        # areas from its own record.
+        participant.state_machine = self._machine_for(participant)
         self.participants.append(participant)
         self.record(participant.name, "join")
         return participant
@@ -153,6 +158,15 @@ class Roster:
         count = self.usage_counts.get(name, 0) + 1
         self.usage_counts[name] = count
         return count
+
+    def _machine_for(self, participant: Participant):
+        """Build the state machine for one participant."""
+        factory = self.state_machine_factory
+        if factory is None:
+            from ziomek.avatar.state_machine import AvatarStateMachine
+
+            factory = AvatarStateMachine
+        return factory(participant)
 
     def _candidates(self, key: int) -> list[tuple[str, str]]:
         """Entries with the lowest usage count for the given pool field."""
