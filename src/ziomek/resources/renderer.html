@@ -30,11 +30,23 @@
       font-size: 12px;
       font-family: monospace;
     }
+    #name {
+      color: #eee;
+      font-size: 14px;
+    }
+    #status_text, #system_text {
+      color: #999;
+      font-size: 12px;
+      font-family: monospace;
+    }
   </style>
 </head>
 <body>
   <div id="container">
     <canvas id="avatar" width="100" height="100"></canvas>
+    <div id="name"></div>
+    <div id="status_text"></div>
+    <div id="system_text"></div>
     <div id="status">Loading...</div>
   </div>
 
@@ -42,6 +54,9 @@
     const canvas = document.getElementById('avatar');
     const ctx = canvas.getContext('2d');
     const statusEl = document.getElementById('status');
+    const nameEl = document.getElementById('name');
+    const statusTextEl = document.getElementById('status_text');
+    const systemTextEl = document.getElementById('system_text');
 
     let spriteData = null;
     let spriteImg = null;
@@ -78,6 +93,13 @@
         img.onerror = reject;
         img.src = dataUrl;
       });
+    }
+
+    /** Render the name and the two text areas from a state message */
+    function renderAreas(msg) {
+      nameEl.textContent = msg.name ?? '';
+      statusTextEl.textContent = msg.status_text ?? '';
+      systemTextEl.textContent = msg.system_text ?? '';
     }
 
     /** Draw current frame for the given expression and cycle index */
@@ -159,6 +181,7 @@
         }
 
         if (msg && msg.type === 'state') {
+          renderAreas(msg);
           drawFrame(msg.expression, msg.cycleIndex);
         }
       };
