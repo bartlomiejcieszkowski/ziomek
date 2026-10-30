@@ -26,6 +26,22 @@ class Participant:
         self.texts.append(entry)
         return entry
 
+    @property
+    def status_text(self) -> str | None:
+        """The latest line written by the agent."""
+        return self._latest_written_by("agent")
+
+    @property
+    def system_text(self) -> str | None:
+        """The latest line written by the system."""
+        return self._latest_written_by("system")
+
+    def _latest_written_by(self, author: str) -> str | None:
+        for entry in reversed(self.texts):
+            if entry.author == author:
+                return entry.text
+        return None
+
 
 class Roster:
     """The participants taking part in one call."""
