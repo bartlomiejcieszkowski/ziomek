@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here.
 
+## [0.4.3] - 2026-10-30
+
+### Changed
+
+- Data files (pages and sprite sheet) live in one folder, `src/ziomek/resources`, and the code builds paths from it
+- Generated config files (`ziomek_config.yaml`, `ziomek_server_config.yaml`) are no longer tracked in git
+
+### Fixed
+
+- The release build: `[tool.hatch.build] only-packages` dropped data files from the sdist, and CI builds the wheel from that sdist, so `uv build` failed with `Forced include not found: src/ziomek/resources`; the force-include now applies to the sdist as well as the wheel
+- Stale default port in the launcher scripts, which still showed `5003` instead of `5004`
+
 ## [0.4.2] - 2026-10-29
 
 ### Fixed
