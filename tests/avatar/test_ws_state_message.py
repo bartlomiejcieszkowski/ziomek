@@ -27,3 +27,13 @@ def test_agent_text_and_system_text_stay_in_their_own_areas():
     msg = state_message(participant, "happy", 0)
     assert msg["status_text"] == "compiling"
     assert msg["system_text"] == "On hold 00:12"
+
+
+def test_the_message_says_when_a_participant_is_on_hold():
+    participant = Roster().join("John C.")
+    participant.hold()
+
+    msg = state_message(participant, "happy", 0)
+    assert msg["on_hold"] is True
+    # The page ticks the elapsed time itself, so it needs a starting point.
+    assert msg["held_seconds"] == 0

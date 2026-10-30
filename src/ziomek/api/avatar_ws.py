@@ -67,6 +67,8 @@ def state_message(
         "name": participant.name if participant is not None else None,
         "status_text": participant.status_text if participant is not None else None,
         "system_text": participant.system_text if participant is not None else None,
+        "on_hold": participant.state == "held" if participant is not None else False,
+        "held_seconds": participant.held_seconds if participant is not None else 0,
     }
 
 

@@ -34,7 +34,7 @@
       color: #eee;
       font-size: 14px;
     }
-    #status_text, #system_text {
+    #status_text, #system_text, #on_hold {
       color: #999;
       font-size: 12px;
       font-family: monospace;
@@ -47,6 +47,7 @@
     <div id="name"></div>
     <div id="status_text"></div>
     <div id="system_text"></div>
+    <div id="on_hold"></div>
     <div id="status">Loading...</div>
   </div>
 
@@ -57,6 +58,7 @@
     const nameEl = document.getElementById('name');
     const statusTextEl = document.getElementById('status_text');
     const systemTextEl = document.getElementById('system_text');
+    const onHoldEl = document.getElementById('on_hold');
 
     let spriteData = null;
     let spriteImg = null;
@@ -95,11 +97,29 @@
       });
     }
 
+    let heldSeconds = 0;
+    let onHold = false;
+
+    /** Count up a hold that the page started counting from */
+    function formatDuration(seconds) {
+      const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
+      const ss = String(seconds % 60).padStart(2, '0');
+      return `${mm}:${ss}`;
+    }
+
     /** Render the name and the two text areas from a state message */
     function renderAreas(msg) {
       nameEl.textContent = msg.name ?? '';
       statusTextEl.textContent = msg.status_text ?? '';
       systemTextEl.textContent = msg.system_text ?? '';
+      onHold = !!msg.on_hold;
+      heldSeconds = msg.held_seconds ?? 0;
+      renderHold();
+    }
+
+    /** The hold duration counts up on the client, not only in the message */
+    function renderHold() {
+      onHoldEl.textContent = onHold ? `On hold ${formatDuration(heldSeconds)}` : '';
     }
 
     /** Draw current frame for the given expression and cycle index */
@@ -195,12 +215,23 @@
       };
     }
 
+    /** Count up a held participant between messages */
+    function startHoldTicker() {
+      setInterval(() => {
+        if (onHold) {
+          heldSeconds += 1;
+          renderHold();
+        }
+      }, 1000);
+    }
+
     /** Initialize — load sprite, connect, start animation */
     function init() {
       fetchSpriteFromUrl('/api/avatar/sprite')
         .then(() => {
           connectStateWebSocket();
           startAnimation();
+          startHoldTicker();
         });
     }
 
