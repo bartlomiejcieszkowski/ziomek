@@ -289,6 +289,32 @@ def test_roster_settings_load_from_config_file():
         os.unlink(path)
 
 
+def test_roster_words_are_read_from_config():
+    s = Settings()
+    assert s.roster_words == []
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write("roster_words: [compiling, reading]\n")
+        path = f.name
+    try:
+        loaded = Settings.load(path)
+        assert loaded.roster_words == ["compiling", "reading"]
+    finally:
+        os.unlink(path)
+
+
+def test_scaffold_config_documents_the_words():
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        path = f.name
+    try:
+        content = Settings.scaffold_config(path).read_text()
+        assert "# roster_words:" in content
+        # The pool example uses single names, not names with a second part.
+        assert "[John, alice]" in content
+    finally:
+        os.unlink(path)
+
+
 def test_scaffold_config_documents_the_roster_settings():
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         path = f.name
