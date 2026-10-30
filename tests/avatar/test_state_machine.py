@@ -158,3 +158,16 @@ def test_error_state_triggers_dying():
     sm.update(input)
     state = sm.tick(100)
     assert state.expressionName == "dying"
+
+
+def test_set_message_is_recorded_on_the_participant_as_written_by_the_agent():
+    """The agent's own text lives on the participant record, not only on the machine."""
+    from ziomek.avatar.state_machine import AvatarStateMachine
+    from ziomek.roster import Participant
+
+    participant = Participant("John A.")
+    sm = AvatarStateMachine(participant=participant)
+    sm.setMessage("compiling software")
+
+    assert participant.status_text == "compiling software"
+    assert participant.texts[0].author == "agent"
