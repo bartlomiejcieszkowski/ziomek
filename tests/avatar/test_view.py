@@ -54,6 +54,11 @@ class TestAvatarViewPage:
         # The duration counts up on the client, not only in the message.
         assert "On hold" in html
 
+    def test_page_shows_the_events_of_the_call(self, client):
+        html = client.get("/api/avatar/view").text
+        assert 'id="events"' in html
+        assert "msg.events" in html
+
 
 class TestAvatarWebSocket:
     """The WebSocket pushes state: first on connect, then on every change."""
