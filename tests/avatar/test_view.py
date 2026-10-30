@@ -37,10 +37,16 @@ class TestAvatarViewPage:
         assert resp.status_code == 200
         assert "text/html" in resp.headers["content-type"]
 
-    def test_page_connects_to_avatar_websocket(self, client):
+    def test_page_has_separate_areas_for_name_and_text(self, client):
         html = client.get("/api/avatar/view").text
-        assert "/api/avatar/ws" in html
-        assert "<canvas" in html
+        for element in ("name", "status_text", "system_text"):
+            assert f'id="{element}"' in html
+
+    def test_page_shows_the_fields_from_a_state_message(self, client):
+        html = client.get("/api/avatar/view").text
+        # The message carries the three areas, so the page must render all of them.
+        for field in ("name", "status_text", "system_text"):
+            assert f"msg.{field}" in html
 
 
 class TestAvatarWebSocket:
