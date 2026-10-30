@@ -16,16 +16,8 @@ class TextEntry:
     author: str
 
 
-@dataclass
-class EventEntry:
-    """Something that happened to a participant during the current call."""
-
-    name: str
-    action: str
-
-
 class Participant:
-    """A participant in a call, holding its name and its own text."""
+    """A participant in a call, holding its name, its own text, and what happened to it."""
 
     def __init__(
         self,
@@ -36,6 +28,8 @@ class Participant:
         self.name = name
         self.voice = voice
         self.texts: list[TextEntry] = []
+        # What happened to this participant during the current call.
+        self.events: list[dict] = []
         self.roster = roster
         self.state = "active"
         self.held_at: float | None = None
@@ -112,7 +106,7 @@ class Roster:
         # Usage counts are kept only while the call is open.
         self.usage_counts: dict[str, int] = {}
         # What happened during this call, kept only while it is open.
-        self.events: list[EventEntry] = []
+        self.events: list[dict] = []
 
     def join(self, name: str | None = None, voice: str | None = None) -> Participant:
         participant = Participant(name=name or "", roster=self, voice=voice)
@@ -181,10 +175,20 @@ class Roster:
         lowest = min(counts.values())
         return self.rng.choice([voice for voice, c in counts.items() if c == lowest])
 
-    def record(self, name: str, action: str) -> EventEntry:
-        entry = EventEntry(name=name, action=action)
+    def record(self, name: str, action: str) -> dict:
+        """Note what happened, on the call record and on the participant's own record."""
+        entry = {"name": name, "action": action}
         self.events.append(entry)
+        participant = self._find(name)
+        if participant is not None:
+            participant.events.append(entry)
         return entry
+
+    def _find(self, name: str) -> Participant | None:
+        for participant in self.participants:
+            if participant.name == name:
+                return participant
+        return None
 
     def end_call(self) -> None:
         """Drop the participants, the pool counts, and the record."""

@@ -44,7 +44,7 @@ def test_the_call_keeps_a_record_of_what_happened():
     mary = roster.join("Mary S.")
     mary.hold()
 
-    assert [(event.name, event.action) for event in roster.events] == [
+    assert [(event["name"], event["action"]) for event in roster.events] == [
         ("John A.", "join"),
         ("Mary S.", "join"),
         ("Mary S.", "hold"),
@@ -58,3 +58,10 @@ def test_the_record_is_cleared_when_the_call_ends():
 
     assert roster.events == []
     assert roster.participants == []
+
+
+def test_the_participant_keeps_its_own_events():
+    roster = Roster()
+    p = roster.join("John A.")
+
+    assert p.events == [{"name": "John A.", "action": "join"}]

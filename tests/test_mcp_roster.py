@@ -95,7 +95,7 @@ def test_the_record_kept_through_the_tools_is_for_this_call():
     _, joined = _call("join", {}, settings)
     _call("hold", {"name": joined["name"]}, settings)
 
-    assert [entry.action for entry in _get_roster(settings).events] == ["join", "hold"]
+    assert [entry["action"] for entry in _get_roster(settings).events] == ["join", "hold"]
 
 
 def test_the_first_join_links_the_participant_to_the_single_view():
