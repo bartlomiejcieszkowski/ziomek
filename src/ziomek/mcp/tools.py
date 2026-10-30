@@ -6,6 +6,7 @@ import asyncio
 import base64
 import json
 import logging
+import time
 from typing import Any
 
 from mcp.server.context import ServerRequestContext
@@ -17,12 +18,31 @@ from mcp.types import (
     Tool,
 )
 
+from ziomek.roster import Roster
+
 from .listening import ListeningSession
 
 logger = logging.getLogger(__name__)
 
 # Global listening session singleton
 _listening_session: ListeningSession | None = None
+
+# The participants taking part in one call.
+_roster: Roster | None = None
+
+
+def _get_roster(settings: Any = None) -> Roster:
+    """Get or create the roster for the current call, from the configured pool."""
+    global _roster
+    if _roster is None:
+        pool = list(settings.roster_pool) if settings else []
+        quiet_for = settings.roster_quiet_for if settings else 3000
+        _roster = Roster(pool=pool, quiet_for=quiet_for)
+    return _roster
+
+
+def _text_payload(data: dict) -> CallToolResult:
+    return CallToolResult(content=[TextContent(type="text", text=json.dumps(data))])
 
 
 def _get_listening_session() -> ListeningSession:
@@ -97,6 +117,29 @@ TOOLS = [
         name="get_expression",
         description="Get the current avatar expression and state.",
         input_schema={"type": "object", "properties": {}},
+    ),
+    Tool(
+        name="join",
+        description="Take part in the current call. Name and voice are optional, taken from the configured pool when not given.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Name for this participant."},
+                "voice": {"type": "string", "description": "Voice to use for this participant."},
+                "call_id": {"type": "string", "description": "Reserved, not used yet."},
+            },
+            "required": [],
+        },
+    ),
+    Tool(
+        name="hold",
+        description="Go quiet for a while, so the inactivity timer does not drop the participant.",
+        input_schema={"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    ),
+    Tool(
+        name="leave",
+        description="Leave the current call and release the name and voice.",
+        input_schema={"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
     ),
     Tool(
         name="status",
@@ -316,6 +359,58 @@ async def _handle_get_expression() -> CallToolResult:
     )
 
 
+async def _handle_join(arguments: dict) -> CallToolResult:
+    from ziomek.server import _settings
+
+    roster = _get_roster(_settings)
+    roster.drop_quiet(time.monotonic())
+    participant = roster.join(arguments.get("name"), arguments.get("voice"))
+    return _text_payload(
+        {
+            "name": participant.name,
+            "voice": participant.voice,
+            "call_id": arguments.get("call_id"),
+            "state": participant.state,
+        }
+    )
+
+
+async def _handle_hold(arguments: dict) -> CallToolResult:
+    from ziomek.server import _settings
+
+    roster = _get_roster(_settings)
+    participant = _find_participant(roster, arguments.get("name"))
+    if participant is None:
+        return CallToolResult(
+            content=[
+                TextContent(type="text", text=json.dumps({"error": f"Unknown participant: {arguments.get('name')}"}))
+            ],
+            is_error=True,
+        )
+    participant.hold()
+    return _text_payload({"name": participant.name, "state": participant.state, "quiet_for": roster.quiet_for})
+
+
+async def _handle_leave(arguments: dict) -> CallToolResult:
+    from ziomek.server import _settings
+
+    roster = _get_roster(_settings)
+    participant = _find_participant(roster, arguments.get("name"))
+    if participant is None:
+        return CallToolResult(
+            content=[
+                TextContent(type="text", text=json.dumps({"error": f"Unknown participant: {arguments.get('name')}"}))
+            ],
+            is_error=True,
+        )
+    participant.leave()
+    return _text_payload({"name": participant.name, "state": participant.state})
+
+
+def _find_participant(roster: Roster, name: str):
+    return next((p for p in roster.participants if p.name == name), None)
+
+
 async def _handle_status() -> CallToolResult:
     from ziomek.server import _audio_player, _stt_engine, _tts_model, get_uptime
 
@@ -373,6 +468,9 @@ async def _on_call_tool(ctx: ServerRequestContext, params: CallToolRequestParams
         "stop_listening": _handle_stop_listening,
         "set_expression": _handle_set_expression,
         "get_expression": _handle_get_expression,
+        "join": _handle_join,
+        "hold": _handle_hold,
+        "leave": _handle_leave,
         "status": _handle_status,
     }
 
