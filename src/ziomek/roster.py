@@ -7,8 +7,6 @@ import random
 import time
 from dataclasses import dataclass
 
-CHECK_INTERVAL = 1.0  # seconds between checks on the event loop
-
 
 @dataclass
 class TextEntry:
@@ -208,7 +206,7 @@ def get_roster(settings: object | None = None) -> Roster:
     return _roster
 
 
-async def quiet_check(roster: Roster, interval: float = CHECK_INTERVAL) -> None:
+async def quiet_check(roster: Roster, interval: float) -> None:
     """Run on the event loop, dropping participants that stay quiet too long."""
     while True:
         roster.drop_quiet(time.monotonic())
