@@ -36,7 +36,7 @@ class TestMcpListTools:
     """Test the list_tools MCP endpoint."""
 
     def test_tools_list_has_all_tools(self):
-        """TOOLS list has all 8 tools."""
+        """TOOLS list has all 11 tools."""
         tool_names = [t.name for t in mcp_tools_module.TOOLS]
         assert "speak" in tool_names
         assert "transcribe" in tool_names
@@ -45,8 +45,11 @@ class TestMcpListTools:
         assert "stop_listening" in tool_names
         assert "set_expression" in tool_names
         assert "get_expression" in tool_names
+        assert "join" in tool_names
+        assert "hold" in tool_names
+        assert "leave" in tool_names
         assert "status" in tool_names
-        assert len(tool_names) == 8
+        assert len(tool_names) == 11
 
     def test_tools_have_correct_schema(self):
         """Each tool has name, description, and inputSchema."""
