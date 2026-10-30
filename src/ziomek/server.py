@@ -193,7 +193,7 @@ def create_app(
         # Debug page HTML
         @app.get("/debug")
         async def debug_page() -> HTMLResponse:
-            html_path = Path(__file__).parent / "client" / "resources" / "debug.html"
+            html_path = Path(__file__).parent / "resources" / "debug.html"
             return HTMLResponse(content=html_path.read_text(encoding="utf-8"))
 
     # MCP server (separate thread for stdio, HTTP routes for http mode)

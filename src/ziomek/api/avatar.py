@@ -14,7 +14,7 @@ from ziomek.avatar.state_machine import AvatarInput
 router = APIRouter(tags=["Avatar"])
 
 # Path to the shared HTML renderer
-_renderer_html = Path(__file__).parent.parent / "client" / "resources" / "renderer.html"
+_renderer_html = Path(__file__).parent.parent / "resources" / "renderer.html"
 
 # Path to the gamepad module (moved from client/ to root package)
 _gamepad_module = None

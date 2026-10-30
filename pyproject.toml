@@ -40,10 +40,13 @@ only-packages = true
 packages = ["src/ziomek"]
 
 # only-packages ships Python files only, so the pages and the sprite sheet would be
-# missing from an installed wheel (the avatar view answers 404). They are read through
-# importlib.resources, so they must be installed as package data.
+# missing from an installed wheel (the avatar view answers 404). The data files live in
+# one folder, src/ziomek/resources, so a force-include is needed for both the sdist and
+# the wheel — CI builds the wheel from the sdist, so a target-specific entry is not enough.
+[tool.hatch.build.targets.sdist.force-include]
+"src/ziomek/resources" = "src/ziomek/resources"
+
 [tool.hatch.build.targets.wheel.force-include]
-"src/ziomek/client/resources" = "ziomek/client/resources"
 "src/ziomek/resources" = "ziomek/resources"
 
 [tool.ruff]
