@@ -65,3 +65,25 @@ def test_the_participant_keeps_its_own_events():
     p = roster.join("John A.")
 
     assert p.events == [{"name": "John A.", "action": "join"}]
+
+
+def test_joining_a_name_that_is_already_in_the_call_is_rejected():
+    roster = Roster()
+    roster.join("John A.")
+
+    try:
+        roster.join("John A.")
+    except ValueError as exc:
+        assert "duplicate" in str(exc)
+    else:
+        raise AssertionError("joining a name already in the call should be rejected")
+
+
+def test_the_display_name_of_a_participant_stays_fixed_while_it_is_in_the_call():
+    roster = Roster(pool=[("John A.", "alice"), ("John B.", "bob")])
+    first = roster.join()
+
+    # A later join may not take the name away from a participant already in the call.
+    second = roster.join()
+    assert first.name != second.name
+    assert first.name == first.display_name

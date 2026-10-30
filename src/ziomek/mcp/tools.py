@@ -17,7 +17,7 @@ from mcp.types import (
     Tool,
 )
 
-from ziomek.roster import Roster, get_roster
+from ziomek.roster import DuplicateNameError, Roster, get_roster
 
 from .listening import ListeningSession
 
@@ -355,7 +355,13 @@ async def _handle_join(arguments: dict) -> CallToolResult:
     from ziomek.server import _settings, _state_machine
 
     roster = _get_roster(_settings)
-    participant = roster.join(arguments.get("name"), arguments.get("voice"))
+    try:
+        participant = roster.join(arguments.get("name"), arguments.get("voice"))
+    except DuplicateNameError as exc:
+        return CallToolResult(
+            content=[TextContent(type="text", text=json.dumps({"error": str(exc)}))],
+            is_error=True,
+        )
     # The single view shows one participant, so the first one to join is shown.
     if _state_machine is not None and _state_machine.participant is None:
         _state_machine.participant = participant

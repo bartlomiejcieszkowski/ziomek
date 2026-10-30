@@ -34,9 +34,10 @@ def test_when_every_entry_is_used_the_least_used_one_is_given():
     pool = [("John A.", "alice"), ("Mary S.", "bob"), ("Kate C.", "carol")]
     roster = Roster(pool=pool, rng=random.Random(0))
 
-    # Make one entry clearly the most used before asking for the next one.
-    for _ in range(2):
-        roster.join("John A.")
+    # Make one entry clearly the most used: a name that left can be used again in the call.
+    first = roster.join("John A.")
+    first.leave()
+    roster.join("John A.")
     roster.join("Mary S.")
     roster.join("Kate C.")
 
