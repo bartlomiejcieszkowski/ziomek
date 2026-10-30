@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import random
 import time
 from dataclasses import dataclass
+
+CHECK_INTERVAL = 1.0  # seconds between checks on the event loop
 
 
 @dataclass
@@ -190,3 +193,23 @@ class Roster:
         self.participants.clear()
         self.usage_counts.clear()
         self.events.clear()
+
+
+_roster: Roster | None = None
+
+
+def get_roster(settings: object | None = None) -> Roster:
+    """Get the roster for the current call, built from the configured pool."""
+    global _roster
+    if _roster is None:
+        pool = list(settings.roster_pool) if settings else []
+        quiet_for = settings.roster_quiet_for if settings else 3000
+        _roster = Roster(pool=pool, quiet_for=quiet_for)
+    return _roster
+
+
+async def quiet_check(roster: Roster, interval: float = CHECK_INTERVAL) -> None:
+    """Run on the event loop, dropping participants that stay quiet too long."""
+    while True:
+        roster.drop_quiet(time.monotonic())
+        await asyncio.sleep(interval)
