@@ -24,6 +24,8 @@ class Settings(BaseModel):
     stt_model_dir: str | None = None
     mcp_port: int = 5004
     mcp_transport: str = "stdio"
+    roster_pool: list[tuple[str, str]] = []
+    roster_quiet_for: int = 3000
 
     @classmethod
     def load(cls, config_path: str | Path | None = None) -> "Settings":
@@ -163,6 +165,10 @@ class Settings(BaseModel):
 # MCP (Model Context Protocol) settings
 # mcp_port: 5004
 # mcp_transport: stdio  # stdio | http
+
+# Roster (call mode) settings
+# roster_pool: []            # name-and-voice pairs, e.g. [John A., alice]
+# roster_quiet_for: 3000     # seconds of quiet before a participant is dropped
 """
         p = Path(path).resolve()
         p.parent.mkdir(parents=True, exist_ok=True)

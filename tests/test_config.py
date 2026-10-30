@@ -268,3 +268,34 @@ def test_host_kwarg_takes_precedence():
     """Host kwarg should override both CLI and env."""
     s = Settings.compose(env_host="127.0.0.1", cli_host="0.0.0.0", host="192.168.1.1")
     assert s.host == "192.168.1.1"
+
+
+def test_roster_pool_defaults_to_an_empty_list():
+    s = Settings()
+    assert s.roster_pool == []
+    assert s.roster_quiet_for > 0
+
+
+def test_roster_settings_load_from_config_file():
+    content = "roster_pool:\n  - [John A., alice]\n  - [Mary S., bob]\nroster_quiet_for: 3000\n"
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write(content)
+        path = f.name
+    try:
+        loaded = Settings.load(path)
+        assert loaded.roster_pool == [("John A.", "alice"), ("Mary S.", "bob")]
+        assert loaded.roster_quiet_for == 3000
+    finally:
+        os.unlink(path)
+
+
+def test_scaffold_config_documents_the_roster_settings():
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        path = f.name
+    try:
+        result = Settings.scaffold_config(path)
+        content = result.read_text()
+        assert "# roster_pool:" in content
+        assert "# roster_quiet_for:" in content
+    finally:
+        os.unlink(path)
