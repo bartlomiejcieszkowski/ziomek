@@ -16,6 +16,10 @@ class TextEntry:
     author: str
 
 
+class DuplicateNameError(ValueError):
+    """A name cannot be used twice inside one call."""
+
+
 class Participant:
     """A participant in a call, holding its name, its own text, and what happened to it."""
 
@@ -26,6 +30,8 @@ class Participant:
         voice: str | None = None,
     ) -> None:
         self.name = name
+        # The name shown on the page is fixed at join and never taken again.
+        self.display_name = name
         self.voice = voice
         self.texts: list[TextEntry] = []
         # What happened to this participant during the current call.
@@ -109,9 +115,12 @@ class Roster:
         self.events: list[dict] = []
 
     def join(self, name: str | None = None, voice: str | None = None) -> Participant:
+        if name is not None and any(p.name == name for p in self.participants):
+            raise DuplicateNameError(f"duplicate name in the call: {name}")
         participant = Participant(name=name or "", roster=self, voice=voice)
         if name is None:
             participant.name = self._pick_name()
+        participant.display_name = participant.name
         if voice is None:
             participant.voice = self._pick_voice(participant.name)
         participant.usage = self._count(participant.name)

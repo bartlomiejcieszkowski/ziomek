@@ -116,3 +116,12 @@ def test_the_first_join_links_the_participant_to_the_single_view():
 
     _, other = _call("join", {}, settings)
     assert machine.participant.name == joined["name"]
+
+
+def test_joining_a_name_that_is_already_in_the_call_reports_a_duplicate():
+    settings = Settings(roster_pool=[("John A.", "alice")])
+    _, joined = _call("join", {"name": "John A."}, settings)
+    result, payload = _call("join", {"name": "John A."}, settings)
+
+    assert result.is_error is True
+    assert "duplicate" in payload["error"]
