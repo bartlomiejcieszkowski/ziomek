@@ -24,6 +24,7 @@ from ziomek.browser import open_view_page
 from ziomek.config import Settings
 from ziomek.gamepad import GamepadManager
 from ziomek.logging import RequestIDMiddleware, get_log_buffer, setup_logging
+from ziomek.roster import CHECK_INTERVAL, get_roster, quiet_check
 from ziomek.stt import STTEngine, STTState, stt_installed
 from ziomek.tts.engine import TTSModelWrapper
 from ziomek.tts.playback import AudioPlayer
@@ -122,6 +123,8 @@ def create_app(
             _stt_engine.set_event_loop(asyncio.get_running_loop())
         if open_browser:
             open_view_page(settings)
+        # Participants are dropped when they stay quiet, so this runs on the loop.
+        asyncio.create_task(quiet_check(get_roster(settings), CHECK_INTERVAL))
         yield
 
     app = FastAPI(

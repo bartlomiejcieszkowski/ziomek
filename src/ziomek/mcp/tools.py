@@ -6,7 +6,6 @@ import asyncio
 import base64
 import json
 import logging
-import time
 from typing import Any
 
 from mcp.server.context import ServerRequestContext
@@ -18,7 +17,7 @@ from mcp.types import (
     Tool,
 )
 
-from ziomek.roster import Roster
+from ziomek.roster import Roster, get_roster
 
 from .listening import ListeningSession
 
@@ -28,17 +27,10 @@ logger = logging.getLogger(__name__)
 _listening_session: ListeningSession | None = None
 
 # The participants taking part in one call.
-_roster: Roster | None = None
 
 
 def _get_roster(settings: Any = None) -> Roster:
-    """Get or create the roster for the current call, from the configured pool."""
-    global _roster
-    if _roster is None:
-        pool = list(settings.roster_pool) if settings else []
-        quiet_for = settings.roster_quiet_for if settings else 3000
-        _roster = Roster(pool=pool, quiet_for=quiet_for)
-    return _roster
+    return get_roster(settings)
 
 
 def _text_payload(data: dict) -> CallToolResult:
@@ -363,7 +355,6 @@ async def _handle_join(arguments: dict) -> CallToolResult:
     from ziomek.server import _settings, _state_machine
 
     roster = _get_roster(_settings)
-    roster.drop_quiet(time.monotonic())
     participant = roster.join(arguments.get("name"), arguments.get("voice"))
     # The single view shows one participant, so the first one to join is shown.
     if _state_machine is not None and _state_machine.participant is None:

@@ -15,9 +15,11 @@ from ziomek.mcp.tools import _get_roster
 @pytest.fixture(autouse=True)
 def _fresh_roster():
     """Each test sees its own call, not the one the previous test made."""
-    mcp_tools_module._roster = None
+    import ziomek.roster
+
+    ziomek.roster._roster = None
     yield
-    mcp_tools_module._roster = None
+    ziomek.roster._roster = None
 
 
 def _call(name, arguments, settings):
@@ -77,19 +79,6 @@ def test_the_timer_drops_a_participant_that_stays_quiet():
 
     assert [p.name for p in dropped] == [participant.name]
     assert roster.participants == []
-
-
-def test_join_runs_the_timer_before_it_assigns():
-    settings = Settings(roster_pool=[("John A.", "alice")], roster_quiet_for=10)
-    roster = _get_roster(settings)
-    quiet = roster.join()
-    quiet.last_seen = 0.0
-
-    _, second = _call("join", {}, settings)
-
-    # The quiet participant was dropped first, so its entry was free to hand out.
-    assert [p for p in roster.participants][0].name == second["name"]
-    assert quiet.state == "left"
 
 
 def test_leave_releases_the_entry_so_it_can_be_assigned_again():
