@@ -335,6 +335,9 @@ class AvatarStateMachine:
 
         if text and text.strip():
             self._current_message = text.strip()
+            # The agent's own text stays on the participant record, in its own area.
+            if self.participant is not None:
+                self.participant.add_text(text.strip(), author="agent")
             if duration_ms > 0:
                 self._message_expiry_timestamp = time.time() * 1000 + duration_ms
                 import threading
