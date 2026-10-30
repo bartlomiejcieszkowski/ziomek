@@ -360,11 +360,14 @@ async def _handle_get_expression() -> CallToolResult:
 
 
 async def _handle_join(arguments: dict) -> CallToolResult:
-    from ziomek.server import _settings
+    from ziomek.server import _settings, _state_machine
 
     roster = _get_roster(_settings)
     roster.drop_quiet(time.monotonic())
     participant = roster.join(arguments.get("name"), arguments.get("voice"))
+    # The single view shows one participant, so the first one to join is shown.
+    if _state_machine is not None and _state_machine.participant is None:
+        _state_machine.participant = participant
     return _text_payload(
         {
             "name": participant.name,

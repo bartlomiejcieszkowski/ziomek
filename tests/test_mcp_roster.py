@@ -107,3 +107,23 @@ def test_the_record_kept_through_the_tools_is_for_this_call():
     _call("hold", {"name": joined["name"]}, settings)
 
     assert [entry.action for entry in _get_roster(settings).events] == ["join", "hold"]
+
+
+def test_the_first_join_links_the_participant_to_the_single_view():
+    from ziomek.avatar.state_machine import AvatarStateMachine
+
+    seen = []
+
+    def hook(participant, expression, cycle_index):
+        seen.append((participant, expression, cycle_index))
+
+    machine = AvatarStateMachine(participant=None)
+    machine.on_change = hook
+    settings = Settings(roster_pool=[("John A.", "alice")])
+    with patch("ziomek.server._state_machine", machine):
+        _, joined = _call("join", {}, settings)
+
+    assert machine.participant.name == joined["name"]
+
+    _, other = _call("join", {}, settings)
+    assert machine.participant.name == joined["name"]
