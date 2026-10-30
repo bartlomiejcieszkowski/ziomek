@@ -48,6 +48,12 @@ class TestAvatarViewPage:
         for field in ("name", "status_text", "system_text"):
             assert f"msg.{field}" in html
 
+    def test_page_shows_a_participant_as_on_hold(self, client):
+        html = client.get("/api/avatar/view").text
+        assert 'id="on_hold"' in html
+        # The duration counts up on the client, not only in the message.
+        assert "On hold" in html
+
 
 class TestAvatarWebSocket:
     """The WebSocket pushes state: first on connect, then on every change."""
