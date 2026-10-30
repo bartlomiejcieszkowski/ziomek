@@ -299,3 +299,28 @@ def test_scaffold_config_documents_the_roster_settings():
         assert "# roster_quiet_for:" in content
     finally:
         os.unlink(path)
+
+
+def test_the_check_interval_is_a_configured_knob():
+    s = Settings()
+    assert s.roster_check_interval == 1.0
+
+    content = "roster_check_interval: 0.5\n"
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write(content)
+        path = f.name
+    try:
+        loaded = Settings.load(path)
+        assert loaded.roster_check_interval == 0.5
+    finally:
+        os.unlink(path)
+
+
+def test_scaffold_config_documents_the_check_interval():
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        path = f.name
+    try:
+        content = Settings.scaffold_config(path).read_text()
+        assert "# roster_check_interval:" in content
+    finally:
+        os.unlink(path)

@@ -26,6 +26,7 @@ class Settings(BaseModel):
     mcp_transport: str = "stdio"
     roster_pool: list[tuple[str, str]] = []
     roster_quiet_for: int = 3000
+    roster_check_interval: float = 1.0
 
     @classmethod
     def load(cls, config_path: str | Path | None = None) -> "Settings":
@@ -169,6 +170,7 @@ class Settings(BaseModel):
 # Roster (call mode) settings
 # roster_pool: []            # name-and-voice pairs, e.g. [John A., alice]
 # roster_quiet_for: 3000     # seconds of quiet before a participant is dropped
+# roster_check_interval: 1.0  # seconds between the quiet checks on the event loop
 """
         p = Path(path).resolve()
         p.parent.mkdir(parents=True, exist_ok=True)

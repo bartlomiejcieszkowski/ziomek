@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from ziomek.roster import CHECK_INTERVAL, Roster, get_roster, quiet_check
+from ziomek.roster import Roster, quiet_check
 
 
 @pytest.fixture(autouse=True)
@@ -48,7 +48,12 @@ def test_the_check_runs_while_the_server_is_running():
         started.append((roster, interval))
 
     settings = Settings(
-        no_gamepad=True, no_browser=True, no_stt=True, roster_pool=[("John A.", "alice")], roster_quiet_for=5
+        no_gamepad=True,
+        no_browser=True,
+        no_stt=True,
+        roster_pool=[("John A.", "alice")],
+        roster_quiet_for=5,
+        roster_check_interval=0.25,
     )
 
     with patch("ziomek.server.quiet_check", fake_check):
@@ -57,6 +62,6 @@ def test_the_check_runs_while_the_server_is_running():
             client.get("/status")
             assert started
 
-    assert started[0][1] == CHECK_INTERVAL
+    assert started[0][1] == settings.roster_check_interval
     assert isinstance(started[0][0], Roster)
     assert started[0][0].quiet_for == settings.roster_quiet_for
