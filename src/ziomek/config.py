@@ -25,6 +25,7 @@ class Settings(BaseModel):
     mcp_port: int = 5004
     mcp_transport: str = "stdio"
     roster_pool: list[tuple[str, str]] = []
+    roster_words: list[str] = []
     roster_quiet_for: int = 3000
     roster_check_interval: float = 1.0
 
@@ -168,7 +169,8 @@ class Settings(BaseModel):
 # mcp_transport: stdio  # stdio | http
 
 # Roster (call mode) settings
-# roster_pool: []            # name-and-voice pairs, e.g. [John A., alice]
+# roster_pool: []            # names and voices, e.g. [John, alice]
+# roster_words: []           # words used as the second part of a name
 # roster_quiet_for: 3000     # seconds of quiet before a participant is dropped
 # roster_check_interval: 1.0  # seconds between the quiet checks on the event loop
 """

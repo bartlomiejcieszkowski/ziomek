@@ -102,10 +102,13 @@ class Roster:
     def __init__(
         self,
         pool: list[tuple[str, str]] | None = None,
+        words: list[str] | None = None,
         quiet_for: int = 3000,
         rng: random.Random | None = None,
     ) -> None:
         self.pool: list[tuple[str, str]] = list(pool or [])
+        # Words are the second part of a name when the first part is taken in the call.
+        self.words: list[str] = list(words or [])
         self.quiet_for = quiet_for
         self.rng = rng or random.Random()
         self.participants: list[Participant] = []
@@ -123,7 +126,8 @@ class Roster:
         participant.display_name = participant.name
         if voice is None:
             participant.voice = self._pick_voice(participant.name)
-        participant.usage = self._count(participant.name)
+        # Usage is tracked on the first part of the name, the one that comes from the pool.
+        participant.usage = self._count(participant.name.split(" ")[0])
         self.participants.append(participant)
         self.record(participant.name, "join")
         return participant
@@ -141,12 +145,7 @@ class Roster:
         return dropped
 
     def release(self, participant: Participant) -> None:
-        """Release the pool entry the participant was using."""
-        count = self.usage_counts.get(participant.name, 0)
-        if count > 1:
-            self.usage_counts[participant.name] = count - 1
-        else:
-            self.usage_counts.pop(participant.name, None)
+        """Release the pool entry; the usage history stays for the next pick."""
         if participant in self.participants:
             self.participants.remove(participant)
 
@@ -164,11 +163,24 @@ class Roster:
     def _pick_name(self) -> str:
         if not self.pool:
             return ""
-        # Prefer an entry that has not been used, otherwise the least used one.
-        unused = [entry for entry in self.pool if self.usage_counts.get(entry[0], 0) == 0]
-        if unused:
-            return self.rng.choice(unused)[0]
-        return self.rng.choice(self._candidates(0))[0]
+        taken = {p.name for p in self.participants}
+        free = [entry for entry in self.pool if entry[0] not in taken]
+        if free:
+            # Prefer an entry that has not been used, otherwise the least used one.
+            unused = [entry for entry in free if self.usage_counts.get(entry[0], 0) == 0]
+            if unused:
+                return self.rng.choice(unused)[0]
+            lowest = min(self.usage_counts.get(entry[0], 0) for entry in free)
+            return self.rng.choice([e for e in free if self.usage_counts.get(e[0], 0) == lowest])[0]
+
+        # Every first name is in the call, so the second part comes from the words.
+        if not self.words:
+            return ""
+        base = self.rng.choice(self._candidates(0))[0]
+        combos = [f"{base} {word}" for word in self.words if f"{base} {word}" not in taken]
+        if not combos:
+            return ""
+        return self.rng.choice(combos)
 
     def _pick_voice(self, name: str) -> str | None:
         if not self.pool:
@@ -200,9 +212,8 @@ class Roster:
         return None
 
     def end_call(self) -> None:
-        """Drop the participants, the pool counts, and the record."""
+        """Drop the participants and the record; the usage history stays for the next call."""
         self.participants.clear()
-        self.usage_counts.clear()
         self.events.clear()
 
 
@@ -215,7 +226,7 @@ def get_roster(settings: object | None = None) -> Roster:
     if _roster is None:
         pool = list(settings.roster_pool) if settings else []
         quiet_for = settings.roster_quiet_for if settings else 3000
-        _roster = Roster(pool=pool, quiet_for=quiet_for)
+        _roster = Roster(pool=pool, words=list(settings.roster_words) if settings else [], quiet_for=quiet_for)
     return _roster
 
 
