@@ -168,13 +168,17 @@ async def _handle_speak(arguments: dict) -> CallToolResult:
     from ziomek.tts.generate import generate_wav
 
     text = arguments.get("text", "")
-    voice = arguments.get("voice", "default")
+    # The voice comes from the participant's own record when one is named.
+    participant = _find_participant(_get_roster(_settings), arguments["name"]) if arguments.get("name") else None
+    voice = arguments.get("voice", participant.voice if participant is not None else "default")
     if _voice_cache is None:
         return CallToolResult(
             content=[TextContent(type="text", text=json.dumps({"error": "Voice cache not initialized"}))],
             is_error=True,
         )
     audio_b64, duration, sample_rate = generate_wav(_tts_model, _voice_cache, text, voice)
+    if participant is not None:
+        participant.add_text(text, author="agent")
     wav_bytes = base64.b64decode(audio_b64)
 
     if _audio_player is not None:
