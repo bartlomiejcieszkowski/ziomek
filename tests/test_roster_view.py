@@ -144,7 +144,7 @@ def test_transcript_entries_without_text_have_no_text_key():
     client = build_app()
     get_roster().join("John")
 
-    entries = client.get("/api/roster/transcript").json()
+    entries = client.get("/api/roster/transcript").json()["entries"]
 
     assert "text" not in entries[0]
     assert "author" not in entries[0]
@@ -158,7 +158,7 @@ def test_the_transcript_lists_the_call_in_order():
     second = roster.join("Donald", voice="bob")
     second.hold()
 
-    entries = client.get("/api/roster/transcript").json()
+    entries = client.get("/api/roster/transcript").json()["entries"]
 
     assert [(e["name"], e["action"]) for e in entries] == [
         ("John", "join"),
@@ -175,7 +175,7 @@ def test_the_transcript_keeps_the_text_and_its_author():
     participant.add_text("compiling", author="agent")
 
     # The join comes first in the record, so the entry with text is the second one.
-    entry = client.get("/api/roster/transcript").json()[1]
+    entry = client.get("/api/roster/transcript").json()["entries"][1]
 
     assert entry["text"] == "compiling"
     assert entry["author"] == "agent"
@@ -411,3 +411,64 @@ def test_the_tile_payload_has_one_texts_key():
     source = Path("src/ziomek/api/roster_view.py").read_text(encoding="utf-8")
     assert source.count('"texts": [entry.as_dict()') == 1
     assert roster_view.tiles
+
+
+def test_grouping_follows_the_order_of_the_record():
+    from ziomek.api.roster_view import blocks
+
+    entries = [
+        {"name": "John", "action": "join"},
+        {"name": "Donald", "action": "join"},
+        {"name": "Donald", "action": "text", "text": "playing darts", "author": "agent"},
+        {"name": "John", "action": "text", "text": "wait, are we still talking?", "author": "agent"},
+        {"name": "Donald", "action": "text", "text": "now mowing the lawn", "author": "agent"},
+        {"name": "Donald", "action": "leave"},
+    ]
+    assert [b["kind"] for b in blocks(entries)] == [
+        "system",
+        "system",
+        "group",
+        "group",
+        "group",
+        "system",
+    ]
+    assert blocks(entries)[3]["name"] == "John"
+
+
+def test_a_participant_with_no_message_produces_no_group():
+    from ziomek.api.roster_view import blocks
+
+    entries = [
+        {"name": "John", "action": "join"},
+        {"name": "John", "action": "text", "text": "", "author": "agent"},
+    ]
+    assert blocks(entries) == [{"kind": "system", "text": "John joined."}]
+
+
+def test_the_system_line_is_a_sentence_with_the_word_from_the_record():
+    from ziomek.api.roster_view import sentence
+
+    assert sentence({"name": "John", "action": "join"}) == "John joined."
+    assert sentence({"name": "John", "action": "hold"}) == "John is on hold."
+    assert sentence({"name": "John", "action": "left"}) == "John left."
+    assert sentence({"name": "John", "action": "something"}) == "John something."
+
+
+def test_the_transcript_payload_carries_the_groups_as_well_as_the_entries():
+    client = build_app()
+    get_roster().record("John", "join")
+    get_roster().record("John", "text", text="compiling", author="agent")
+    payload = client.get("/api/roster/transcript").json()
+    assert payload["entries"][0]["action"] == "join"
+    assert payload["blocks"][0]["kind"] == "system"
+    assert payload["blocks"][1]["name"] == "John"
+
+
+def test_the_transcript_payload_carries_the_groups_as_well_as_the_entries():
+    client = build_app()
+    get_roster().record("John", "join")
+    get_roster().record("John", "text", text="compiling", author="agent")
+    payload = client.get("/api/roster/transcript").json()
+    assert payload["entries"][0]["action"] == "join"
+    assert payload["blocks"][0]["kind"] == "system"
+    assert payload["blocks"][1]["name"] == "John"
