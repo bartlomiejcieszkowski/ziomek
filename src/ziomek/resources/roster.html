@@ -43,7 +43,7 @@
     </div>
 
     <script>
-      const initial = "closed";
+      const initial = "__TRANSCRIPT_DEFAULT__";
 
       let lastEntries = [];
       let rendered = 0;
@@ -52,20 +52,17 @@
       const EXT = { markdown: "md", json: "json" };
 
       function formatLine(entry) {
-        if (entry.text ? entry.author : false) {
-          const parts = [entry.name, entry.author, entry.text];
-          return parts.filter(Boolean).join(" ");
-        }
-        if (entry.text) {
-          return entry.name ? entry.name + " — " + entry.text : entry.text;
-        }
-        return entry.name ? entry.name + " " + PAST[entry.action] + "." : entry.action + ".";
+        if (!entry.text && !entry.name && !entry.action) return "";
+        const parts = [entry.name, entry.author, entry.text];
+        const head = parts.slice(0, 2).filter(Boolean);
+        return entry.text ? (head.length ? head.join(" ") + " — " + entry.text : entry.text) : (entry.name ? entry.name + " " + PAST[entry.action] + "." : entry.action + ".");
       }
 
       function renderLine(entry) {
-        if (!entry.text && !entry.name) return;
+        const line = formatLine(entry);
+        if (!line) return;
         const item = document.createElement("li");
-        item.textContent = formatLine(entry);
+        item.textContent = line;
         document.getElementById("transcript").appendChild(item);
       }
 
@@ -117,7 +114,7 @@
       }
 
       function markdownFile(entries) {
-        return new Blob(["# Transcript\n" + entries.map(formatLine).join("\n")], { type: "text/plain" });
+        return new Blob(["# Transcript\n" + entries.map(formatLine).filter(Boolean).join("\n")], { type: "text/plain" });
       }
 
       function jsonFile(entries) {
@@ -128,11 +125,14 @@
         const link = document.createElement("a");
         link.href = URL.createObjectURL(content);
         link.download = name;
+        document.body.appendChild(link);
         link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
       }
 
       function readCookieState() {
-        const match = document.cookie.match(/(?:^|;\s)ziomek_panel=([^;]*)/);
+        const match = document.cookie.match(/(?:^|;\s*)ziomek_panel=([^;]*)/);
         if (!match) return null;
         try {
           const value = decodeURIComponent(match[1]);
@@ -179,11 +179,20 @@
       });
 
       async function refresh() {
-        const response = await fetch("/api/roster");
-        render(await response.json());
-        const stream = await fetch("/api/roster/transcript");
-        lastEntries = await stream.json();
-        if (!lastEntries.length) rendered = 0;
+        try {
+          const response = await fetch("/api/roster");
+          render(await response.json());
+          const stream = await fetch("/api/roster/transcript");
+          lastEntries = await stream.json();
+        } catch (error) {
+          return;  // a failed poll keeps the record as it was, so nothing is shown from it
+        }
+
+        if (lastEntries.length < rendered) {
+          // The record shrank, which means a new call: the panel starts from nothing.
+          document.getElementById("transcript").innerHTML = "";
+          rendered = 0;
+        }
         for (const entry of lastEntries.slice(rendered)) {
           renderLine(entry);
         }
