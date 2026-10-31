@@ -53,6 +53,8 @@
         return String(Math.floor(seconds / 60)).padStart(2, "0") + ":" + String(seconds % 60).padStart(2, "0");
       }
 
+      const initial = "__TRANSCRIPT_DEFAULT__";
+
       async function refresh() {
         const response = await fetch("/api/roster");
         render(await response.json());

@@ -350,3 +350,17 @@ def test_scaffold_config_documents_the_check_interval():
         assert "# roster_check_interval:" in content
     finally:
         os.unlink(path)
+
+
+def test_the_transcript_panel_defaults_to_open():
+    assert Settings().roster_transcript_default == "open"
+
+
+def test_scaffold_config_documents_the_panel_default():
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        path = f.name
+    try:
+        content = Settings.scaffold_config(path).read_text()
+        assert "# roster_transcript_default:" in content
+    finally:
+        os.unlink(path)

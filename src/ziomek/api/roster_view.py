@@ -48,10 +48,19 @@ async def get_roster_view() -> JSONResponse:
     return JSONResponse(content=tiles())
 
 
+def panel_default() -> str:
+    """The configured state of the transcript panel, closed for any other value."""
+    from ziomek.server import _settings
+
+    value = _settings.roster_transcript_default if _settings else "open"
+    return value if value in ("open", "closed") else "closed"
+
+
 @router.get("/api/roster/view", summary="Roster page", description="Serve the roster page HTML.")
 async def get_roster_page() -> HTMLResponse:
-    """Serve the roster page HTML (one tile per participant)."""
-    return HTMLResponse(_page_html.read_text(encoding="utf-8"))
+    """Serve the roster page HTML with the configured panel default (one tile per participant)."""
+    html = _page_html.read_text(encoding="utf-8").replace("__TRANSCRIPT_DEFAULT__", panel_default())
+    return HTMLResponse(html)
 
 
 def transcript() -> list[dict]:
