@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Added
+
+- A roster of participants for a call: join, hold, leave, and a page that shows one tile per participant with the expression of that participant
+- A transcript panel on the roster page: the lines of the call in order, with the author kept, and a Save button that downloads them as Markdown or JSON
+- `roster_transcript_default` in the settings, which decides whether that panel starts open or closed (a value outside those two words is read as `closed`); `roster_pool`, `roster_words`, `roster_quiet_for` and `roster_check_interval` carry the rules for names and quiet drop
+
 ## [0.4.3] - 2026-10-30
 
 ### Changed
