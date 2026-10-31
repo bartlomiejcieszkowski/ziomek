@@ -1,8 +1,8 @@
 """Participant records hold the name and text, not the state machine."""
 
-from ziomek.avatar.state_machine import AvatarStateMachine
 import time
 
+from ziomek.avatar.state_machine import AvatarStateMachine
 from ziomek.roster import Roster
 
 
