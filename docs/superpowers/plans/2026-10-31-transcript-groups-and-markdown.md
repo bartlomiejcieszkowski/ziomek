@@ -212,7 +212,8 @@ git commit -m "feat(api): show the transcript as groups with the decided colors"
 def test_the_page_asks_for_the_file_content_and_keeps_the_download_in_the_browser():
     page = served_page()
     assert 'fetch("/api/roster/transcript/markdown?at="' in page
-    assert "new Blob" in page and "link.download = buildFilename(EXT[ext])" in page
+    # The code names the file through the function and downloads the text it is given.
+    assert "async def save(format, at)" in page and 'link.download = name' in page
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
