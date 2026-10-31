@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from ziomek.roster import get_roster
 
@@ -71,6 +72,17 @@ def transcript() -> list[dict]:
     return list(get_roster().events)
 
 
+def format_line(entry: dict) -> str:
+    """Build one line for one entry, with the author kept when it is there."""
+    name = entry.get("name", "")
+    author = entry.get("author", "")
+    head = " ".join(part for part in (name, author) if part)
+    text = entry.get("text", "")
+    if text:
+        return f"{head} — {text}" if head else text
+    return ""
+
+
 def blocks(entries: list[dict]) -> list[dict]:
     """Group the ordered stream into runs of the same participant.
 
@@ -79,19 +91,22 @@ def blocks(entries: list[dict]) -> list[dict]:
     later run is never merged into an earlier group."""
     grouped = []
     for entry in entries:
+        if not (entry.get("name") or entry.get("action") or entry.get("text")):
+            continue  # Review focus line 1: an entry with nothing to show produces no line
         if entry.get("action") == "text" and entry.get("author") and entry["author"] != "system":
-            if not entry.get("text"):
+            line = format_line(entry)
+            if not line:
                 continue
             if (
                 grouped
                 and grouped[-1]["kind"] == "group"
-                and grouped[-1]["name"] == entry["name"]
-                and grouped[-1]["author"] == entry["author"]
+                and grouped[-1]["name"] == entry.get("name", "")
+                and grouped[-1]["author"] == entry.get("author", "")
             ):
-                grouped[-1]["lines"].append(entry.get("text", ""))
+                grouped[-1]["lines"].append(line)
                 continue
             grouped.append(
-                {"kind": "group", "name": entry["name"], "author": entry["author"], "lines": [entry.get("text", "")]}
+                {"kind": "group", "name": entry.get("name", ""), "author": entry.get("author", ""), "lines": [line]}
             )
             continue
         grouped.append({"kind": "system", "text": sentence(entry)})
@@ -108,3 +123,36 @@ def sentence(entry: dict) -> str:
 async def get_transcript_view() -> JSONResponse:
     """Serve the entries of the current call record."""
     return JSONResponse(content={"entries": transcript(), "blocks": blocks(transcript())})
+
+
+def markdown_text(blocks: list[dict], timestamp: str) -> str:
+    """Build the file content from blocks."""
+    parts = [f"# transcript — {timestamp}", ""]
+    for block in blocks:
+        if block["kind"] == "system":
+            parts.append(f"> {block['text']}")
+            continue
+        name = block.get("name", "")
+        author = block.get("author")
+        header = f"{name} ({author})" if author else name
+        parts.append(f"### {header}")
+        for line in block["lines"]:
+            parts.append(f"{line}  ")
+        parts.append("")
+    while parts and parts[-1] == "":
+        parts.pop()
+    return "\n".join(parts) + "\n"
+
+
+def clock() -> str:
+    """Format the current time as the filename wants it."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+
+
+@router.get(
+    "/api/roster/transcript/markdown", summary="Transcript", description="The file content for the current call record."
+)
+async def get_markdown(request: Request) -> Response:
+    """Serve the file content, with the clock the page asked for."""
+    at = request.query_params.get("at") or clock()
+    return Response(content=markdown_text(blocks(transcript()), at), media_type="text/markdown")

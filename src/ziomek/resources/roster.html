@@ -18,10 +18,17 @@
         #layout { display: block; }
         #roster, #panel { flex: none; }
       }
+      .box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; }
+      .name { color: #8ab4f8; }
+      .event { color: #e0a568; }
+      .system_text { color: #7fb069; }
       .tile { padding: 12px; margin: 8px 0; background: #1b1b22; border-radius: 6px; }
       .tile .name { font-weight: bold; margin-bottom: 4px; }
       .status_text, .system_text, .on_hold { white-space: pre-wrap; font-size: 13px; }
-      .on_hold { color: #8ab4f8; }
+      .box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; }
+      .name { color: #8ab4f8; }
+      .event { color: #e0a568; }
+      .group_author { color: #999; }
       .expression { color: #d2a9ff; font-size: 13px; }
       ul.events { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: #999; }
     </style>
@@ -46,24 +53,40 @@
     <script>
       const initial = "__TRANSCRIPT_DEFAULT__";
 
-      let lastEntries = [];
+      let lastPayload = {};
+      let lastBlocks = [];
       let rendered = 0;
 
       const PAST = { "join": "joined", "hold": "is on hold", "leave": "left" };
       const EXT = { markdown: "md", json: "json" };
 
-      function formatLine(entry) {
-        if (!entry.text && !entry.name && !entry.action) return "";
-        const head = [entry.name, entry.author].filter(Boolean);
-        return entry.text ? (head.length ? head.join(" ") + " — " + entry.text : entry.text) : (entry.name ? entry.name + " " + (PAST[entry.action] || entry.action) + "." : entry.action + ".");
+      function el_class(className) {
+        const el = document.createElement("span");
+        el.className = className;
+        return el;
       }
 
-      function renderLine(entry) {
-        const line = formatLine(entry);
-        if (!line) return;
-        const item = document.createElement("li");
-        item.textContent = line;
-        document.getElementById("transcript").appendChild(item);
+      function renderBlock(block) {
+        const box = document.createElement("div");
+        box.className = "box";
+
+        const header = document.createElement("div");
+        header.append(el_class("name"));           // the name keeps its own element, the box has none
+        header.lastChild.textContent = block.name;
+        if (block.author) {
+          const mark = el_class("author");
+          // The author stays as text: colors cannot show in a file, so both sides keep it.
+          mark.textContent = block.name + " (" + block.author + ")";
+          header.append(mark);
+        }
+        box.appendChild(header);
+
+        for (const line of block.lines) {
+          const p = document.createElement("p");
+          p.textContent = line;
+          box.appendChild(p);
+        }
+        document.getElementById("transcript").appendChild(box);
       }
 
       function render(tiles) {
@@ -107,14 +130,25 @@
         return String(n).padStart(2, "0");
       }
 
-      function buildFilename(ext) {
-        const now = new Date();
-        const date = [now.getFullYear(), pad(now.getMonth() + 1), pad(now.getDate())].join("-");
-        return "ziomek_" + date + "_" + pad(now.getHours()) + pad(now.getMinutes()) + "_transcript." + ext;
+      function dateParts(at) {
+        return [at.getFullYear(), pad(at.getMonth() + 1), pad(at.getDate())];
       }
 
-      function markdownFile(entries) {
-        return new Blob(["# Transcript\n" + entries.map(formatLine).filter(Boolean).join("\n")], { type: "text/plain" });
+      function clockParts(at) {
+        return [pad(at.getHours()), pad(at.getMinutes()), pad(at.getSeconds())];
+      }
+
+      // The header and the name show the same clock, in the forms each of them needs.
+      function headerStamp(at) {
+        return dateParts(at).join("-") + "T" + clockParts(at).join("") + "Z";
+      }
+
+      function nameStamp(at) {
+        return dateParts(at).join("_") + "_" + clockParts(at).slice(0, 2).join("");
+      }
+
+      function buildFilename(ext, at) {
+        return "ziomek_" + nameStamp(at) + "_transcript." + ext;
       }
 
       function jsonFile(entries) {
@@ -168,14 +202,29 @@
         document.getElementById("menu").classList.toggle("open");
       });
 
+      function stampOf(at) {
+        return [at.getFullYear(), pad(at.getMonth() + 1), pad(at.getDate())].join("-") + "T" + pad(at.getHours()) + pad(at.getMinutes()) + pad(at.getSeconds()) + "Z";
+      }
+
+      async function save(format, at) {
+        const ext = EXT[format] || format;
+        if (format === "json") {
+          download(jsonFile(lastPayload), buildFilename(ext, at));
+          return;
+        }
+        const response = await fetch("/api/roster/transcript/markdown?at=" + encodeURIComponent(headerStamp(at)));
+        download(new Blob([await response.text()], { type: "text/markdown" }), buildFilename(ext, at));
+      }
+
       document.getElementById("save").addEventListener("click", () => {
-        download(markdownFile(lastEntries), buildFilename(EXT.markdown));
+        const at = new Date();
+        save("markdown", at);
       });
 
       document.getElementById("menu").addEventListener("click", (event) => {
         const ext = event.target.dataset.format;
         if (!ext) return;
-        download(ext === "json" ? jsonFile(lastEntries) : markdownFile(lastEntries), buildFilename(EXT[ext] || ext));
+        save(event.target.dataset.format, new Date());
       });
 
       async function refresh() {
@@ -183,20 +232,21 @@
           const response = await fetch("/api/roster");
           render(await response.json());
           const stream = await fetch("/api/roster/transcript");
-          lastEntries = await stream.json();
+          lastPayload = await stream.json();
+          lastBlocks = lastPayload.blocks;
         } catch (error) {
           return;  // a failed poll keeps the record as it was, so nothing is shown from it
         }
 
-        if (lastEntries.length < rendered) {
+        if (lastBlocks.length < rendered) {
           // The record shrank, which means a new call: the panel starts from nothing.
           document.getElementById("transcript").innerHTML = "";
           rendered = 0;
         }
-        for (const entry of lastEntries.slice(rendered)) {
-          renderLine(entry);
+        for (const block of lastBlocks.slice(rendered)) {
+          renderBlock(block);
         }
-        rendered = lastEntries.length;
+        rendered = lastBlocks.length;
       }
 
       setShown(panelOpen());
