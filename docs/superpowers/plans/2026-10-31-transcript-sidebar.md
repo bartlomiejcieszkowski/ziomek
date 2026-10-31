@@ -185,7 +185,7 @@ def test_the_page_renders_lines_with_text_content():
 
 **Interfaces:**
 - Consumes: the formatted lines from Task 3 (same order, same wording), `formatLine`.
-- Produces: `buildFilename(ext: str) -> str`, `formatFile(entries) -> Blob`, a Save control with the two formats in the page.
+- Produces: `buildFilename(ext: str) -> str` using a map of the format to its extension, `markdownFile(entries) -> Blob` and `jsonFile(entries) -> Blob`, a Save control that acts on a click and a `(...)` control that opens the format menu (closed until clicked), with the two formats in the page.
 
 - [ ] **Step 1: Write the failing tests**
 
