@@ -177,3 +177,62 @@ def test_the_expression_tools_take_an_optional_name():
     assert set_tool.input_schema.get("required") == ["expression"]
     get_tool = next(t for t in mcp_tools_module.TOOLS if t.name == "get_expression")
     assert not get_tool.input_schema.get("required")
+
+
+def test_speaking_for_a_participant_uses_the_voice_assigned_to_it():
+    settings = Settings(roster_pool=[("John A.", "alice")])
+    _call("join", {"name": "John A."}, settings)
+
+    spoken = []
+
+    def fake_generate_wav(model, cache, text, voice):
+        spoken.append(voice)
+        return (b"", 0.0, 24000)
+
+    class ready_model:
+        ready = True
+        model_path = None
+
+    with (
+        patch("ziomek.server._settings", settings),
+        patch("ziomek.server._tts_model", ready_model()),
+        patch("ziomek.server._voice_cache", object()),
+        patch("ziomek.server._audio_player", None),
+        patch("ziomek.tts.generate.generate_wav", fake_generate_wav),
+    ):
+        asyncio.run(
+            mcp_tools_module._on_call_tool(
+                None, CallToolRequestParams(name="speak", arguments={"name": "John A.", "text": "hi"})
+            )
+        )
+
+    assert spoken == ["alice"]
+
+
+def test_saying_text_records_what_was_said_for_that_participant():
+    settings = Settings(roster_pool=[("John A.", "alice")])
+
+    class ready_model:
+        ready = True
+        model_path = None
+
+    _, joined = _call("join", {"name": "John A."}, settings)
+
+    def fake_generate_wav(model, cache, text, voice):
+        return (b"", 0.0, 24000)
+
+    with (
+        patch("ziomek.server._settings", settings),
+        patch("ziomek.server._tts_model", ready_model()),
+        patch("ziomek.server._voice_cache", object()),
+        patch("ziomek.server._audio_player", None),
+        patch("ziomek.tts.generate.generate_wav", fake_generate_wav),
+    ):
+        _, data = _call("speak", {"name": "John A.", "text": "compiling"}, settings)
+
+    record = _get_roster(settings)
+    entry = record.events[-1]
+    assert entry["name"] == "John A."
+    assert entry["action"] == "text"
+    assert entry["text"] == "compiling"
+    assert entry["author"] == "agent"
