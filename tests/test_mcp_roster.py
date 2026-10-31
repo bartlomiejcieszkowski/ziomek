@@ -18,8 +18,14 @@ def _fresh_roster():
     import ziomek.roster
 
     ziomek.roster._roster = None
+    from ziomek.api import avatar_ws
+
+    avatar_ws._shown = None
     yield
     ziomek.roster._roster = None
+    from ziomek.api import avatar_ws
+
+    avatar_ws._shown = None
 
 
 def _call(name, arguments, settings):
@@ -98,24 +104,17 @@ def test_the_record_kept_through_the_tools_is_for_this_call():
     assert [entry["action"] for entry in _get_roster(settings).events] == ["join", "hold"]
 
 
-def test_the_first_join_links_the_participant_to_the_single_view():
-    from ziomek.avatar.state_machine import AvatarStateMachine
+def test_the_first_join_shows_that_participant_in_the_single_view():
+    from ziomek.api import avatar_ws
 
-    seen = []
-
-    def hook(participant, expression, cycle_index):
-        seen.append((participant, expression, cycle_index))
-
-    machine = AvatarStateMachine(participant=None)
-    machine.on_change = hook
     settings = Settings(roster_pool=[("John A.", "alice")])
-    with patch("ziomek.server._state_machine", machine):
-        _, joined = _call("join", {}, settings)
+    _, joined = _call("join", {}, settings)
 
-    assert machine.participant.name == joined["name"]
+    assert avatar_ws._shown.name == joined["name"]
 
+    # The single view shows one participant, so a later join does not change it.
     _, other = _call("join", {}, settings)
-    assert machine.participant.name == joined["name"]
+    assert avatar_ws._shown.name == joined["name"]
 
 
 def test_joining_a_name_that_is_already_in_the_call_reports_a_duplicate():
@@ -125,3 +124,56 @@ def test_joining_a_name_that_is_already_in_the_call_reports_a_duplicate():
 
     assert result.is_error is True
     assert "duplicate" in payload["error"]
+
+
+class recording_machine:
+    def __init__(self):
+        self.sets = []
+
+    def setExpression(self, expression, duration_ms=None):
+        self.sets.append((expression, duration_ms))
+        return True
+
+    def tick(self, dt_ms):
+        return {"expression": None, "cycleIndex": 0}
+
+
+def test_setting_an_expression_acts_on_the_named_participant():
+    settings = Settings(roster_pool=[("John", "alice")])
+    _, joined = _call("join", {}, settings)
+    fallback = recording_machine()
+    participant = _get_roster(settings).participants[0]
+    participant.state_machine = recording_machine()
+
+    with patch("ziomek.server._state_machine", fallback):
+        result, data = _call("set_expression", {"expression": "happy", "name": joined["name"]}, settings)
+
+    assert result.is_error is False
+    assert participant.state_machine.sets == [("happy", None)]
+    # The global machine is the fallback, it is not used when a participant is named.
+    assert fallback.sets == []
+    assert data["expression"] == "happy"
+
+
+def test_the_global_machine_is_the_fallback_when_nobody_has_joined():
+    settings = Settings(roster_pool=[("John", "alice")])
+    fallback = recording_machine()
+
+    with patch("ziomek.server._state_machine", fallback):
+        result, data = _call("set_expression", {"expression": "happy"}, settings)
+
+    assert result.is_error is False
+    assert fallback.sets == [("happy", None)]
+    assert data["expression"] == "happy"
+
+
+def test_the_expression_tools_take_an_optional_name():
+    for tool_name in ("set_expression", "get_expression"):
+        tool = next(t for t in mcp_tools_module.TOOLS if t.name == tool_name)
+        assert "name" in tool.input_schema["properties"]
+
+    # The name stays optional, so an agent that does not name itself still works.
+    set_tool = next(t for t in mcp_tools_module.TOOLS if t.name == "set_expression")
+    assert set_tool.input_schema.get("required") == ["expression"]
+    get_tool = next(t for t in mcp_tools_module.TOOLS if t.name == "get_expression")
+    assert not get_tool.input_schema.get("required")

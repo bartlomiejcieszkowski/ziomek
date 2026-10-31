@@ -106,9 +106,13 @@ class Roster:
         quiet_for: int = 3000,
         rng: random.Random | None = None,
         state_machine_factory=None,
+        push_hook=None,
     ) -> None:
         self.pool: list[tuple[str, str]] = list(pool or [])
         self.state_machine_factory = state_machine_factory
+        # The view push is attached to every machine the roster makes, so a participant's
+        # expression change reaches the page instead of being polled.
+        self.push_hook = push_hook
         # Words are the second part of a name when the first part is taken in the call.
         self.words: list[str] = list(words or [])
         self.quiet_for = quiet_for
@@ -166,7 +170,9 @@ class Roster:
             from ziomek.avatar.state_machine import AvatarStateMachine
 
             factory = AvatarStateMachine
-        return factory(participant)
+        machine = factory(participant)
+        machine.on_change = self.push_hook
+        return machine
 
     def _candidates(self, key: int) -> list[tuple[str, str]]:
         """Entries with the lowest usage count for the given pool field."""
@@ -238,9 +244,16 @@ def get_roster(settings: object | None = None) -> Roster:
     """Get the roster for the current call, built from the configured pool."""
     global _roster
     if _roster is None:
+        from ziomek.api import avatar_ws
+
         pool = list(settings.roster_pool) if settings else []
         quiet_for = settings.roster_quiet_for if settings else 3000
-        _roster = Roster(pool=pool, words=list(settings.roster_words) if settings else [], quiet_for=quiet_for)
+        _roster = Roster(
+            pool=pool,
+            words=list(settings.roster_words) if settings else [],
+            quiet_for=quiet_for,
+            push_hook=avatar_ws.notify_change,
+        )
     return _roster
 
 

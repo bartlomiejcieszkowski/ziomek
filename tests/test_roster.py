@@ -100,3 +100,24 @@ def test_join_creates_its_own_state_machine_for_the_participant():
     assert first.state_machine is not second.state_machine
     # The machine reads the name and text areas from its participant record.
     assert first.state_machine.participant is first
+
+
+def test_the_view_push_hook_is_attached_to_every_machine_the_roster_makes():
+    made = []
+
+    class machine:
+        def __init__(self, participant):
+            made.append(self)
+            self.participant = participant
+            self.on_change = None
+
+    pushes = []
+
+    def push(participant, expression, cycle_index):
+        pushes.append((participant, expression, cycle_index))
+
+    roster = Roster(pool=[("John", "alice")], state_machine_factory=machine, push_hook=push)
+    participant = roster.join("John")
+
+    made[0].on_change(participant, "happy", 0)
+    assert pushes == [(participant, "happy", 0)]

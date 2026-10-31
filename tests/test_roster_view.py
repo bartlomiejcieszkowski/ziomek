@@ -14,6 +14,9 @@ from ziomek.roster import get_roster
 @pytest.fixture(autouse=True)
 def fresh_roster():
     module._roster = None
+    from ziomek.api import avatar_ws
+
+    avatar_ws._shown = None
 
 
 def build_app():
@@ -56,3 +59,40 @@ def test_the_roster_page_is_served_by_the_server():
 
     assert client.get("/api/roster").status_code == 200
     assert 'className = "tile"' in client.get("/api/roster/view").text
+
+
+def test_the_shown_participant_is_rendered_with_its_own_machine(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+
+    from ziomek.api import avatar_ws
+    from ziomek.roster import Roster
+
+    sent = []
+
+    class fake_ws:
+        async def send_json(self, message):
+            sent.append(message)
+
+    class own_machine:
+        def getCurrentState(self):
+            return SimpleNamespace(expressionName="focused", cycleIndex=2)
+
+    ws = fake_ws()
+    monkeypatch.setattr(avatar_ws, "_connected_clients", [ws])
+
+    roster = Roster(pool=[("John", "alice")], state_machine_factory=lambda p: own_machine())
+    participant = roster.join("John")
+    avatar_ws.show(participant)
+
+    asyncio.run(avatar_ws._state_message(ws))
+
+    assert sent[0]["expression"] == "focused"
+    assert sent[0]["name"] == "John"
+
+
+def test_the_roster_uses_the_view_push_as_its_hook():
+    from ziomek.api import avatar_ws
+    from ziomek.roster import get_roster
+
+    assert get_roster().push_hook is avatar_ws.notify_change

@@ -82,13 +82,16 @@ class TestAvatarWebSocket:
             assert message["type"] == "state"
             assert message["expression"] == "happy"
 
-    def test_initial_state_comes_from_the_participant_record(self, client):
+    def test_initial_state_comes_from_the_participant_record(self, client, monkeypatch):
+        from ziomek.api import avatar_ws
         from ziomek.roster import Roster
         from ziomek.server import _state_machine
 
         participant = Roster().join("John D.")
         participant.add_text("compiling", author="agent")
-        _state_machine.participant = participant
+        # The single view renders the shown participant, not the global machine's record.
+        monkeypatch.setattr(avatar_ws, "_shown", participant)
+        monkeypatch.setattr(participant, "state_machine", _state_machine)
 
         with client.websocket_connect("/api/avatar/ws") as ws:
             message = ws.receive_json()
