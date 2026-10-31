@@ -17,6 +17,16 @@ router = APIRouter()
 # Track connected WebSocket clients
 _connected_clients: list[WebSocket] = []
 
+# The single view renders one participant, so the name and text come from its record
+# and its expression comes from its own machine.
+_shown: Participant | None = None
+
+
+def show(participant: Participant | None) -> None:
+    """Set the participant the single view renders."""
+    global _shown
+    _shown = participant
+
 
 async def _broadcast(message: dict[str, Any]) -> None:
     """Send message to all connected WebSocket clients."""
@@ -37,8 +47,12 @@ async def _state_message(websocket: WebSocket) -> None:
     """Send the current expression state to a single client."""
     from ziomek.server import _state_machine
 
-    state = _state_machine.getCurrentState()
-    await websocket.send_json(state_message(_state_machine.participant, state.expressionName, state.cycleIndex))
+    machine = getattr(_shown, "state_machine", None) if _shown is not None else None
+    if machine is None:
+        machine = _state_machine
+
+    state = machine.getCurrentState()
+    await websocket.send_json(state_message(_shown, state.expressionName, state.cycleIndex))
 
 
 def register_client(websocket: WebSocket) -> None:

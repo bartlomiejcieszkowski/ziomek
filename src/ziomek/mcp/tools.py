@@ -101,6 +101,10 @@ TOOLS = [
             "properties": {
                 "expression": {"type": "string", "description": "Expression name (e.g. happy, sad, neutral)."},
                 "duration_ms": {"type": "integer", "description": "Duration in ms (optional, permanent if omitted)."},
+                "name": {
+                    "type": "string",
+                    "description": "Participant this expression is for. Without it, the global avatar is used.",
+                },
             },
             "required": ["expression"],
         },
@@ -108,7 +112,15 @@ TOOLS = [
     Tool(
         name="get_expression",
         description="Get the current avatar expression and state.",
-        input_schema={"type": "object", "properties": {}},
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Participant to read. Without it, the global avatar is used.",
+                },
+            },
+        },
     ),
     Tool(
         name="join",
@@ -298,9 +310,9 @@ async def _handle_stop_listening() -> CallToolResult:
 
 
 async def _handle_set_expression(arguments: dict) -> CallToolResult:
-    from ziomek.server import _state_machine
+    machine, participant = _resolve_machine(arguments.get("name"))
 
-    if _state_machine is None:
+    if machine is None:
         return CallToolResult(
             content=[TextContent(type="text", text=json.dumps({"error": "State machine not initialized"}))],
             is_error=True,
@@ -308,7 +320,7 @@ async def _handle_set_expression(arguments: dict) -> CallToolResult:
 
     expression = arguments.get("expression", "")
     duration_ms = arguments.get("duration_ms")
-    ok = _state_machine.setExpression(expression, duration_ms)
+    ok = machine.setExpression(expression, duration_ms)
     return CallToolResult(
         content=[
             TextContent(
@@ -317,6 +329,7 @@ async def _handle_set_expression(arguments: dict) -> CallToolResult:
                     {
                         "ok": ok,
                         "expression": expression,
+                        "name": participant.name if participant is not None else None,
                     }
                 ),
             )
@@ -324,16 +337,16 @@ async def _handle_set_expression(arguments: dict) -> CallToolResult:
     )
 
 
-async def _handle_get_expression() -> CallToolResult:
-    from ziomek.server import _state_machine
+async def _handle_get_expression(arguments: dict | None = None) -> CallToolResult:
+    machine, participant = _resolve_machine((arguments or {}).get("name"))
 
-    if _state_machine is None:
+    if machine is None:
         return CallToolResult(
             content=[TextContent(type="text", text=json.dumps({"error": "State machine not initialized"}))],
             is_error=True,
         )
 
-    state = _state_machine.tick(16)
+    state = machine.tick(16)
     return CallToolResult(
         content=[
             TextContent(
@@ -344,6 +357,7 @@ async def _handle_get_expression() -> CallToolResult:
                         "cycleIndex": state.cycleIndex,
                         "message": state.message,
                         "messageExpiry": state.messageExpiry,
+                        "name": participant.name if participant is not None else None,
                     }
                 ),
             )
@@ -352,7 +366,8 @@ async def _handle_get_expression() -> CallToolResult:
 
 
 async def _handle_join(arguments: dict) -> CallToolResult:
-    from ziomek.server import _settings, _state_machine
+    from ziomek.api import avatar_ws
+    from ziomek.server import _settings
 
     roster = _get_roster(_settings)
     try:
@@ -363,8 +378,8 @@ async def _handle_join(arguments: dict) -> CallToolResult:
             is_error=True,
         )
     # The single view shows one participant, so the first one to join is shown.
-    if _state_machine is not None and _state_machine.participant is None:
-        _state_machine.participant = participant
+    if avatar_ws._shown is None:
+        avatar_ws.show(participant)
     return _text_payload(
         {
             "name": participant.name,
@@ -405,6 +420,16 @@ async def _handle_leave(arguments: dict) -> CallToolResult:
         )
     participant.leave()
     return _text_payload({"name": participant.name, "state": participant.state})
+
+
+def _resolve_machine(name: str | None):
+    """The machine for the named participant, falling back to the global avatar."""
+    from ziomek.server import _settings, _state_machine
+
+    participant = _find_participant(_get_roster(_settings), name) if name else None
+    if participant is not None and getattr(participant, "state_machine", None) is not None:
+        return participant.state_machine, participant
+    return _state_machine, participant
 
 
 def _find_participant(roster: Roster, name: str):
