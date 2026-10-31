@@ -73,14 +73,17 @@ def transcript() -> list[dict]:
 
 
 def format_line(entry: dict) -> str:
-    """Build one line for one entry, with the author kept when it is there."""
-    name = entry.get("name", "")
-    author = entry.get("author", "")
-    head = " ".join(part for part in (name, author) if part)
-    text = entry.get("text", "")
-    if text:
-        return f"{head} — {text}" if head else text
-    return ""
+    """Build one line for one entry.
+
+    A name and an author belong to the block that holds them, so a written text is the text as
+    it was recorded; an action becomes a sentence. One rule, used by the panel and the file.
+    """
+    if entry.get("action") == "text":
+        return entry.get("text", "")
+
+    if not (entry.get("action") or entry.get("text")):
+        return ""  # Review focus line 1: an entry with nothing to show produces no line
+    return sentence(entry)
 
 
 def blocks(entries: list[dict]) -> list[dict]:
@@ -93,30 +96,29 @@ def blocks(entries: list[dict]) -> list[dict]:
     for entry in entries:
         if not (entry.get("name") or entry.get("action") or entry.get("text")):
             continue  # Review focus line 1: an entry with nothing to show produces no line
-        if entry.get("action") == "text" and entry.get("author") and entry["author"] != "system":
+        if entry.get("action") == "text" and entry.get("author"):
             line = format_line(entry)
             if not line:
                 continue
-            if (
-                grouped
-                and grouped[-1]["kind"] == "group"
-                and grouped[-1]["name"] == entry.get("name", "")
-                and grouped[-1]["author"] == entry.get("author", "")
-            ):
+            key = (entry.get("name", ""), entry.get("author", ""))
+            if grouped and grouped[-1]["kind"] == "group" and (grouped[-1]["name"], grouped[-1]["author"]) == key:
                 grouped[-1]["lines"].append(line)
                 continue
             grouped.append(
                 {"kind": "group", "name": entry.get("name", ""), "author": entry.get("author", ""), "lines": [line]}
             )
             continue
-        grouped.append({"kind": "system", "text": sentence(entry)})
+        line = format_line(entry)
+        if line:
+            grouped.append({"kind": "system", "text": line})
     return [g for g in grouped if g["kind"] == "system" or g["lines"]]
 
 
 def sentence(entry: dict) -> str:
     """Build the system line for one entry, in the words the record stores."""
     word = _PAST.get(entry.get("action", ""), entry.get("action", ""))
-    return f"{entry.get('name', '')} {word}."
+    name = entry.get("name", "")
+    return f"{name} {word}." if name else f"{word}."
 
 
 @router.get("/api/roster/transcript", summary="Transcript", description="List what happened in the call, in order.")
@@ -125,10 +127,10 @@ async def get_transcript_view() -> JSONResponse:
     return JSONResponse(content={"entries": transcript(), "blocks": blocks(transcript())})
 
 
-def markdown_text(blocks: list[dict], timestamp: str) -> str:
+def markdown_text(grouped: list[dict], timestamp: str) -> str:
     """Build the file content from blocks."""
     parts = [f"# transcript — {timestamp}", ""]
-    for block in blocks:
+    for block in grouped:
         if block["kind"] == "system":
             parts.append(f"> {block['text']}")
             continue
@@ -139,14 +141,12 @@ def markdown_text(blocks: list[dict], timestamp: str) -> str:
         for line in block["lines"]:
             parts.append(f"{line}  ")
         parts.append("")
-    while parts and parts[-1] == "":
-        parts.pop()
     return "\n".join(parts) + "\n"
 
 
 def clock() -> str:
     """Format the current time as the filename wants it."""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%SZ")
 
 
 @router.get(

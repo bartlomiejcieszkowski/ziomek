@@ -12,6 +12,11 @@ def page_source():
     return (Path(__file__).parent.parent / "src" / "ziomek" / "resources" / "roster.html").read_text(encoding="utf-8")
 
 
+def module_source():
+    """The module as stored, for rules the page cannot reach without a browser."""
+    return (Path(__file__).parent.parent / "src" / "ziomek" / "api" / "roster_view.py").read_text(encoding="utf-8")
+
+
 import ziomek.roster as module
 from ziomek import server
 from ziomek.api.roster_view import blocks, markdown_text, router, sentence, transcript
@@ -191,7 +196,7 @@ def test_the_served_page_carries_the_configured_default():
     client = build_app()
 
     # The file must carry the token, otherwise the substitution is a no-op.
-    source = Path("src/ziomek/resources/roster.html").read_text(encoding="utf-8")
+    source = page_source()
     assert "__TRANSCRIPT_DEFAULT__" in source
 
     assert 'const initial = "open";' in client.get("/api/roster/view").text
@@ -232,11 +237,13 @@ def test_the_page_has_the_panel_and_its_toggle():
     assert "@media (max-width: 900px)" in page
 
 
-def test_the_page_builds_an_agent_line_from_the_name_and_the_author():
-    from ziomek.api.roster_view import format_line
+def test_the_group_header_carries_the_name_and_the_author_and_the_line_carries_only_the_text():
+    from ziomek.api.roster_view import blocks, format_line
 
-    # Spec line format: the name, the author, then the separator, then the text.
-    assert format_line({"name": "John", "text": "compiling", "author": "agent"}) == "John agent — compiling"
+    entry = {"name": "John", "action": "text", "text": "compiling", "author": "agent"}
+    assert format_line(entry) == "compiling"
+    assert blocks([entry])[0]["name"] == "John"
+    assert blocks([entry])[0]["author"] == "agent"
 
 
 def test_the_page_words_the_actions_and_keeps_an_unknown_action_as_recorded():
@@ -257,8 +264,11 @@ def test_the_panel_and_the_saved_file_write_the_same_lines():
     blocks_result = blocks([entry])
     assert blocks_result[0]["lines"] == group["lines"]
     file = markdown_text([group], "2026-10-31T14:20:04Z")
-    for line in group["lines"]:
-        assert line in file
+    # Task 5 Step 1: the same content must keep the markers a markdown viewer needs.
+    assert "compiling  " in file  # two spaces, the hard break a viewer reads
+    assert "### John (agent)" in file  # the heading keeps name and author
+    quote = markdown_text([{"kind": "system", "text": "John left."}], "2026-10-31T14:20:04Z")
+    assert "> John left." in quote
     # The markers, so a viewer can read the same lines the panel shows.
     assert "### John (agent)" in file
     assert "compiling  " in file  # two spaces: a markdown hard break
@@ -266,12 +276,14 @@ def test_the_panel_and_the_saved_file_write_the_same_lines():
     assert "> John joined." in quoted
 
 
-def test_a_line_with_an_empty_name_does_not_start_with_a_separator():
-    # Review focus line 4: the separator is dropped when there is no name.
+def test_a_group_without_a_name_keeps_the_author_and_the_text():
+    # Review focus line 4: nothing is added for a name that is not there.
     from ziomek.api.roster_view import blocks
 
     entries = [{"action": "text", "text": "compiling", "author": "agent"}]
-    assert blocks(entries)[0]["lines"] == ["agent — compiling"]
+    block = blocks(entries)[0]
+    assert block["name"] == ""
+    assert block["lines"] == ["compiling"]
 
 
 def test_the_page_writes_lines_with_text_content():
@@ -312,12 +324,13 @@ def test_the_file_keeps_its_header_when_there_is_nothing_to_save():
 
 
 def test_an_entry_with_nothing_to_show_produces_no_line():
-    # Review focus line 1: an entry with no name, text and author produces nothing.
-    # The guard belongs in format_line, so the panel and the file behave the same.
+    # Review focus line 1: an entry with no name, action or text produces nothing.
+    # The guard belongs in the rule that builds lines, so the panel and the file behave the same.
     from ziomek.api.roster_view import blocks, format_line
 
     assert format_line({"name": "", "action": "", "text": "", "author": ""}) == ""
     assert blocks([{"name": "", "action": "", "text": "", "author": ""}]) == []
+    assert format_line({"name": "John", "action": "", "text": "", "author": ""}) == ""
 
 
 def test_the_toggle_stays_reachable_when_the_panel_is_hidden():
@@ -331,13 +344,12 @@ def test_the_toggle_stays_reachable_when_the_panel_is_hidden():
     assert "#layout.hide #panel { flex: 0 0 auto; }" in page
 
 
-def test_the_page_words_the_actions_as_the_spec_sentences():
-    client = build_app()
-    page = client.get("/api/roster/view").text
+def test_the_words_of_the_actions_are_the_sentences_the_spec_asks_for():
+    from ziomek.api.roster_view import sentence
 
-    assert '"join": "joined"' in page
-    assert '"hold": "is on hold"' in page
-    assert '"leave": "left"' in page
+    assert sentence({"name": "John", "action": "join"}) == "John joined."
+    assert sentence({"name": "John", "action": "hold"}) == "John is on hold."
+    assert sentence({"name": "John", "action": "leave"}) == "John left."
 
 
 def test_the_page_names_the_file_with_the_short_extension():
@@ -376,7 +388,8 @@ def test_the_panel_lines_keep_their_newlines_and_are_not_rebuilt_each_tick():
     client = build_app()
     page = client.get("/api/roster/view").text
 
-    assert "#transcript li { white-space: pre-wrap; }" in page
+    # The rule must reach the elements the panel actually builds.
+    assert "#transcript .box p, #transcript .event { white-space: pre-wrap; }" in page
     assert "rendered" in page  # the page keeps what it has already shown instead of clearing the list
 
 
@@ -424,7 +437,7 @@ def test_the_cookie_reader_accepts_a_separator_without_the_space():
 def test_the_tile_payload_has_one_texts_key():
     from ziomek.api import roster_view
 
-    source = Path("src/ziomek/api/roster_view.py").read_text(encoding="utf-8")
+    source = module_source()
     assert source.count('"texts": [entry.as_dict()') == 1
     assert roster_view.tiles
 
@@ -507,9 +520,7 @@ def test_the_file_uses_the_clock_passed_by_the_page(monkeypatch):
     page = client.get("/api/roster/view").text
     assert "at = new Date()" in page
     assert "buildFilename(ext, at)" in page
-    assert (
-        'request.query_params.get("at")' in open("src/ziomek/api/roster_view.py", encoding="utf-8", newline="").read()
-    )
+    assert 'request.query_params.get("at")' in module_source()
 
 
 def test_the_page_has_the_colors_and_the_box_shape():
@@ -524,3 +535,83 @@ def test_the_page_has_the_colors_and_the_box_shape():
 def test_the_page_writes_the_group_header_with_the_author():
     page = page_source()
     assert '" (" + block.author + ")"' in page
+
+
+def test_the_panel_renders_a_system_block_as_its_own_line():
+    page = page_source()
+
+    # A block that is not a group cannot be built from lines that do not exist.
+    assert 'if (block.kind === "system")' in page
+    assert 'item.className = "event"' in page
+
+
+def test_a_group_line_is_the_text_as_written():
+    from ziomek.api.roster_view import format_line
+
+    # The header carries the name and the author, so the line carries only the text.
+    entry = {"name": "John", "action": "text", "text": "compiling", "author": "agent"}
+    assert format_line(entry) == "compiling"
+
+
+def test_a_group_is_keyed_by_the_participant_and_the_author():
+    from ziomek.api.roster_view import blocks
+
+    entries = [
+        {"name": "John", "action": "text", "text": "compiling", "author": "agent"},
+        {"name": "John", "action": "text", "text": "a system note", "author": "system"},
+    ]
+    built = blocks(entries)
+    assert [block["kind"] for block in built] == ["group", "group"]
+    assert built[1]["author"] == "system"
+    assert built[1]["lines"] == ["a system note"]
+
+
+def test_an_entry_with_a_name_and_no_action_and_no_text_produces_no_block():
+    from ziomek.api.roster_view import blocks
+
+    assert blocks([{"name": "John", "action": "", "text": "", "author": ""}]) == []
+    assert blocks([{"name": "John", "action": "join", "text": "", "author": ""}]) == [
+        {"kind": "system", "text": "John joined."}
+    ]
+
+
+def test_a_nameless_entry_has_no_leading_space_in_its_line():
+    from ziomek.api.roster_view import sentence
+
+    assert sentence({"name": "", "action": "join"}) == "joined."
+
+
+def test_the_two_clocks_use_the_same_shape():
+    import re
+
+    from ziomek.api import roster_view
+
+    # The header and the name use one shape, so the file says what the page passed.
+    assert 'strftime("%Y-%m-%dT%H%M%SZ")' in (
+        Path(__file__).parent.parent / "src" / "ziomek" / "api" / "roster_view.py"
+    ).read_text(encoding="utf-8")
+    assert "getUTCHours()" in page_source()
+
+
+def test_the_file_name_follows_the_shape_the_spec_gives():
+    page = page_source()
+
+    # ziomek_{YYYY-MM-DD}_{HHMM}_transcript.{ext}: dashes inside the date, underscore as the separator.
+    assert 'dateParts(at).join("-") + "_" + clockParts(at).slice(0, 2).join("")' in page
+
+
+def test_the_classes_the_page_uses_are_the_classes_the_page_defines():
+    page = page_source()
+
+    # A class the page uses must be defined once, and a rule must be reachable.
+    assert 'el_class("group_author")' in page and ".group_author { color: #999; }" in page
+    assert page.count(".box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; }") == 1
+    assert "#transcript .box p, #transcript .event { white-space: pre-wrap; }" in page
+    assert ".event { color: #e0a568; }" in page
+
+
+def test_the_page_builds_a_line_only_through_the_rule_in_python():
+    page = page_source()
+
+    # The dead map is gone: the words exist in one place.
+    assert "const PAST = {" not in page
