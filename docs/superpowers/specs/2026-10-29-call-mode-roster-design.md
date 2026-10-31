@@ -26,13 +26,14 @@ That is why part 1 ships first and part 2 builds on it.
 
 - WebSocket payload gains two separate fields: `name` and `status_text`. Existing fields stay as they are so clients and tests keep working; new fields are `None` when not provided.
 - The renderer shows the tile name from the payload (never a hardcoded string), and text below the tile for `status_text`.
+- The single view is the simplified rendering of one participant: the first one to join. Name, text, and expression come from that participant's record and its own machine, so it is not a second renderer of a shared machine.
 - No audio change: `mix_play` in `src/ziomek/tts/playback.py` already plays overlapping sounds for the backends that support mixing.
 
 ## Part 2 — roster
 
 ### Participants
 
-A participant record holds: name, display name, voice, expression, status text, on-hold text, and its own `AvatarStateMachine` created at join. The gamepad cannot drive participants — it drives one machine — so when a roster is active the gamepad input is not routed to any participant.
+A participant record holds: name, display name, voice, expression, status text, on-hold text, and its own `AvatarStateMachine` created at join. Expression comes from tool calls that name the participant they are for; the global avatar is the fallback when nothing is named. The gamepad does not drive expressions — it is inert for now and is meant to become a control method later, so polled input is applied to nothing.
 
 Identity is the agent's responsibility: it states a name at join. First assignment wins **within a session only**; nothing persists across calls, and a name stated in a later session is used as-is with no lookup. Connection id is only a hint — the MCP transport drops quiet sessions before our timer would, so participant records must be our own, keyed by name, with a last-seen time.
 
