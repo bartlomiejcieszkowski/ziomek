@@ -52,3 +52,14 @@ async def get_roster_view() -> JSONResponse:
 async def get_roster_page() -> HTMLResponse:
     """Serve the roster page HTML (one tile per participant)."""
     return HTMLResponse(_page_html.read_text(encoding="utf-8"))
+
+
+def transcript() -> list[dict]:
+    """The call record as one ordered stream."""
+    return list(get_roster().events)
+
+
+@router.get("/api/roster/transcript", summary="Transcript", description="List what happened in the call, in order.")
+async def get_transcript_view() -> JSONResponse:
+    """Serve the entries of the current call record."""
+    return JSONResponse(content=transcript())

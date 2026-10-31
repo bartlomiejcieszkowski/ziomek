@@ -136,3 +136,44 @@ def test_the_roster_page_shows_the_text_attached_to_each_event():
 
     assert "event.text" in page
     assert "event.author" in page
+
+
+def test_transcript_entries_without_text_have_no_text_key():
+    client = build_app()
+    get_roster().join("John")
+
+    entries = client.get("/api/roster/transcript").json()
+
+    assert "text" not in entries[0]
+    assert "author" not in entries[0]
+
+
+def test_the_transcript_lists_the_call_in_order():
+    client = build_app()
+    roster = get_roster()
+    first = roster.join("John")
+    first.add_text("compiling", author="agent")
+    second = roster.join("Donald", voice="bob")
+    second.hold()
+
+    entries = client.get("/api/roster/transcript").json()
+
+    assert [(e["name"], e["action"]) for e in entries] == [
+        ("John", "join"),
+        ("John", "text"),
+        ("Donald", "join"),
+        ("Donald", "hold"),
+    ]
+
+
+def test_the_transcript_keeps_the_text_and_its_author():
+    client = build_app()
+    roster = get_roster()
+    participant = roster.join("John")
+    participant.add_text("compiling", author="agent")
+
+    # The join comes first in the record, so the entry with text is the second one.
+    entry = client.get("/api/roster/transcript").json()[1]
+
+    assert entry["text"] == "compiling"
+    assert entry["author"] == "agent"
