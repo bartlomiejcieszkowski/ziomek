@@ -74,7 +74,7 @@ def test_the_transcript_lists_the_call_in_order():
 
 def test_the_transcript_keeps_the_text_and_its_author():
     client = build_app()
-    entry = client.get("/api/roster/transcript").json()[0]  # after a join and one add_text
+    entry = client.get("/api/roster/transcript").json()[1]  # the join is recorded first, the text entry second
 
     assert entry["text"] == "compiling"
     assert entry["author"] == "agent"
@@ -156,18 +156,19 @@ def test_the_page_has_the_panel_and_its_toggle():
 
 def test_the_page_formats_an_agent_line():
     page = client.get("/api/roster/view").text
-    assert 'entry.name + " — " + entry.text' in page
+    assert '"entry.name, entry.author, entry.text"' in page
+    assert '" — "' in page
 
 def test_the_page_formats_a_system_line():
     page = client.get("/api/roster/view").text
-    assert 'entry.name + " " + entry.action + "."' in page
+    assert '(PAST[entry.action] || entry.action) + "."' in page
 
 def test_the_page_renders_lines_with_text_content():
     # Review focus lines 2 and 4: nothing is put through innerHTML for panel lines,
     # and a line without an author keeps the sentence form.
     page = client.get("/api/roster/view").text
     assert "item.textContent" in page
-    assert "entry.text ? " in page  # a line with no text keeps the system sentence
+    assert '"entry.name, entry.author, entry.text"' in page  # the name, the author, then the text
 ```
 
 - [ ] **Step 2:** Run, expect FAIL.
