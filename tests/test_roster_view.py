@@ -128,3 +128,11 @@ def test_the_roster_page_shows_the_expression_of_each_participant():
     page = client.get("/api/roster/view").text
 
     assert 'renderText(el, "expression", tile.expression)' in page
+
+
+def test_the_roster_page_shows_the_text_attached_to_each_event():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    assert "event.text" in page
+    assert "event.author" in page

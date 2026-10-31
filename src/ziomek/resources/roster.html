@@ -31,7 +31,9 @@
           list.className = "events";
           for (const event of tile.events || []) {
             const item = document.createElement("li");
-            item.textContent = event.name + " " + event.action;
+            const line = event.name + " " + event.action;
+            const author = event.author ? " (" + event.author + ")" : "";
+            item.textContent = line + (event.text ? author + ": " + event.text : "");
             list.appendChild(item);
           }
           el.appendChild(list);

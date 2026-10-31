@@ -33,6 +33,8 @@ def tiles() -> list[dict]:
             "system_text": participant.system_text,
             "state": participant.state,
             "held_seconds": participant.held_seconds,
+            "texts": [entry.as_dict() for entry in participant.texts],
+            "texts": [entry.as_dict() for entry in participant.texts],
             "events": list(participant.events),
             "expression": expression_for(participant),
         }

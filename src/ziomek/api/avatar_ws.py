@@ -83,6 +83,8 @@ def state_message(
         "system_text": participant.system_text if participant is not None else None,
         "on_hold": participant.state == "held" if participant is not None else False,
         "held_seconds": participant.held_seconds if participant is not None else 0,
+        "texts": [entry.as_dict() for entry in participant.texts] if participant is not None else [],
+        "texts": [entry.as_dict() for entry in participant.texts] if participant is not None else [],
         "events": list(participant.events) if participant is not None else [],
     }
 
