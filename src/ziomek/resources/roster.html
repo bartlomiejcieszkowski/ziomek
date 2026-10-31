@@ -26,12 +26,21 @@
     <div id="layout">
       <div id="roster"></div>
       <div id="panel">
-        <div id="header"><button id="toggle">hide</button></div>
+        <div id="header">
+          <button id="toggle">hide</button>
+          <button id="save">Save</button>
+          <button id="formats">(...)</button>
+          <div id="menu">
+            <button data-format="markdown">Markdown</button>
+            <button data-format="json">JSON</button>
+          </div>
+        </div>
         <ul id="transcript"></ul>
       </div>
     </div>
     <script>
       const initial = "__TRANSCRIPT_DEFAULT__";
+      let lastEntries = [];
 
       function formatLine(entry) {
         if (entry.text ? entry.author : false) {
@@ -83,6 +92,32 @@
         return String(Math.floor(seconds / 60)).padStart(2, "0") + ":" + String(seconds % 60).padStart(2, "0");
       }
 
+      function pad(value) {
+        return String(value).padStart(2, "0");
+      }
+
+      function buildFilename(ext) {
+        const now = new Date();
+        const date = [now.getFullYear(), pad(now.getMonth() + 1), pad(now.getDate())].join("-");
+        return "ziomek_" + date + "_" + pad(now.getHours()) + pad(now.getMinutes()) + "_transcript." + ext;
+      }
+
+      function markdownFile(entries) {
+        return new Blob(["# Transcript\n" + entries.map(formatLine).join("\n")], { type: "text/plain" });
+      }
+
+      function jsonFile(entries) {
+        return new Blob([JSON.stringify(entries)], { type: "application/json" });
+      }
+
+      function download(content, name) {
+        const blob = content;
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = name;
+        link.click();
+      }
+
       function setShown(shown) {
         document.getElementById("layout").classList.toggle("hide", !shown);
       }
@@ -97,13 +132,20 @@
         setShown(panel.classList.contains("open"));
       });
 
+      document.getElementById("menu").addEventListener("click", (event) => {
+        const ext = event.target.dataset.format;
+        if (!ext) return;
+        download(ext === "json" ? jsonFile(lastEntries) : markdownFile(lastEntries), buildFilename(ext));
+      });
+
       async function refresh() {
         const response = await fetch("/api/roster");
         render(await response.json());
         const stream = await fetch("/api/roster/transcript");
+        lastEntries = await stream.json();
         const list = document.getElementById("transcript");
         list.innerHTML = "";
-        for (const entry of await stream.json()) {
+        for (const entry of lastEntries) {
           renderLine(entry);
         }
       }

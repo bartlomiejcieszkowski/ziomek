@@ -260,3 +260,30 @@ def test_the_page_writes_lines_with_text_content():
 
     # Review focus line 2: a line that HTML would interpret must appear literally.
     assert "item.textContent" in page
+
+
+def test_the_page_has_save_with_the_two_formats():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    assert 'id="save"' in page
+    assert 'data-format="markdown"' in page
+    assert 'data-format="json"' in page
+
+
+def test_the_saved_file_is_named_with_the_project_and_the_download_time():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    # ziomek_{YYYY-MM-DD}_{HHMM}_transcript.{md|json}, built from the browser clock
+    assert "ziomek_" in page
+    assert "new Date(" in page
+
+
+def test_the_page_writes_a_file_with_its_header_when_there_is_nothing_to_save():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    # Review focus line 5: the download happens even for an empty record.
+    assert "new Blob(" in page
+    assert "# Transcript" in page
