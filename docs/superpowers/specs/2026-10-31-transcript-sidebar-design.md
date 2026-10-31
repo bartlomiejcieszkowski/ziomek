@@ -25,7 +25,7 @@ The roster page gains a right-hand panel that shows what the agents said during 
 
 ## Approaches
 
-1. **Transcript data.** Built from `roster.events` on the server (chosen) — that list is already one chronological stream across participants, so the order is correct and only entries with text and an author enter it. Rejected: merging `tile.events` in the browser, which loses cross-participant order.
+1. **Transcript data.** Built from `roster.events` on the server (chosen) — that list is already one chronological stream across participants, so the order is correct and every entry of the record is shown as written. Rejected: merging `tile.events` in the browser, which loses cross-participant order.
 2. **Default reaching the page.** Injected into the served page (chosen): `roster_transcript_default` (`open` / `closed`) in the settings, and `src/ziomek/api/roster_view.py` substitutes the value when `src/ziomek/resources/roster.html` is served. Rejected: a field in the `/api/roster` payload (needs a data change for a display setting) and a separate config endpoint (a second request for one value).
 
 Chosen: transcript built from the record on the server, default injected into the page at serve time.
