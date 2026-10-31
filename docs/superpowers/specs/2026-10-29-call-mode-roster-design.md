@@ -57,7 +57,7 @@ Agents manage their own membership through tool calls: join, leave, and **hold**
 
 Live tiles plus a record of what happened (join, hold, leave, and the text attached to each). The record lives only for this call: it is cleared with the call, same lifetime as the usage counts. Nothing here is written to disk — the pool and its voice mappings live in config, which you write; runtime assignments for generated names are not stored anywhere.
 
-Each tile has two text areas: a status line and an on-hold area that may carry its own messages. Text needs provenance — what the agent typed vs what the system wrote — so the page can tell them apart. A held participant looks visibly distinct: a pause indicator with elapsed hold time (`On hold XX:XX`), as Teams shows. That needs join time and hold-start time, and a client-side tick — the current renderer only redraws on messages, so an elapsed duration cannot come from the server push.
+Each tile has two text areas: a status line and an on-hold area that may carry its own messages, and it shows the expression that this participant's own machine is reporting — every participant has its own machine, so the values cannot be shared across tiles. Text needs provenance — what the agent typed vs what the system wrote — so the page can tell them apart. A held participant looks visibly distinct: a pause indicator with elapsed hold time (`On hold XX:XX`), as Teams shows. That needs join time and hold-start time, and a client-side tick — the current renderer only redraws on messages, so an elapsed duration cannot come from the server push.
 
 ### Tests (TDD, three behaviors)
 
