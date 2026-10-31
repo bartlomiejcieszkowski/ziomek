@@ -34,7 +34,6 @@ def tiles() -> list[dict]:
             "state": participant.state,
             "held_seconds": participant.held_seconds,
             "texts": [entry.as_dict() for entry in participant.texts],
-            "texts": [entry.as_dict() for entry in participant.texts],
             "events": list(participant.events),
             "expression": expression_for(participant),
         }
@@ -49,7 +48,7 @@ async def get_roster_view() -> JSONResponse:
 
 
 def panel_default() -> str:
-    """The configured state of the transcript panel, closed for any other value."""
+    """The state the page starts with: config decides, and a value outside open/closed is read as closed."""
     from ziomek.server import _settings
 
     value = _settings.roster_transcript_default if _settings else "open"

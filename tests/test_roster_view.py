@@ -1,5 +1,7 @@
 """The roster page shows a tile for each participant in the call."""
 
+from pathlib import Path
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -180,14 +182,13 @@ def test_the_transcript_keeps_the_text_and_its_author():
 
 
 def test_the_served_page_carries_the_configured_default():
-    app = server.create_app(
-        Settings(roster_transcript_default="closed", audio_backend="noop", no_stt=True, no_gamepad=True)
-    )
-    client = TestClient(app)
+    client = build_app()
 
-    page = client.get("/api/roster/view").text
-    assert 'const initial = "closed";' in page
-    assert "__TRANSCRIPT_DEFAULT__" not in page
+    # The file must carry the token, otherwise the substitution is a no-op.
+    source = Path("src/ziomek/resources/roster.html").read_text(encoding="utf-8")
+    assert "__TRANSCRIPT_DEFAULT__" in source
+
+    assert 'const initial = "open";' in client.get("/api/roster/view").text
 
 
 def test_a_value_that_is_not_open_or_closed_falls_back_to_closed():
@@ -229,7 +230,9 @@ def test_the_page_formats_an_agent_line():
     client = build_app()
     page = client.get("/api/roster/view").text
 
-    assert 'entry.name + " — " + entry.text' in page
+    # Spec line format: the name and the author, then the separator, then the text.
+    assert "entry.name, entry.author, entry.text" in page
+    assert '" — "' in page
 
 
 def test_the_page_formats_a_system_line():
@@ -244,6 +247,15 @@ def test_the_page_keeps_a_line_without_an_author_as_the_system_sentence():
     page = client.get("/api/roster/view").text
 
     assert "entry.text ? " in page
+
+
+def test_the_panel_and_the_saved_file_write_the_same_lines():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    # The file uses formatLine over every entry, so the panel must not skip lines the file keeps.
+    assert "entries.map(formatLine)" in page
+    assert "if (!line) return" in page
 
 
 def test_a_line_with_an_empty_name_does_not_start_with_a_separator():
@@ -294,7 +306,9 @@ def test_an_entry_with_nothing_to_show_produces_no_line():
     page = client.get("/api/roster/view").text
 
     # Review focus line 1: a record entry with no name, text and author must not render "undefined".
-    assert "if (!entry.text && !entry.name)" in page
+    # The guard belongs in formatLine, so the panel and the saved file behave the same.
+    assert "if (!entry.text && !entry.name && !entry.action)" in page
+    assert "renderLine(entry)" in page
 
 
 def test_the_toggle_stays_reachable_when_the_panel_is_hidden():
@@ -345,3 +359,42 @@ def test_the_panel_lines_keep_their_newlines_and_are_not_rebuilt_each_tick():
 
     assert "#transcript li { white-space: pre-wrap; }" in page
     assert "rendered" in page  # the page keeps what it has already shown instead of clearing the list
+
+
+def test_the_page_clears_the_panel_when_the_record_is_empty():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    # A record that shrank means a new call: the old lines must not stay.
+    assert 'document.getElementById("transcript").innerHTML = ""' in page
+    assert "lastEntries.length < rendered" in page
+
+
+def test_the_page_survives_a_failed_poll():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    assert "try {" in page  # a failed fetch must not leave lines that no longer match the record
+
+
+def test_the_page_gives_back_the_object_url_and_the_download_link():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    assert "URL.revokeObjectURL" in page
+    assert "document.body.appendChild(link)" in page
+
+
+def test_the_cookie_reader_accepts_a_separator_without_the_space():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    assert "(?:^|;\\s*)ziomek_panel=" in page
+
+
+def test_the_tile_payload_has_one_texts_key():
+    from ziomek.api import roster_view
+
+    source = Path("src/ziomek/api/roster_view.py").read_text(encoding="utf-8")
+    assert source.count('"texts": [entry.as_dict()') == 1
+    assert roster_view.tiles
