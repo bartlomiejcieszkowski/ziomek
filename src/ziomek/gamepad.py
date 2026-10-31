@@ -82,12 +82,10 @@ class GamepadManager:
         self._initialized = False
 
 
-def route_gamepad_input(input, machine, roster) -> None:
-    """Route gamepad input to the single machine.
+def handle_gamepad_input(input) -> None:
+    """Inert for now.
 
-    While a call is open the gamepad is not routed to any participant, because it
-    drives one machine and cannot drive several participants at once.
+    The gamepad is meant to be a control method, not an expression source, so polled
+    input is not applied to any participant. This is where the control mapping goes.
     """
-    if roster is not None and roster.participants:
-        return
-    machine.update(input)
+    return None
