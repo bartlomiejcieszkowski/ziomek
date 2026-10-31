@@ -1,6 +1,8 @@
 """Participant records hold the name and text, not the state machine."""
 
 from ziomek.avatar.state_machine import AvatarStateMachine
+import time
+
 from ziomek.roster import Roster
 
 
@@ -121,3 +123,25 @@ def test_the_view_push_hook_is_attached_to_every_machine_the_roster_makes():
 
     made[0].on_change(participant, "happy", 0)
     assert pushes == [(participant, "happy", 0)]
+
+
+def test_the_recorded_event_carries_the_text_attached_to_it():
+    roster = Roster()
+    p = roster.join("John A.")
+    p.add_text("compiling", author="agent")
+
+    entry = roster.events[-1]
+    assert entry["name"] == "John A."
+    assert entry["action"] == "text"
+    assert entry["text"] == "compiling"
+    assert entry["author"] == "agent"
+
+
+def test_the_record_is_cleared_when_the_last_participant_is_dropped():
+    roster = Roster(quiet_for=1000)
+    roster.join("John A.")
+
+    roster.drop_quiet(time.monotonic() + 1001)
+
+    assert roster.participants == []
+    assert roster.events == []

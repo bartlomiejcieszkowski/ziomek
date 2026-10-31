@@ -15,6 +15,10 @@ class TextEntry:
     text: str
     author: str
 
+    def as_dict(self) -> dict:
+        """The entry as the page reads it, with the author kept."""
+        return {"text": self.text, "author": self.author}
+
 
 class DuplicateNameError(ValueError):
     """A name cannot be used twice inside one call."""
@@ -46,6 +50,8 @@ class Participant:
         """Record a line of text and who wrote it."""
         entry = TextEntry(text=text, author=author)
         self.texts.append(entry)
+        if self.roster is not None:
+            self.roster.record(self.name, "text", text=text, author=author)
         return entry
 
     def hold(self) -> None:
@@ -151,6 +157,9 @@ class Roster:
                 dropped.append(participant)
         for participant in dropped:
             participant.leave()
+        # When the last participant goes away, the call is over and its record is cleared.
+        if not self.participants:
+            self.end_call()
         return dropped
 
     def release(self, participant: Participant) -> None:
@@ -216,9 +225,16 @@ class Roster:
         lowest = min(counts.values())
         return self.rng.choice([voice for voice, c in counts.items() if c == lowest])
 
-    def record(self, name: str, action: str) -> dict:
-        """Note what happened, on the call record and on the participant's own record."""
+    def record(self, name: str, action: str, text: str | None = None, author: str | None = None) -> dict:
+        """Note what happened, on the call record and on the participant's own record.
+
+        The text and its author are included only when there is something attached to the
+        event, so an entry for a plain join, hold or leave stays comparable."""
         entry = {"name": name, "action": action}
+        if text is not None:
+            entry["text"] = text
+        if author is not None:
+            entry["author"] = author
         self.events.append(entry)
         participant = self._find(name)
         if participant is not None:
