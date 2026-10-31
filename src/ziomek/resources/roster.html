@@ -118,6 +118,22 @@
         link.click();
       }
 
+      function readCookieState() {
+        const match = document.cookie.match(/(?:^|;\s)ziomek_panel=([^;]*)/);
+        if (!match) return null;
+        return decodeURIComponent(match[1]);
+      }
+
+      function setPanelState(state) {
+        document.cookie = "ziomek_panel=" + encodeURIComponent(state) + "; path=/";
+      }
+
+      function panelOpen() {
+        const stored = readCookieState();
+        if (!stored) return initial === "open";
+        return stored === "open";
+      }
+
       function setShown(shown) {
         document.getElementById("layout").classList.toggle("hide", !shown);
       }
@@ -129,7 +145,9 @@
       document.getElementById("toggle").addEventListener("click", () => {
         const panel = document.getElementById("panel");
         panel.classList.toggle("open");
-        setShown(panel.classList.contains("open"));
+        const shown = panel.classList.contains("open");
+        setPanelState(shown ? "open" : "closed");
+        setShown(shown);
       });
 
       document.getElementById("menu").addEventListener("click", (event) => {
@@ -150,7 +168,7 @@
         }
       }
 
-      if (initial === "open") {
+      if (panelOpen()) {
         openPanel();
         setShown(true);
       } else {
