@@ -6,9 +6,15 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+
+def page_source():
+    """The file as stored, not the served page, for rules that only show up in markup."""
+    return (Path(__file__).parent.parent / "src" / "ziomek" / "resources" / "roster.html").read_text(encoding="utf-8")
+
+
 import ziomek.roster as module
 from ziomek import server
-from ziomek.api.roster_view import router
+from ziomek.api.roster_view import blocks, markdown_text, router, sentence, transcript
 from ziomek.config import Settings
 from ziomek.roster import get_roster
 
@@ -227,46 +233,45 @@ def test_the_page_has_the_panel_and_its_toggle():
 
 
 def test_the_page_builds_an_agent_line_from_the_name_and_the_author():
-    client = build_app()
-    page = client.get("/api/roster/view").text
+    from ziomek.api.roster_view import format_line
 
     # Spec line format: the name, the author, then the separator, then the text.
-    assert "const head = [entry.name, entry.author].filter(Boolean);" in page
-    assert 'head.join(" ") + " — " + entry.text' in page
+    assert format_line({"name": "John", "text": "compiling", "author": "agent"}) == "John agent — compiling"
 
 
 def test_the_page_words_the_actions_and_keeps_an_unknown_action_as_recorded():
-    client = build_app()
-    page = client.get("/api/roster/view").text
+    from ziomek.api.roster_view import sentence
 
     # An action outside the mapping is shown as recorded, not as a broken line.
-    assert '(PAST[entry.action] || entry.action) + "."' in page
-
-
-def test_the_page_builds_an_agent_line_from_the_name_and_the_author():
-    client = build_app()
-    page = client.get("/api/roster/view").text
-
-    # Spec line format: the name, the author, then the separator, then the text.
-    assert "const head = [entry.name, entry.author].filter(Boolean);" in page
-    assert 'head.join(" ") + " — " + entry.text' in page
+    assert sentence({"name": "John", "action": "wave"}) == "John wave."
 
 
 def test_the_panel_and_the_saved_file_write_the_same_lines():
-    client = build_app()
-    page = client.get("/api/roster/view").text
+    # One rule builds the lines: the panel shows them, the file writes the same ones.
+    from ziomek.api.roster_view import blocks, format_line, markdown_text
 
-    # The file uses formatLine over every entry, so the panel must not skip lines the file keeps.
-    assert "entries.map(formatLine)" in page
-    assert "if (!line) return" in page
+    client = build_app()
+    assert "for (const line of block.lines)" in client.get("/api/roster/view").text
+    entry = {"name": "John", "action": "text", "text": "compiling", "author": "agent"}
+    group = {"kind": "group", "name": entry["name"], "author": entry["author"], "lines": [format_line(entry)]}
+    blocks_result = blocks([entry])
+    assert blocks_result[0]["lines"] == group["lines"]
+    file = markdown_text([group], "2026-10-31T14:20:04Z")
+    for line in group["lines"]:
+        assert line in file
+    # The markers, so a viewer can read the same lines the panel shows.
+    assert "### John (agent)" in file
+    assert "compiling  " in file  # two spaces: a markdown hard break
+    quoted = markdown_text([{"kind": "system", "text": "John joined."}], "2026-10-31T14:20:04Z")
+    assert "> John joined." in quoted
 
 
 def test_a_line_with_an_empty_name_does_not_start_with_a_separator():
-    client = build_app()
-    page = client.get("/api/roster/view").text
-
     # Review focus line 4: the separator is dropped when there is no name.
-    assert "entry.name ? " in page
+    from ziomek.api.roster_view import blocks
+
+    entries = [{"action": "text", "text": "compiling", "author": "agent"}]
+    assert blocks(entries)[0]["lines"] == ["agent — compiling"]
 
 
 def test_the_page_writes_lines_with_text_content():
@@ -274,7 +279,7 @@ def test_the_page_writes_lines_with_text_content():
     page = client.get("/api/roster/view").text
 
     # Review focus line 2: a line that HTML would interpret must appear literally.
-    assert "item.textContent" in page
+    assert "p.textContent = line" in page
 
 
 def test_the_page_has_save_with_the_two_formats():
@@ -291,27 +296,28 @@ def test_the_saved_file_is_named_with_the_project_and_the_download_time():
     page = client.get("/api/roster/view").text
 
     # ziomek_{YYYY-MM-DD}_{HHMM}_transcript.{md|json}, built from the browser clock
-    assert "ziomek_" in page
+    assert 'return "ziomek_" + nameStamp(at) + "_transcript." + ext' in page
     assert "new Date(" in page
 
 
-def test_the_page_writes_a_file_with_its_header_when_there_is_nothing_to_save():
+def test_the_file_keeps_its_header_when_there_is_nothing_to_save():
     client = build_app()
-    page = client.get("/api/roster/view").text
 
-    # Review focus line 5: the download happens even for an empty record.
+    # Review focus line 5: an empty record still gets a file, and the download happens in the browser.
+    assert client.get("/api/roster/transcript/markdown?at=2026-10-31T14:20:04Z").text.startswith(
+        "# transcript — 2026-10-31T14:20:04Z"
+    )
+    page = client.get("/api/roster/view").text
     assert "new Blob(" in page
-    assert "# Transcript" in page
 
 
 def test_an_entry_with_nothing_to_show_produces_no_line():
-    client = build_app()
-    page = client.get("/api/roster/view").text
+    # Review focus line 1: an entry with no name, text and author produces nothing.
+    # The guard belongs in format_line, so the panel and the file behave the same.
+    from ziomek.api.roster_view import blocks, format_line
 
-    # Review focus line 1: a record entry with no name, text and author must not render "undefined".
-    # The guard belongs in formatLine, so the panel and the saved file behave the same.
-    assert "if (!entry.text && !entry.name && !entry.action)" in page
-    assert "renderLine(entry)" in page
+    assert format_line({"name": "", "action": "", "text": "", "author": ""}) == ""
+    assert blocks([{"name": "", "action": "", "text": "", "author": ""}]) == []
 
 
 def test_the_toggle_stays_reachable_when_the_panel_is_hidden():
@@ -380,7 +386,17 @@ def test_the_page_clears_the_panel_when_the_record_is_empty():
 
     # A record that shrank means a new call: the old lines must not stay.
     assert 'document.getElementById("transcript").innerHTML = ""' in page
-    assert "lastEntries.length < rendered" in page
+    assert "lastBlocks.length < rendered" in page
+
+
+def test_the_page_asks_for_the_file_content_and_keeps_the_download_in_the_browser():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    # The file text comes from the server; the download stays a browser action.
+    assert 'fetch("/api/roster/transcript/markdown?at="' in page
+    assert "new Blob" in page and "link.download = name" in page
+    assert "revokeObjectURL" in page
 
 
 def test_the_page_survives_a_failed_poll():
@@ -464,11 +480,47 @@ def test_the_transcript_payload_carries_the_groups_as_well_as_the_entries():
     assert payload["blocks"][1]["name"] == "John"
 
 
-def test_the_transcript_payload_carries_the_groups_as_well_as_the_entries():
+def test_the_markdown_file_keeps_its_group_and_its_hard_break():
+    blocks = [{"kind": "group", "name": "Donald", "author": "agent", "lines": ["playing darts"]}]
+    text = markdown_text(blocks, "2026-10-31T14:20:04Z")
+    assert text.startswith("# transcript — 2026-10-31T14:20:04Z\n\n")
+    assert "### Donald (agent)\nplaying darts  \n" in text
+
+
+def test_a_system_line_is_a_quote_in_the_file():
+    from ziomek.api.roster_view import blocks, markdown_text
+
+    blocks = [{"kind": "system", "text": "John joined."}]
+    assert "> John joined." in markdown_text(blocks, "2026-10-31T14:20:04Z")
+
+
+def test_the_file_uses_the_clock_passed_by_the_page(monkeypatch):
+    from ziomek.api import roster_view
+
     client = build_app()
-    get_roster().record("John", "join")
-    get_roster().record("John", "text", text="compiling", author="agent")
-    payload = client.get("/api/roster/transcript").json()
-    assert payload["entries"][0]["action"] == "join"
-    assert payload["blocks"][0]["kind"] == "system"
-    assert payload["blocks"][1]["name"] == "John"
+    get_roster().join("John")
+
+    def clock():
+        return "2026-10-31T14:20:04Z"
+
+    monkeypatch.setattr(roster_view, "clock", clock)
+    page = client.get("/api/roster/view").text
+    assert "at = new Date()" in page
+    assert "buildFilename(ext, at)" in page
+    assert (
+        'request.query_params.get("at")' in open("src/ziomek/api/roster_view.py", encoding="utf-8", newline="").read()
+    )
+
+
+def test_the_page_has_the_colors_and_the_box_shape():
+    page = page_source()
+    assert ".box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; }" in page
+    assert ".name { color: #8ab4f8; }" in page
+    assert ".event { color: #e0a568; }" in page
+    assert ".system_text { color: #7fb069; }" in page
+    assert 'el_class("name")' in page
+
+
+def test_the_page_writes_the_group_header_with_the_author():
+    page = page_source()
+    assert '" (" + block.author + ")"' in page
