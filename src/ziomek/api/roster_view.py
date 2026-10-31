@@ -63,12 +63,48 @@ async def get_roster_page() -> HTMLResponse:
     return HTMLResponse(html)
 
 
+_PAST = {"join": "joined", "hold": "is on hold", "left": "left", "leave": "left"}
+
+
 def transcript() -> list[dict]:
     """The call record as one ordered stream."""
     return list(get_roster().events)
 
 
+def blocks(entries: list[dict]) -> list[dict]:
+    """Group the ordered stream into runs of the same participant.
+
+    A run is the consecutive text entries of one participant; a system line stays where it
+    happened, so the order is what the page sees. A run with no lines produces nothing, and a
+    later run is never merged into an earlier group."""
+    grouped = []
+    for entry in entries:
+        if entry.get("action") == "text" and entry.get("author") and entry["author"] != "system":
+            if not entry.get("text"):
+                continue
+            if (
+                grouped
+                and grouped[-1]["kind"] == "group"
+                and grouped[-1]["name"] == entry["name"]
+                and grouped[-1]["author"] == entry["author"]
+            ):
+                grouped[-1]["lines"].append(entry.get("text", ""))
+                continue
+            grouped.append(
+                {"kind": "group", "name": entry["name"], "author": entry["author"], "lines": [entry.get("text", "")]}
+            )
+            continue
+        grouped.append({"kind": "system", "text": sentence(entry)})
+    return [g for g in grouped if g["kind"] == "system" or g["lines"]]
+
+
+def sentence(entry: dict) -> str:
+    """Build the system line for one entry, in the words the record stores."""
+    word = _PAST.get(entry.get("action", ""), entry.get("action", ""))
+    return f"{entry.get('name', '')} {word}."
+
+
 @router.get("/api/roster/transcript", summary="Transcript", description="List what happened in the call, in order.")
 async def get_transcript_view() -> JSONResponse:
     """Serve the entries of the current call record."""
-    return JSONResponse(content=transcript())
+    return JSONResponse(content={"entries": transcript(), "blocks": blocks(transcript())})
