@@ -171,7 +171,7 @@ def test_the_page_renders_lines_with_text_content():
 ```
 
 - [ ] **Step 2:** Run, expect FAIL.
-- [ ] **Step 3:** Implement the grid, the toggle, `formatLine(entry) -> string` and `renderLine(entry)`; `formatLine` returns `name + " — " + text` when the entry has text and an author, otherwise `name + " " + action + "."`. For an empty name (review focus line 4) it drops the separator, so a line without a name never starts with a stray separator. The toggle shows and hides only `#panel`; `#roster` takes the full width when it is hidden. The panel opens from `const initial`, and the click is not remembered.
+- [ ] **Step 3:** Implement the grid, the toggle, `formatLine(entry) -> string` and `renderLine(entry)`; `formatLine` returns `name + " — " + text` when the entry has text and an author, otherwise `name + " " + action + "."`. For an empty name (review focus line 4) it drops the separator, so a line without a name never starts with a stray separator. The toggle hides only the transcript list, never the controls used to open it again; `#roster` takes the full width when the list is hidden. The panel opens from `const initial`; the click is then remembered by Task 5, and the label follows the current state.
 - [ ] **Step 4:** Run the tests, expect PASS.
 - [ ] **Step 5:** Commit — `git commit --signoff -m "feat(api): show the transcript on the roster page"`
 
@@ -217,7 +217,7 @@ def test_the_saved_file_is_named_with_the_project_and_the_download_time():
 
 **Interfaces:**
 - Consumes: `initial` from Task 2, the toggle from Task 3.
-- Produces: `readCookieState() -> str | None` and `setPanelState(state: str) -> None`, which writes `ziomek_panel=1|0`. `initial` is used only when the cookie has nothing to read.
+- Produces: `readCookieState() -> str | None` and `setPanelState(state: str) -> None`, which writes `ziomek_panel=open|closed`. `initial` is used only when the cookie has nothing to read.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -233,8 +233,8 @@ def test_the_page_uses_the_config_default_only_when_nothing_is_stored():
 ```
 
 - [ ] **Step 2:** Run, expect FAIL.
-- [ ] **Step 3:** Implement `readCookieState()` (returns `null` when `ziomek_panel` is not in the cookie) and `setPanelState(state)` on the toggle click; the opening decision is `readCookieState() || initial`, so a click survives a reload and an empty cookie follows config.
+- [ ] **Step 3:** Implement `readCookieState()` (returns `null` when `ziomek_panel` is not in the cookie) and `setPanelState(state)` on the toggle click; the opening decision is `readCookieState() || initial`, so a click survives a reload and an empty cookie follows config; the reader rejects anything that is not `open` or `closed` and a malformed escape falls back instead of throwing.
 - [ ] **Step 4:** Run the tests, expect PASS.
 - [ ] **Step 5:** Commit — `git commit --signoff -m "feat(api): remember the panel state in the cookie"`
 
-Task 3's "the click is not remembered" line defers to this task. `localStorage` was weighed and left as an idea in `docs/internal/IDEAS.md` (item 11) — cookie stays the choice here because it survives sessions.
+Task 3's "the click is not remembered" line defers to this task. `localStorage` was weighed and left as an idea in `docs/internal/IDEAS.md` (item 11) — cookie stays the choice here because it survives reloads within the browser session.
