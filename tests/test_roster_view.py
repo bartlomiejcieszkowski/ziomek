@@ -177,3 +177,19 @@ def test_the_transcript_keeps_the_text_and_its_author():
 
     assert entry["text"] == "compiling"
     assert entry["author"] == "agent"
+
+
+def test_the_served_page_carries_the_configured_default():
+    app = server.create_app(Settings(roster_transcript_default="closed", audio_backend="noop", no_stt=True, no_gamepad=True))
+    client = TestClient(app)
+
+    page = client.get("/api/roster/view").text
+    assert 'const initial = "closed";' in page
+    assert "__TRANSCRIPT_DEFAULT__" not in page
+
+
+def test_a_value_that_is_not_open_or_closed_falls_back_to_closed():
+    app = server.create_app(Settings(roster_transcript_default="maybe", audio_backend="noop", no_stt=True, no_gamepad=True))
+    client = TestClient(app)
+
+    assert 'const initial = "closed";' in client.get("/api/roster/view").text

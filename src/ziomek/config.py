@@ -28,6 +28,7 @@ class Settings(BaseModel):
     roster_words: list[str] = []
     roster_quiet_for: int = 3000
     roster_check_interval: float = 1.0
+    roster_transcript_default: str = "open"
 
     @classmethod
     def load(cls, config_path: str | Path | None = None) -> "Settings":
@@ -173,6 +174,7 @@ class Settings(BaseModel):
 # roster_words: []           # words used as the second part of a name
 # roster_quiet_for: 3000     # seconds of quiet before a participant is dropped
 # roster_check_interval: 1.0  # seconds between the quiet checks on the event loop
+# roster_transcript_default: open # whether the transcript panel is open when the page loads (open | closed)
 """
         p = Path(path).resolve()
         p.parent.mkdir(parents=True, exist_ok=True)
