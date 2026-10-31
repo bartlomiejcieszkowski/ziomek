@@ -364,3 +364,8 @@ def test_scaffold_config_documents_the_panel_default():
         assert "# roster_transcript_default:" in content
     finally:
         os.unlink(path)
+
+
+def test_a_non_string_panel_default_is_normalized():
+    assert Settings(roster_transcript_default=True).roster_transcript_default == "closed"
+    assert Settings(roster_transcript_default=5).roster_transcript_default == "closed"

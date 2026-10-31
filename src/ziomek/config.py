@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class Settings(BaseModel):
@@ -29,6 +29,10 @@ class Settings(BaseModel):
     roster_quiet_for: int = 3000
     roster_check_interval: float = 1.0
     roster_transcript_default: str = "open"
+
+    @field_validator("roster_transcript_default", mode="before")
+    def normalize_panel_default(cls, value):
+        return value if value in ("open", "closed") else "closed"
 
     @classmethod
     def load(cls, config_path: str | Path | None = None) -> "Settings":
