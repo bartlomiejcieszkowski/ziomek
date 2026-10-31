@@ -9,7 +9,10 @@
       #roster { flex: 0 0 55% }
       #panel { flex: 1; border-left: 1px solid #444; padding-left: 12px; }
       #layout.hide #roster { flex: 1 1 auto }
-      #layout.hide #panel { display: none; }
+      #layout.hide #transcript { display: none; }
+      #transcript li { white-space: pre-wrap; }
+      #menu { display: none; }
+      #menu.open { display: block; }
       @media (max-width: 900px) {
         #layout { display: block; }
         #roster, #panel { flex: none; }
@@ -38,15 +41,25 @@
         <ul id="transcript"></ul>
       </div>
     </div>
+
     <script>
-      const initial = "__TRANSCRIPT_DEFAULT__";
+      const initial = "closed";
+
       let lastEntries = [];
+      let rendered = 0;
+
+      const PAST = { "join": "joined", "hold": "is on hold", "leave": "left" };
+      const EXT = { markdown: "md", json: "json" };
 
       function formatLine(entry) {
         if (entry.text ? entry.author : false) {
+          const parts = [entry.name, entry.author, entry.text];
+          return parts.filter(Boolean).join(" ");
+        }
+        if (entry.text) {
           return entry.name ? entry.name + " — " + entry.text : entry.text;
         }
-        return entry.name ? entry.name + " " + entry.action + "." : entry.action + ".";
+        return entry.name ? entry.name + " " + PAST[entry.action] + "." : entry.action + ".";
       }
 
       function renderLine(entry) {
@@ -76,9 +89,14 @@
             item.textContent = line + (event.text ? author + ": " + event.text : "");
             list.appendChild(item);
           }
-          el.appendChild(list);
+          if (list.children.length) el.appendChild(list);
           root.appendChild(el);
         }
+      }
+
+      function held(tile) {
+        const seconds = tile.held_seconds || 0;
+        return String(Math.floor(seconds / 60)).padStart(2, "0") + ":" + String(seconds % 60).padStart(2, "0");
       }
 
       function renderText(root, className, value) {
@@ -88,13 +106,8 @@
         root.appendChild(el);
       }
 
-      function held(tile) {
-        const seconds = tile.held_seconds || 0;
-        return String(Math.floor(seconds / 60)).padStart(2, "0") + ":" + String(seconds % 60).padStart(2, "0");
-      }
-
-      function pad(value) {
-        return String(value).padStart(2, "0");
+      function pad(n) {
+        return String(n).padStart(2, "0");
       }
 
       function buildFilename(ext) {
@@ -112,9 +125,8 @@
       }
 
       function download(content, name) {
-        const blob = content;
         const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
+        link.href = URL.createObjectURL(content);
         link.download = name;
         link.click();
       }
@@ -122,7 +134,12 @@
       function readCookieState() {
         const match = document.cookie.match(/(?:^|;\s)ziomek_panel=([^;]*)/);
         if (!match) return null;
-        return decodeURIComponent(match[1]);
+        try {
+          const value = decodeURIComponent(match[1]);
+          return value === "open" || value === "closed" ? value : null;
+        } catch (error) {
+          return null;  // URIError from a malformed escape, so the config default decides
+        }
       }
 
       function setPanelState(state) {
@@ -137,24 +154,28 @@
 
       function setShown(shown) {
         document.getElementById("layout").classList.toggle("hide", !shown);
-      }
-
-      function openPanel() {
-        document.getElementById("panel").classList.add("open");
+        const label = document.getElementById("toggle");
+        label.textContent = shown ? "hide" : "show";
       }
 
       document.getElementById("toggle").addEventListener("click", () => {
-        const panel = document.getElementById("panel");
-        panel.classList.toggle("open");
-        const shown = panel.classList.contains("open");
+        const shown = !document.getElementById("layout").classList.contains("hide");
+        setShown(!shown);
         setPanelState(shown ? "open" : "closed");
-        setShown(shown);
+      });
+
+      document.getElementById("formats").addEventListener("click", () => {
+        document.getElementById("menu").classList.toggle("open");
+      });
+
+      document.getElementById("save").addEventListener("click", () => {
+        download(markdownFile(lastEntries), buildFilename(EXT.markdown));
       });
 
       document.getElementById("menu").addEventListener("click", (event) => {
         const ext = event.target.dataset.format;
         if (!ext) return;
-        download(ext === "json" ? jsonFile(lastEntries) : markdownFile(lastEntries), buildFilename(ext));
+        download(ext === "json" ? jsonFile(lastEntries) : markdownFile(lastEntries), buildFilename(EXT[ext] || ext));
       });
 
       async function refresh() {
@@ -162,20 +183,14 @@
         render(await response.json());
         const stream = await fetch("/api/roster/transcript");
         lastEntries = await stream.json();
-        const list = document.getElementById("transcript");
-        list.innerHTML = "";
-        for (const entry of lastEntries) {
+        if (!lastEntries.length) rendered = 0;
+        for (const entry of lastEntries.slice(rendered)) {
           renderLine(entry);
         }
+        rendered = lastEntries.length;
       }
 
-      if (panelOpen()) {
-        openPanel();
-        setShown(true);
-      } else {
-        setShown(false);
-      }
-
+      setShown(panelOpen());
       refresh();
       setInterval(refresh, 1000);
     </script>

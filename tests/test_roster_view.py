@@ -236,7 +236,7 @@ def test_the_page_formats_a_system_line():
     client = build_app()
     page = client.get("/api/roster/view").text
 
-    assert 'entry.name + " " + entry.action + "."' in page
+    assert 'entry.name + " " + PAST[entry.action] + "."' in page
 
 
 def test_the_page_keeps_a_line_without_an_author_as_the_system_sentence():
@@ -295,3 +295,53 @@ def test_an_entry_with_nothing_to_show_produces_no_line():
 
     # Review focus line 1: a record entry with no name, text and author must not render "undefined".
     assert "if (!entry.text && !entry.name)" in page
+
+
+def test_the_toggle_stays_reachable_when_the_panel_is_hidden():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    # Review focus: a control inside the hidden pane cannot be used to open it again.
+    assert "#layout.hide #transcript { display: none; }" in page
+    assert "#menu { display: none" in page
+
+
+def test_the_page_words_the_actions_as_the_spec_sentences():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    assert '"join": "joined"' in page
+    assert '"hold": "is on hold"' in page
+    assert '"leave": "left"' in page
+
+
+def test_the_page_names_the_file_with_the_short_extension():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    assert 'markdown: "md"' in page
+
+
+def test_the_save_and_the_formats_have_actions():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    assert 'document.getElementById("formats")' in page
+    assert 'document.getElementById("save")' in page
+
+
+def test_the_page_has_one_state_for_the_panel():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    # The class that hides the pane is the only source of truth, and the label follows it.
+    assert 'classList.add("open")' not in page
+    assert 'label.textContent = shown ? "hide" : "show"' in page
+
+
+def test_the_panel_lines_keep_their_newlines_and_are_not_rebuilt_each_tick():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    assert "#transcript li { white-space: pre-wrap; }" in page
+    assert "rendered" in page  # the page keeps what it has already shown instead of clearing the list
