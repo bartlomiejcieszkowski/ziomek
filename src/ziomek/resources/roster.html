@@ -9,6 +9,7 @@
       .tile .name { font-weight: bold; margin-bottom: 4px; }
       .status_text, .system_text, .on_hold { white-space: pre-wrap; font-size: 13px; }
       .on_hold { color: #8ab4f8; }
+      .expression { color: #d2a9ff; font-size: 13px; }
       ul.events { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: #999; }
     </style>
   </head>
@@ -21,10 +22,11 @@
         for (const tile of tiles) {
           const el = document.createElement("div");
           el.className = "tile";
-          addText(el, "name", tile.name);
-          addText(el, "status_text", tile.status_text);
-          addText(el, "system_text", tile.system_text);
-          addText(el, "on_hold", tile.state === "held" ? "On hold " + held(tile) : "");
+          renderText(el, "name", tile.name);
+          renderText(el, "status_text", tile.status_text);
+          renderText(el, "system_text", tile.system_text);
+          renderText(el, "expression", tile.expression);
+          renderText(el, "on_hold", tile.state === "held" ? "On hold " + held(tile) : "");
           const list = document.createElement("ul");
           list.className = "events";
           for (const event of tile.events || []) {
@@ -37,7 +39,7 @@
         }
       }
 
-      function addText(root, className, value) {
+      function renderText(root, className, value) {
         const el = document.createElement("div");
         el.className = className;
         el.textContent = value || "";
