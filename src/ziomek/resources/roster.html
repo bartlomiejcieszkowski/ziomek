@@ -11,7 +11,7 @@
       #layout.hide #roster { flex: 1 1 auto }
       #layout.hide #transcript { display: none; }
       #layout.hide #panel { flex: 0 0 auto; }
-      #transcript li { white-space: pre-wrap; }
+      #transcript .box p, #transcript .event { white-space: pre-wrap; }
       #menu { display: none; }
       #menu.open { display: block; }
       @media (max-width: 900px) {
@@ -21,14 +21,11 @@
       .box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; }
       .name { color: #8ab4f8; }
       .event { color: #e0a568; }
-      .system_text { color: #7fb069; }
+      .group_author { color: #999; }
+      .system_text, .box p.system_text { color: #7fb069; }
       .tile { padding: 12px; margin: 8px 0; background: #1b1b22; border-radius: 6px; }
       .tile .name { font-weight: bold; margin-bottom: 4px; }
       .status_text, .system_text, .on_hold { white-space: pre-wrap; font-size: 13px; }
-      .box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; }
-      .name { color: #8ab4f8; }
-      .event { color: #e0a568; }
-      .group_author { color: #999; }
       .expression { color: #d2a9ff; font-size: 13px; }
       ul.events { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: #999; }
     </style>
@@ -57,7 +54,6 @@
       let lastBlocks = [];
       let rendered = 0;
 
-      const PAST = { "join": "joined", "hold": "is on hold", "leave": "left" };
       const EXT = { markdown: "md", json: "json" };
 
       function el_class(className) {
@@ -67,6 +63,15 @@
       }
 
       function renderBlock(block) {
+        if (block.kind === "system") {
+          // A system line is its own line between the boxes, in the color for quotes.
+          const item = document.createElement("p");
+          item.className = "event";
+          item.textContent = block.text;
+          document.getElementById("transcript").appendChild(item);
+          return;
+        }
+
         const box = document.createElement("div");
         box.className = "box";
 
@@ -74,9 +79,9 @@
         header.append(el_class("name"));           // the name keeps its own element, the box has none
         header.lastChild.textContent = block.name;
         if (block.author) {
-          const mark = el_class("author");
+          const mark = el_class("group_author");
           // The author stays as text: colors cannot show in a file, so both sides keep it.
-          mark.textContent = block.name + " (" + block.author + ")";
+          mark.textContent = " (" + block.author + ")";
           header.append(mark);
         }
         box.appendChild(header);
@@ -131,11 +136,11 @@
       }
 
       function dateParts(at) {
-        return [at.getFullYear(), pad(at.getMonth() + 1), pad(at.getDate())];
+        return [at.getUTCFullYear(), pad(at.getUTCMonth() + 1), pad(at.getUTCDate())];
       }
 
       function clockParts(at) {
-        return [pad(at.getHours()), pad(at.getMinutes()), pad(at.getSeconds())];
+        return [pad(at.getUTCHours()), pad(at.getUTCMinutes()), pad(at.getUTCSeconds())];
       }
 
       // The header and the name show the same clock, in the forms each of them needs.
@@ -144,7 +149,7 @@
       }
 
       function nameStamp(at) {
-        return dateParts(at).join("_") + "_" + clockParts(at).slice(0, 2).join("");
+        return dateParts(at).join("-") + "_" + clockParts(at).slice(0, 2).join("");
       }
 
       function buildFilename(ext, at) {
