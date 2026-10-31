@@ -10,6 +10,7 @@
       #panel { flex: 1; border-left: 1px solid #444; padding-left: 12px; }
       #layout.hide #roster { flex: 1 1 auto }
       #layout.hide #transcript { display: none; }
+      #layout.hide #panel { flex: 0 0 auto; }
       #transcript li { white-space: pre-wrap; }
       #menu { display: none; }
       #menu.open { display: block; }
@@ -53,9 +54,8 @@
 
       function formatLine(entry) {
         if (!entry.text && !entry.name && !entry.action) return "";
-        const parts = [entry.name, entry.author, entry.text];
-        const head = parts.slice(0, 2).filter(Boolean);
-        return entry.text ? (head.length ? head.join(" ") + " — " + entry.text : entry.text) : (entry.name ? entry.name + " " + PAST[entry.action] + "." : entry.action + ".");
+        const head = [entry.name, entry.author].filter(Boolean);
+        return entry.text ? (head.length ? head.join(" ") + " — " + entry.text : entry.text) : (entry.name ? entry.name + " " + (PAST[entry.action] || entry.action) + "." : entry.action + ".");
       }
 
       function renderLine(entry) {
@@ -128,7 +128,7 @@
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        URL.revokeObjectURL(link.href);
+        setTimeout(() => URL.revokeObjectURL(link.href), 0);
       }
 
       function readCookieState() {
@@ -161,7 +161,7 @@
       document.getElementById("toggle").addEventListener("click", () => {
         const shown = !document.getElementById("layout").classList.contains("hide");
         setShown(!shown);
-        setPanelState(shown ? "open" : "closed");
+        setPanelState(shown ? "1" : "0");
       });
 
       document.getElementById("formats").addEventListener("click", () => {
