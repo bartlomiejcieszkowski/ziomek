@@ -287,3 +287,11 @@ def test_the_page_writes_a_file_with_its_header_when_there_is_nothing_to_save():
     # Review focus line 5: the download happens even for an empty record.
     assert "new Blob(" in page
     assert "# Transcript" in page
+
+
+def test_an_entry_with_nothing_to_show_produces_no_line():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    # Review focus line 1: a record entry with no name, text and author must not render "undefined".
+    assert "if (!entry.text && !entry.name)" in page

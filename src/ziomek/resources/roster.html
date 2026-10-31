@@ -50,6 +50,7 @@
       }
 
       function renderLine(entry) {
+        if (!entry.text && !entry.name) return;
         const item = document.createElement("li");
         item.textContent = formatLine(entry);
         document.getElementById("transcript").appendChild(item);
