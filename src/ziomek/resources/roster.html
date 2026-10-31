@@ -5,6 +5,15 @@
     <title>ziomek roster</title>
     <style>
       body { font-family: sans-serif; background: #111; color: #eee; }
+      #layout { display: flex; gap: 12px; }
+      #roster { flex: 0 0 55% }
+      #panel { flex: 1; border-left: 1px solid #444; padding-left: 12px; }
+      #layout.hide #roster { flex: 1 1 auto }
+      #layout.hide #panel { display: none; }
+      @media (max-width: 900px) {
+        #layout { display: block; }
+        #roster, #panel { flex: none; }
+      }
       .tile { padding: 12px; margin: 8px 0; background: #1b1b22; border-radius: 6px; }
       .tile .name { font-weight: bold; margin-bottom: 4px; }
       .status_text, .system_text, .on_hold { white-space: pre-wrap; font-size: 13px; }
@@ -14,8 +23,29 @@
     </style>
   </head>
   <body>
-    <div id="roster"></div>
+    <div id="layout">
+      <div id="roster"></div>
+      <div id="panel">
+        <div id="header"><button id="toggle">hide</button></div>
+        <ul id="transcript"></ul>
+      </div>
+    </div>
     <script>
+      const initial = "__TRANSCRIPT_DEFAULT__";
+
+      function formatLine(entry) {
+        if (entry.text ? entry.author : false) {
+          return entry.name ? entry.name + " — " + entry.text : entry.text;
+        }
+        return entry.name ? entry.name + " " + entry.action + "." : entry.action + ".";
+      }
+
+      function renderLine(entry) {
+        const item = document.createElement("li");
+        item.textContent = formatLine(entry);
+        document.getElementById("transcript").appendChild(item);
+      }
+
       function render(tiles) {
         const root = document.getElementById("roster");
         root.innerHTML = "";
@@ -53,11 +83,36 @@
         return String(Math.floor(seconds / 60)).padStart(2, "0") + ":" + String(seconds % 60).padStart(2, "0");
       }
 
-      const initial = "__TRANSCRIPT_DEFAULT__";
+      function setShown(shown) {
+        document.getElementById("layout").classList.toggle("hide", !shown);
+      }
+
+      function openPanel() {
+        document.getElementById("panel").classList.add("open");
+      }
+
+      document.getElementById("toggle").addEventListener("click", () => {
+        const panel = document.getElementById("panel");
+        panel.classList.toggle("open");
+        setShown(panel.classList.contains("open"));
+      });
 
       async function refresh() {
         const response = await fetch("/api/roster");
         render(await response.json());
+        const stream = await fetch("/api/roster/transcript");
+        const list = document.getElementById("transcript");
+        list.innerHTML = "";
+        for (const entry of await stream.json()) {
+          renderLine(entry);
+        }
+      }
+
+      if (initial === "open") {
+        openPanel();
+        setShown(true);
+      } else {
+        setShown(false);
       }
 
       refresh();

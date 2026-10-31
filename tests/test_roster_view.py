@@ -180,7 +180,9 @@ def test_the_transcript_keeps_the_text_and_its_author():
 
 
 def test_the_served_page_carries_the_configured_default():
-    app = server.create_app(Settings(roster_transcript_default="closed", audio_backend="noop", no_stt=True, no_gamepad=True))
+    app = server.create_app(
+        Settings(roster_transcript_default="closed", audio_backend="noop", no_stt=True, no_gamepad=True)
+    )
     client = TestClient(app)
 
     page = client.get("/api/roster/view").text
@@ -189,7 +191,72 @@ def test_the_served_page_carries_the_configured_default():
 
 
 def test_a_value_that_is_not_open_or_closed_falls_back_to_closed():
-    app = server.create_app(Settings(roster_transcript_default="maybe", audio_backend="noop", no_stt=True, no_gamepad=True))
+    app = server.create_app(
+        Settings(roster_transcript_default="maybe", audio_backend="noop", no_stt=True, no_gamepad=True)
+    )
     client = TestClient(app)
 
     assert 'const initial = "closed";' in client.get("/api/roster/view").text
+
+
+def test_the_page_reads_the_panel_state_from_the_cookie_before_the_config_default():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    assert "document.cookie" in page
+    assert "ziomek_panel" in page
+
+
+def test_the_page_uses_the_config_default_only_when_nothing_is_stored():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    assert "readCookieState()" in page
+    assert "return null" in page  # nothing stored -> the config default decides the opening
+
+
+def test_the_page_has_the_panel_and_its_toggle():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    assert 'id="panel"' in page
+    assert 'id="toggle"' in page
+    assert "#roster { flex: 0 0 55% }" in page
+    assert "@media (max-width: 900px)" in page
+
+
+def test_the_page_formats_an_agent_line():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    assert 'entry.name + " — " + entry.text' in page
+
+
+def test_the_page_formats_a_system_line():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    assert 'entry.name + " " + entry.action + "."' in page
+
+
+def test_the_page_keeps_a_line_without_an_author_as_the_system_sentence():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    assert "entry.text ? " in page
+
+
+def test_a_line_with_an_empty_name_does_not_start_with_a_separator():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    # Review focus line 4: the separator is dropped when there is no name.
+    assert "entry.name ? " in page
+
+
+def test_the_page_writes_lines_with_text_content():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    # Review focus line 2: a line that HTML would interpret must appear literally.
+    assert "item.textContent" in page
