@@ -207,3 +207,34 @@ def test_the_saved_file_is_named_with_the_project_and_the_download_time():
 - [ ] **Step 3:** Implement `buildFilename(ext)` as `"ziomek_" + date_part + "_" + time_part + "_transcript." + ext` (no `:` in the name), `formatFile()` writing the same lines the panel shows for Markdown and `JSON.stringify(entries)` for JSON, and `download(blob, name)` from an anchor. A download with no lines still writes the file header (review focus line 5): test `test_the_page_writes_a_file_with_only_its_header_when_there_is_nothing_to_save` asserting `new Blob` is used with the lines produced by `formatLine`.
 - [ ] **Step 4:** Run the tests, expect PASS.
 - [ ] **Step 5:** Commit — `git commit --signoff -m "feat(api): save the transcript as markdown or json"`
+---
+
+### Task 5: Remember the panel state in a cookie
+
+**Files:**
+- Modify: `src/ziomek/resources/roster.html`
+- Test: `tests/test_roster_view.py`
+
+**Interfaces:**
+- Consumes: `initial` from Task 2, the toggle from Task 3.
+- Produces: `readCookieState() -> str | None` and `setPanelState(state: str) -> None`, which writes `ziomek_panel=1|0`. `initial` is used only when the cookie has nothing to read.
+
+- [ ] **Step 1: Write the failing tests**
+
+```python
+def test_the_page_reads_the_panel_state_from_the_cookie_before_the_config_default():
+    page = client.get("/api/roster/view").text
+    assert "document.cookie" in page
+    assert 'ziomek_panel' in page
+
+def test_the_page_uses_the_config_default_only_when_nothing_is_stored():
+    page = client.get("/api/roster/view").text
+    assert "readCookieState()" in page   # returns null when nothing is stored, and the page then uses initial
+```
+
+- [ ] **Step 2:** Run, expect FAIL.
+- [ ] **Step 3:** Implement `readCookieState()` (returns `null` when `ziomek_panel` is not in the cookie) and `setPanelState(state)` on the toggle click; the opening decision is `readCookieState() || initial`, so a click survives a reload and an empty cookie follows config.
+- [ ] **Step 4:** Run the tests, expect PASS.
+- [ ] **Step 5:** Commit — `git commit --signoff -m "feat(api): remember the panel state in the cookie"`
+
+Task 3's "the click is not remembered" line defers to this task. `localStorage` was weighed and left as an idea in `docs/internal/IDEAS.md` (item 11) — cookie stays the choice here because it survives sessions.
