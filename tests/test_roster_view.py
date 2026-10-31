@@ -96,3 +96,35 @@ def test_the_roster_uses_the_view_push_as_its_hook():
     from ziomek.roster import get_roster
 
     assert get_roster().push_hook is avatar_ws.notify_change
+
+
+def test_a_tile_carries_the_expression_of_that_participant():
+    from types import SimpleNamespace
+
+    from ziomek.roster import Roster
+
+    class own_machine:
+        def __init__(self, name):
+            self.name = name
+
+        def getCurrentState(self):
+            # Each machine reports its own participant, so the tiles cannot share a value.
+            return SimpleNamespace(expressionName=f"expr-{self.name}", cycleIndex=2)
+
+    client = build_app()
+    module._roster = Roster(pool=[("John", "alice")], state_machine_factory=lambda p: own_machine(p.name))
+    first = module._roster.join("John")
+    module._roster.join("Donald", voice="bob")
+
+    tiles = client.get("/api/roster").json()
+
+    # Each participant has its own machine, so each tile carries its own expression.
+    assert tiles[0]["expression"] == "expr-John"
+    assert tiles[1]["expression"] == "expr-Donald"
+
+
+def test_the_roster_page_shows_the_expression_of_each_participant():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    assert 'renderText(el, "expression", tile.expression)' in page

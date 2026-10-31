@@ -14,6 +14,15 @@ router = APIRouter(tags=["Roster"])
 _page_html = Path(__file__).parent.parent / "resources" / "roster.html"
 
 
+def expression_for(participant) -> str | None:
+    """The expression that this participant's own machine is showing."""
+    machine = getattr(participant, "state_machine", None)
+    if machine is None:
+        return None
+    current = machine.getCurrentState()
+    return None if current is None else current.expressionName
+
+
 def tiles() -> list[dict]:
     """One tile per participant in the call."""
     roster = get_roster()
@@ -25,6 +34,7 @@ def tiles() -> list[dict]:
             "state": participant.state,
             "held_seconds": participant.held_seconds,
             "events": list(participant.events),
+            "expression": expression_for(participant),
         }
         for participant in roster.participants
     ]
