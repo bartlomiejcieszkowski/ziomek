@@ -51,8 +51,9 @@ def panel_default() -> str:
     """The state the page starts with: config decides, and a value outside open/closed is read as closed."""
     from ziomek.server import _settings
 
-    value = _settings.roster_transcript_default if _settings else "open"
-    return value if value in ("open", "closed") else "closed"
+    if not _settings:
+        return "open"  # settings not loaded: the documented default
+    return _settings.roster_transcript_default  # validated to open or closed by Settings
 
 
 @router.get("/api/roster/view", summary="Roster page", description="Serve the roster page HTML.")
