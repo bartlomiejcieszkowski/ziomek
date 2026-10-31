@@ -226,27 +226,30 @@ def test_the_page_has_the_panel_and_its_toggle():
     assert "@media (max-width: 900px)" in page
 
 
-def test_the_page_formats_an_agent_line():
+def test_the_page_builds_an_agent_line_from_the_name_and_the_author():
     client = build_app()
     page = client.get("/api/roster/view").text
 
-    # Spec line format: the name and the author, then the separator, then the text.
-    assert "entry.name, entry.author, entry.text" in page
-    assert '" — "' in page
+    # Spec line format: the name, the author, then the separator, then the text.
+    assert "const head = [entry.name, entry.author].filter(Boolean);" in page
+    assert 'head.join(" ") + " — " + entry.text' in page
 
 
-def test_the_page_formats_a_system_line():
+def test_the_page_words_the_actions_and_keeps_an_unknown_action_as_recorded():
     client = build_app()
     page = client.get("/api/roster/view").text
 
-    assert 'entry.name + " " + PAST[entry.action] + "."' in page
+    # An action outside the mapping is shown as recorded, not as a broken line.
+    assert '(PAST[entry.action] || entry.action) + "."' in page
 
 
-def test_the_page_keeps_a_line_without_an_author_as_the_system_sentence():
+def test_the_page_builds_an_agent_line_from_the_name_and_the_author():
     client = build_app()
     page = client.get("/api/roster/view").text
 
-    assert "entry.text ? " in page
+    # Spec line format: the name, the author, then the separator, then the text.
+    assert "const head = [entry.name, entry.author].filter(Boolean);" in page
+    assert 'head.join(" ") + " — " + entry.text' in page
 
 
 def test_the_panel_and_the_saved_file_write_the_same_lines():
@@ -318,6 +321,8 @@ def test_the_toggle_stays_reachable_when_the_panel_is_hidden():
     # Review focus: a control inside the hidden pane cannot be used to open it again.
     assert "#layout.hide #transcript { display: none; }" in page
     assert "#menu { display: none" in page
+    # A hidden panel must not keep its column, otherwise the roster does not take the width.
+    assert "#layout.hide #panel { flex: 0 0 auto; }" in page
 
 
 def test_the_page_words_the_actions_as_the_spec_sentences():
@@ -342,6 +347,14 @@ def test_the_save_and_the_formats_have_actions():
 
     assert 'document.getElementById("formats")' in page
     assert 'document.getElementById("save")' in page
+
+
+def test_the_page_writes_the_state_in_the_form_the_reader_can_follow():
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    # Review focus line 1: the cookie interface is `setPanelState(state)`, value "1" or "0".
+    assert 'setPanelState(shown ? "1" : "0")' in page
 
 
 def test_the_page_has_one_state_for_the_panel():
