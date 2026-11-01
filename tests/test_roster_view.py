@@ -689,3 +689,10 @@ def test_the_formats_button_shows_the_arrow_before_the_list_of_formats():
 
     assert 'id="formats">▼' in page
     assert 'id="menu"' in page  # the list is what the marker opens
+
+
+def test_the_sidebar_has_a_fixed_width():
+    """It does not grow with the window; the grid takes the rest."""
+    page = page_source()
+    assert "#panel { flex: 0 0 320px; border-left: 1px solid #444; padding-left: 12px; }" in page
+    assert "#panel { flex: 1;" not in page
