@@ -714,3 +714,12 @@ def test_the_group_box_uses_the_same_round_as_the_tile():
         in page
     )
     assert ".tile { padding: 12px; margin: 8px 0; background: #1b1b22; border-radius: 6px; }" in page
+
+
+def test_the_buttons_use_the_shape_of_the_rest_of_the_page():
+    """Not the browser default: same surface, same corner, same font."""
+    page = page_source()
+    assert (
+        "button { background: #2a2a30; color: #ddd; border: 1px solid #4a4a52; border-radius: 6px; padding: 6px 10px; font: inherit; cursor: pointer; }"
+        in page
+    )
