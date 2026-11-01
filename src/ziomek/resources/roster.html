@@ -6,7 +6,10 @@
     <style>
       body { font-family: sans-serif; background: #111; color: #eee; }
       #layout { display: flex; gap: 12px; }
-      #roster { flex: 0 0 55% }
+      #roster { flex: 0 0 55%; max-height: 100vh; overflow: auto; }
+      #main { display: flex; flex-direction: column; min-width: 0; }
+      #roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; padding: 8px; }
+      #count { font-size: 13px; color: #999; padding: 8px; }
       #panel { flex: 1; border-left: 1px solid #444; padding-left: 12px; }
       #layout.hide #roster { flex: 1 1 auto }
       #layout.hide #transcript { display: none; }
@@ -25,17 +28,22 @@
       .system_text, .box p.system_text { color: #7fb069; }
       .tile { padding: 12px; margin: 8px 0; background: #1b1b22; border-radius: 6px; }
       .tile .name { font-weight: bold; margin-bottom: 4px; }
-      .status_text, .system_text, .on_hold { white-space: pre-wrap; font-size: 13px; }
+      .system_text, .on_hold { white-space: pre-wrap; font-size: 13px; }
+      .text { color: #ddd; display: block; -webkit-line-clamp: 3; line-height: 20px; overflow: hidden; }
       .expression { color: #d2a9ff; font-size: 13px; }
       ul.events { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: #999; }
     </style>
   </head>
   <body>
     <div id="layout">
-      <div id="roster"></div>
+      <div id="main">
+        <div id="count"></div>
+        <div id="roster"></div>
+      </div>
       <div id="panel">
         <div id="header">
           <button id="toggle">hide</button>
+          <button id="state_text">show text</button>
           <button id="save">Save</button>
           <button id="formats">(...)</button>
           <div id="menu">
@@ -97,11 +105,13 @@
       function render(tiles) {
         const root = document.getElementById("roster");
         root.innerHTML = "";
+        const count = document.getElementById("count");
+        count.textContent = tiles.length + " participants";
         for (const tile of tiles) {
           const el = document.createElement("div");
           el.className = "tile";
           renderText(el, "name", tile.name);
-          renderText(el, "status_text", tile.status_text);
+          if (textOn()) renderText(el, "text", tile.status_text);
           renderText(el, "system_text", tile.system_text);
           renderText(el, "expression", tile.expression);
           renderText(el, "on_hold", tile.state === "held" ? "On hold " + held(tile) : "");
@@ -129,6 +139,18 @@
         el.className = className;
         el.textContent = value || "";
         root.appendChild(el);
+        markTruncated(el, value);
+      }
+
+      // The whole text stays reachable on hover; only the display is cut.
+      function markTruncated(el, text) {
+        if (!text) return;
+        el.title = text;
+        if (el.scrollHeight > el.clientHeight) {
+          const marker = document.createElement("span");
+          marker.textContent = "(...)";
+          el.appendChild(marker);
+        }
       }
 
       function pad(n) {
@@ -170,25 +192,25 @@
         setTimeout(() => URL.revokeObjectURL(link.href), 0);
       }
 
-      function readCookieState() {
-        const match = document.cookie.match(/(?:^|;\s*)ziomek_panel=([^;]*)/);
-        if (!match) return null;
-        try {
-          const value = decodeURIComponent(match[1]);
-          return value === "open" || value === "closed" ? value : null;
-        } catch (error) {
-          return null;  // URIError from a malformed escape, so the config default decides
-        }
+      function readStored(name) {
+        const value = localStorage.getItem(name);
+        if (value === null) return null;  // nothing stored -> the config default decides the opening
+        return value;
       }
 
-      function setPanelState(state) {
-        document.cookie = "ziomek_panel=" + encodeURIComponent(state) + "; path=/";
+      function textOn() {
+        const stored = readStored("ziomek_text");
+        return stored !== "0";  // nothing stored means the text is shown
+      }
+
+      function setStored(name, value) {
+        localStorage.setItem(name, value);
       }
 
       function panelOpen() {
-        const stored = readCookieState();
+        const stored = readStored("ziomek_panel");
         if (!stored) return initial === "open";
-        return stored === "open";
+        return stored === "1";
       }
 
       function setShown(shown) {
@@ -197,10 +219,23 @@
         label.textContent = shown ? "hide" : "show";
       }
 
+      function labelTextToggle() {
+        document.getElementById("state_text").textContent = textOn() ? "hide text" : "show text";
+      }
+
+      document.getElementById("state_text").addEventListener("click", () => {
+        const on = !textOn();
+        setStored("ziomek_text", on ? "1" : "0");
+        labelTextToggle();
+        render(lastTiles);
+      });
+
+      labelTextToggle();
+
       document.getElementById("toggle").addEventListener("click", () => {
         const shown = !document.getElementById("layout").classList.contains("hide");
         setShown(!shown);
-        setPanelState(shown ? "1" : "0");
+        setStored("ziomek_panel", shown ? "1" : "0");
       });
 
       document.getElementById("formats").addEventListener("click", () => {
