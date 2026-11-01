@@ -18,6 +18,11 @@
       #menu { display: none; }
       #menu.open { display: block; }
       button { background: #2a2a30; color: #ddd; border: 1px solid #4a4a52; border-radius: 6px; padding: 6px 10px; font: inherit; cursor: pointer; }
+      .tile { position: relative; aspect-ratio: 1 / 1; overflow: hidden; }
+      .avatar { position: absolute; inset: 0; background: #2a2a30; border: 1px dashed #4a4a52; border-radius: 6px; }
+      .avatar img { width: 100%; height: 100%; object-fit: cover; }
+      .top { display: flex; justify-content: space-between; padding: 8px; }
+      .bottom { position: absolute; left: 8px; right: 8px; bottom: 8px; }
       @media (max-width: 900px) {
         #layout { display: block; }
         #roster, #panel { flex: none; }
@@ -31,7 +36,7 @@
       .tile .name { font-weight: bold; margin-bottom: 4px; }
       .system_text, .on_hold { white-space: pre-wrap; font-size: 13px; }
       .text { color: #ddd; display: block; -webkit-line-clamp: 3; line-height: 20px; overflow: hidden; }
-      .expression { color: #d2a9ff; font-size: 13px; }
+      .expression { color: #d2a9ff; font-family: monospace; font-size: 11px; }
       ul.events { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: #999; }
     </style>
   </head>
@@ -124,10 +129,24 @@
         for (const tile of tiles) {
           const el = document.createElement("div");
           el.className = "tile";
-          renderText(el, "name", tile.name);
-          if (textOn()) renderText(el, "text", tile.status_text);
-          renderText(el, "system_text", tile.system_text);
-          renderText(el, "expression", tile.expression);
+          const avatar = el_class("avatar");
+          if (tile.avatar) {
+            const img = document.createElement("img");
+            img.src = tile.avatar;
+            avatar.appendChild(img);
+          }
+          el.appendChild(avatar);
+
+          const top = el_class("top");
+          renderText(top, "name", tile.name);
+          renderText(top, "expression", tile.expression);
+          el.appendChild(top);
+
+          // The text sits at the bottom of the block; the whole text is in the transcript panel.
+          const bottom = el_class("bottom");
+          if (textOn()) renderText(bottom, "text", tile.status_text);
+          renderText(bottom, "system_text", tile.system_text);
+          el.appendChild(bottom);
           renderText(el, "on_hold", tile.state === "held" ? "On hold " + held(tile) : "");
           const list = document.createElement("ul");
           list.className = "events";

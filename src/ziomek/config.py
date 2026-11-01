@@ -29,6 +29,7 @@ class Settings(BaseModel):
     roster_quiet_for: int = 3000
     roster_check_interval: float = 1.0
     roster_transcript_default: str = "open"
+    roster_avatar: str = "none"
 
     @field_validator("roster_transcript_default", mode="before")
     def normalize_panel_default(cls, value):
@@ -179,6 +180,7 @@ class Settings(BaseModel):
 # roster_quiet_for: 3000     # seconds of quiet before a participant is dropped
 # roster_check_interval: 1.0  # seconds between the quiet checks on the event loop
 # roster_transcript_default: open # whether the transcript panel is open when the page loads (open | closed)
+# roster_avatar: none # image for the tile block; "none" shows the block without an image; a path that does not exist is read as none
 """
         p = Path(path).resolve()
         p.parent.mkdir(parents=True, exist_ok=True)

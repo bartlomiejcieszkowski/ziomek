@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from ziomek.roster import get_roster
 router = APIRouter(tags=["Roster"])
 
 _page_html = Path(__file__).parent.parent / "resources" / "roster.html"
+_resources = Path(__file__).parent.parent / "resources"
 
 
 def expression_for(participant) -> str | None:
@@ -24,7 +26,25 @@ def expression_for(participant) -> str | None:
     return None if current is None else current.expressionName
 
 
-def tiles() -> list[dict]:
+def avatar_for(settings=None) -> str | None:
+    """The image for the tile block. "none" and a path that does not exist both mean nothing to show."""
+    if settings is None:
+        from ziomek.server import _settings
+
+        settings = _settings
+    value = getattr(settings, "roster_avatar", "none")
+    if not value or value == "none":
+        return None
+    path = Path(value)
+    if not path.is_absolute():
+        path = _resources / path
+    if not path.is_file():
+        logging.warning("Avatar file %s does not exist, so the tile shows the block without an image", path)
+        return None
+    return str(path)
+
+
+def tiles(settings=None) -> list[dict]:
     """One tile per participant in the call."""
     roster = get_roster()
     return [
@@ -37,6 +57,7 @@ def tiles() -> list[dict]:
             "texts": [entry.as_dict() for entry in participant.texts],
             "events": list(participant.events),
             "expression": expression_for(participant),
+            "avatar": avatar_for(settings),
         }
         for participant in roster.participants
     ]
