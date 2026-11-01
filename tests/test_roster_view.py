@@ -539,7 +539,7 @@ def test_the_page_has_the_colors_and_the_box_shape():
         ".box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; border-radius: 6px; padding: 12px; }"
         in page
     )
-    assert ".name { color: #8ab4f8; }" in page
+    assert ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }" in page
     assert ".event { color: #e0a568; }" in page
     assert ".system_text { color: #7fb069; }" in page
     assert 'el_class("name")' in page
@@ -627,7 +627,7 @@ def test_a_cut_line_keeps_the_full_text_on_hover():
     """The ellipsis comes from the clamp, so nothing is written by JavaScript; hover still shows the whole text, and the panel has it too."""
     page = page_source()
     assert (
-        ".text { color: #ddd; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }"
+        ".text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }"
         in page
     )
     assert "el.title = value" in page
@@ -669,7 +669,7 @@ def test_the_page_has_one_rule_for_the_text_inside_a_tile():
     """One rule, written once: the tile text is the class the page writes."""
     page = page_source()
     assert (
-        ".text { color: #ddd; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }"
+        ".text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }"
         in page
     )
     assert page.count(".text {") == 1
@@ -741,7 +741,10 @@ def test_only_what_the_participant_ssaid_mmade_a_group():
 def test_the_page_writes_a_system_line_with_the_name_and_the_green_color():
     # A line written by the system is not a group, so it keeps its name and its own color.
     page = page_source()
-    assert 'el_class("name")' in page and ".name { color: #8ab4f8; }" in page
+    assert (
+        'el_class("name")' in page
+        and ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }" in page
+    )
     assert 'item.className = block.author === "system" ? "system_text" : "event";' in page
 
 
@@ -798,8 +801,11 @@ def test_the_expression_uses_a_monotype_font_and_is_smaller_than_name():
     # An expression is a state name, not an emotion: "playing darts" is not an emotion.
     # It is set in a monotype font and kept smaller than the name.
     page = page_source()
-    assert ".expression { color: #d2a9ff; font-family: monospace; font-size: 11px; }" in page
-    assert ".name { color: #8ab4f8; }" in page
+    assert (
+        ".expression { color: #d2a9ff; font-family: monospace; font-size: 11px; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }"
+        in page
+    )
+    assert ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }" in page
 
 
 def test_the_record_items_are_list_items_with_the_markers_and_indent_removed():
@@ -814,7 +820,7 @@ def test_the_text_block_can_actually_clamp_three_lines():
     page = page_source()
 
     assert (
-        ".text { color: #ddd; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }"
+        ".text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }"
         in page
     )
 
@@ -824,8 +830,23 @@ def test_the_clamp_is_the_only_marker_and_the_full_text_stays_on_hover():
     page = page_source()
 
     assert (
-        ".text { color: #ddd; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }"
+        ".text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }"
         in page
     )
     assert "markTruncated" not in page
     assert "el.title = value" in page
+
+
+def test_the_three_layers_are_the_three_separate_panels():
+    # Group 2 from the mock: each layer keeps its own panel, so the name, the expression and the text each get their own rounded background.
+    page = page_source()
+
+    assert ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }" in page
+    assert (
+        ".expression { color: #d2a9ff; font-family: monospace; font-size: 11px; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }"
+        in page
+    )
+    assert (
+        ".text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }"
+        in page
+    )
