@@ -9,12 +9,23 @@ _logger = logging.getLogger(__name__)
 
 
 def view_page_url(settings: Settings) -> str:
+    """URL of the page that opens by default: the roster."""
+    return f"http://{settings.host}:{settings.port}/api/roster/view"
+
+
+def avatar_page_url(settings: Settings) -> str:
     """URL of the served avatar view page for the given settings."""
     return f"http://{settings.host}:{settings.port}/api/avatar/view"
 
 
+def print_page_urls(settings: Settings) -> None:
+    """Print both page addresses so the user can reach either page from the terminal."""
+    print(view_page_url(settings))
+    print(avatar_page_url(settings))
+
+
 def open_view_page(settings: Settings) -> bool:
-    """Open the avatar view page unless opening is disabled.
+    """Open the roster page unless opening is disabled.
 
     Returns True when the page was opened, False when it was skipped (no_browser)
     or the browser could not be opened.
@@ -33,5 +44,5 @@ def open_view_page(settings: Settings) -> bool:
         _logger.warning("Could not open browser: %s", url)
         return False
 
-    _logger.info("Opened avatar view in browser: %s", url)
+    _logger.info("Opened roster page in browser: %s", url)
     return True

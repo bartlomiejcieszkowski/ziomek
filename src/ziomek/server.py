@@ -20,7 +20,7 @@ from ziomek.api.avatar_ws import router as avatar_ws_router
 from ziomek.api.stt_ws import router as stt_ws_router
 from ziomek.avatar.skins import SkinRegistry
 from ziomek.avatar.state_machine import AvatarInput, AvatarStateMachine
-from ziomek.browser import open_view_page
+from ziomek.browser import open_view_page, print_page_urls
 from ziomek.config import Settings
 from ziomek.gamepad import GamepadManager, handle_gamepad_input
 from ziomek.logging import RequestIDMiddleware, get_log_buffer, setup_logging
@@ -121,6 +121,7 @@ def create_app(
         event_loop.set_event_loop(asyncio.get_running_loop())
         if _stt_engine is not None:
             _stt_engine.set_event_loop(asyncio.get_running_loop())
+        print_page_urls(settings)
         if open_browser:
             open_view_page(settings)
         # Participants are dropped when they stay quiet, so this runs on the loop.
