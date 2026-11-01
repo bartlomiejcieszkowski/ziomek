@@ -140,7 +140,7 @@ def test_the_roster_page_shows_the_expression_of_each_participant():
     client = build_app()
     page = client.get("/api/roster/view").text
 
-    assert 'renderText(el, "expression", tile.expression)' in page
+    assert 'renderText(top, "expression", tile.expression)' in page
 
 
 def test_the_roster_page_shows_the_text_attached_to_each_event():
@@ -655,7 +655,7 @@ def test_the_page_has_a_second_toggle_for_the_text_inside_tiles():
     """The text inside a tile can be turned off; the tile itself stays."""
     page = page_source()
     assert 'id="state_text"' in page
-    assert 'if (textOn()) renderText(el, "text", tile.status_text);' in page
+    assert 'if (textOn()) renderText(bottom, "text", tile.status_text);' in page
 
 
 def test_the_page_has_one_rule_for_the_text_inside_a_tile():
@@ -740,3 +740,53 @@ def test_a_system_written_line_keeps_its_author_in_the_file():
 
     built = blocks([{"name": "John", "action": "text", "text": "a system note", "author": "system"}])
     assert "> John (system) — a system note" in markdown_text(built, "2026-10-31T14:20:04Z")
+
+
+def test_the_tile_payload_carries_no_avatar_when_the_config_default_is_none():
+    # Nothing is bundled yet, so the default is none: the tile shows the block without an image.
+    from ziomek.api.roster_view import tiles
+
+    client = build_app()
+    get_roster().join("John")
+    assert Settings().roster_avatar == "none"
+    assert tiles()[0]["avatar"] is None
+
+
+def test_a_missing_avatar_file_is_treated_as_none_and_leaves_a_warning(caplog):
+    from ziomek.api.roster_view import tiles
+
+    settings = Settings(roster_avatar="default_avatar.png")
+    client = build_app()
+    get_roster().join("John")
+    assert tiles(settings=settings)[0]["avatar"] is None
+    assert "default_avatar.png" in caplog.text
+
+
+def test_an_avatar_file_that_exists_shows_up_in_the_payload(tmp_path):
+    from ziomek.api.roster_view import tiles
+
+    avatar = tmp_path / "john.png"
+    avatar.write_text("not an image, only a stand-in")
+    client = build_app()
+    get_roster().join("John")
+    assert tiles(settings=Settings(roster_avatar=str(avatar)))[0]["avatar"] == str(avatar)
+
+
+def test_the_page_builds_the_name_on_the_left_and_the_expression_on_the_right():
+    # The block is the avatar, so these are corners of the block, not elements inside a card.
+    page = page_source()
+    assert ".top { display: flex; justify-content: space-between; padding: 8px; }" in page
+    assert 'el_class("top")' in page and 'el_class("bottom")' in page
+
+
+def test_the_text_stays_at_the_bottom_of_the_block():
+    page = page_source()
+    assert ".bottom { position: absolute; left: 8px; right: 8px; bottom: 8px; }" in page
+
+
+def test_the_expression_uses_a_monotype_font_and_is_smaller_than_name():
+    # An expression is a state name, not an emotion: "playing darts" is not an emotion.
+    # It is set in a monotype font and kept smaller than the name.
+    page = page_source()
+    assert ".expression { color: #d2a9ff; font-family: monospace; font-size: 11px; }" in page
+    assert ".name { color: #8ab4f8; }" in page

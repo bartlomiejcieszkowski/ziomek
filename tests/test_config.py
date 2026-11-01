@@ -369,3 +369,13 @@ def test_scaffold_config_documents_the_panel_default():
 def test_a_non_string_panel_default_is_normalized():
     assert Settings(roster_transcript_default=True).roster_transcript_default == "closed"
     assert Settings(roster_transcript_default=5).roster_transcript_default == "closed"
+
+
+def test_scaffold_config_documents_the_avatar_option():
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        path = f.name
+    try:
+        content = Settings.scaffold_config(path).read_text()
+        assert "# roster_avatar:" in content
+    finally:
+        os.unlink(path)
