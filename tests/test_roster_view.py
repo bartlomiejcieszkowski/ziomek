@@ -680,3 +680,12 @@ def test_the_reader_takes_the_name_it_is_asked_for():
 
     assert "function readStored(name)" in page
     assert "function setStored(name, value)" in page
+
+
+def test_the_formats_button_shows_the_arrow_before_the_list_of_formats():
+    """The label is the marker for the list, not a name for the control."""
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    assert 'id="formats">▼' in page
+    assert 'id="menu"' in page  # the list is what the marker opens
