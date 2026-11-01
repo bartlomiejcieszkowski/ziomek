@@ -478,7 +478,7 @@ def test_a_participant_with_no_message_produces_no_group():
         {"name": "John", "action": "join"},
         {"name": "John", "action": "text", "text": "", "author": "agent"},
     ]
-    assert blocks(entries) == [{"kind": "system", "text": "John joined."}]
+    assert blocks(entries) == [{"kind": "system", "name": "John", "text": "John joined."}]
 
 
 def test_the_system_line_is_a_sentence_with_the_word_from_the_record():
@@ -552,7 +552,7 @@ def test_the_panel_renders_a_system_block_as_its_own_line():
 
     # A block that is not a group cannot be built from lines that do not exist.
     assert 'if (block.kind === "system")' in page
-    assert 'item.className = "event"' in page
+    assert 'item.className = block.author === "system" ? "system_text" : "event";' in page
 
 
 def test_a_group_line_is_the_text_as_written():
@@ -562,26 +562,11 @@ def test_a_group_line_is_the_text_as_written():
     entry = {"name": "John", "action": "text", "text": "compiling", "author": "agent"}
     assert format_line(entry) == "compiling"
 
-
-def test_a_group_is_keyed_by_the_participant_and_the_author():
-    from ziomek.api.roster_view import blocks
-
-    entries = [
-        {"name": "John", "action": "text", "text": "compiling", "author": "agent"},
-        {"name": "John", "action": "text", "text": "a system note", "author": "system"},
-    ]
-    built = blocks(entries)
-    assert [block["kind"] for block in built] == ["group", "group"]
-    assert built[1]["author"] == "system"
-    assert built[1]["lines"] == ["a system note"]
-
-
-def test_an_entry_with_a_name_and_no_action_and_no_text_produces_no_block():
     from ziomek.api.roster_view import blocks
 
     assert blocks([{"name": "John", "action": "", "text": "", "author": ""}]) == []
     assert blocks([{"name": "John", "action": "join", "text": "", "author": ""}]) == [
-        {"kind": "system", "text": "John joined."}
+        {"kind": "system", "name": "John", "text": "John joined."}
     ]
 
 
@@ -723,3 +708,35 @@ def test_the_buttons_use_the_shape_of_the_rest_of_the_page():
         "button { background: #2a2a30; color: #ddd; border: 1px solid #4a4a52; border-radius: 6px; padding: 6px 10px; font: inherit; cursor: pointer; }"
         in page
     )
+
+
+def test_only_what_the_participant_ssaid_mmade_a_group():
+    # Option A: a group holds only what the participant said; anything written by the system
+    # stays as its own line, with the name and the author kept for it.
+    from ziomek.api.roster_view import blocks
+
+    entries = [
+        {"name": "John", "action": "join"},
+        {"name": "John", "action": "text", "text": "compiling", "author": "agent"},
+        {"name": "John", "action": "text", "text": "a system note", "author": "system"},
+        {"name": "John", "action": "left"},
+    ]
+    built = blocks(entries)
+    assert [block["kind"] for block in built] == ["system", "group", "system", "system"]
+    assert built[1]["lines"] == ["compiling"]
+    assert built[2]["name"] == "John" and built[2]["author"] == "system"
+    assert built[2]["text"] == "a system note"
+
+
+def test_the_page_writes_a_system_line_with_the_name_and_the_green_color():
+    # A line written by the system is not a group, so it keeps its name and its own color.
+    page = page_source()
+    assert 'el_class("name")' in page and ".name { color: #8ab4f8; }" in page
+    assert 'item.className = block.author === "system" ? "system_text" : "event";' in page
+
+
+def test_a_system_written_line_keeps_its_author_in_the_file():
+    from ziomek.api.roster_view import blocks, markdown_text
+
+    built = blocks([{"name": "John", "action": "text", "text": "a system note", "author": "system"}])
+    assert "> John (system) — a system note" in markdown_text(built, "2026-10-31T14:20:04Z")

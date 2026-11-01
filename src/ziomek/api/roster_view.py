@@ -96,7 +96,7 @@ def blocks(entries: list[dict]) -> list[dict]:
     for entry in entries:
         if not (entry.get("name") or entry.get("action") or entry.get("text")):
             continue  # Review focus line 1: an entry with nothing to show produces no line
-        if entry.get("action") == "text" and entry.get("author"):
+        if entry.get("action") == "text" and entry.get("author") == "agent":
             line = format_line(entry)
             if not line:
                 continue
@@ -110,7 +110,12 @@ def blocks(entries: list[dict]) -> list[dict]:
             continue
         line = format_line(entry)
         if line:
-            grouped.append({"kind": "system", "text": line})
+            # Anything written by the system is not what the participant said, so it stays
+            # as its own item and keeps the name and the author for the line that shows it.
+            item = {"kind": "system", "name": entry.get("name", ""), "text": line}
+            if entry.get("author"):
+                item["author"] = entry["author"]
+            grouped.append(item)
     return [g for g in grouped if g["kind"] == "system" or g["lines"]]
 
 
@@ -132,7 +137,10 @@ def markdown_text(grouped: list[dict], timestamp: str) -> str:
     parts = [f"# transcript — {timestamp}", ""]
     for block in grouped:
         if block["kind"] == "system":
-            parts.append(f"> {block['text']}")
+            author = block.get("author")
+            # The author stays as text: colors cannot show in a file, so both sides keep it.
+            head = f"{block.get('name', '')} ({author})" if author else block.get("name", "")
+            parts.append(f"> {head} — {block['text']}" if head else f"> {block['text']}")
             continue
         name = block.get("name", "")
         author = block.get("author")

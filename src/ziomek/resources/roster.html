@@ -75,8 +75,21 @@
         if (block.kind === "system") {
           // A system line is its own line between the boxes, in the color for quotes.
           const item = document.createElement("p");
-          item.className = "event";
-          item.textContent = block.text;
+          item.className = block.author === "system" ? "system_text" : "event";
+          if (block.name) {
+            const name = el_class("name");
+            name.textContent = block.name;
+            item.append(name);
+            if (block.author) {
+              // The author is kept on the line because the file keeps it too.
+              const mark = el_class("group_author");
+              mark.textContent = " (" + block.author + ")";
+              item.append(mark);
+            }
+          }
+          const text = document.createElement("span");
+          text.textContent = block.text;
+          item.append(text);
           document.getElementById("transcript").appendChild(item);
           return;
         }
