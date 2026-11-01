@@ -14,7 +14,8 @@
       #layout.hide #roster { flex: 1 1 auto }
       #layout.hide #transcript { display: none; }
       #layout.hide #panel { flex: 0 0 auto; }
-      #transcript .box p, #transcript .event { white-space: pre-wrap; }
+      #transcript { list-style: none; padding: 0; }
+      #transcript li, #transcript .box p { white-space: pre-wrap; }
       #menu { display: none; }
       #menu.open { display: block; }
       button { background: #2a2a30; color: #ddd; border: 1px solid #4a4a52; border-radius: 6px; padding: 6px 10px; font: inherit; cursor: pointer; }
@@ -77,6 +78,9 @@
       }
 
       function renderBlock(block) {
+        // Each record item is a list item; the panel is a record, so the marker rule and the
+        // indent are both taken away.
+        const row = document.createElement("li");
         if (block.kind === "system") {
           // A system line is its own line between the boxes, in the color for quotes.
           const item = document.createElement("p");
@@ -95,7 +99,8 @@
           const text = document.createElement("span");
           text.textContent = block.text;
           item.append(text);
-          document.getElementById("transcript").appendChild(item);
+          row.append(item);
+          document.getElementById("transcript").append(row);
           return;
         }
 
@@ -118,7 +123,8 @@
           p.textContent = line;
           box.appendChild(p);
         }
-        document.getElementById("transcript").appendChild(box);
+        row.append(box);
+        document.getElementById("transcript").append(row);
       }
 
       function render(tiles) {
