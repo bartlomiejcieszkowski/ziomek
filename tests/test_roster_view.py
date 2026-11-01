@@ -532,7 +532,10 @@ def test_the_file_uses_the_clock_passed_by_the_page(monkeypatch):
 
 def test_the_page_has_the_colors_and_the_box_shape():
     page = page_source()
-    assert ".box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; }" in page
+    assert (
+        ".box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; border-radius: 6px; padding: 12px; }"
+        in page
+    )
     assert ".name { color: #8ab4f8; }" in page
     assert ".event { color: #e0a568; }" in page
     assert ".system_text { color: #7fb069; }" in page
@@ -612,7 +615,12 @@ def test_the_classes_the_page_uses_are_the_classes_the_page_defines():
 
     # A class the page uses must be defined once, and a rule must be reachable.
     assert 'el_class("group_author")' in page and ".group_author { color: #999; }" in page
-    assert page.count(".box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; }") == 1
+    assert (
+        page.count(
+            ".box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; border-radius: 6px; padding: 12px; }"
+        )
+        == 1
+    )
     assert "#transcript .box p, #transcript .event { white-space: pre-wrap; }" in page
     assert ".event { color: #e0a568; }" in page
 
@@ -696,3 +704,13 @@ def test_the_sidebar_has_a_fixed_width():
     page = page_source()
     assert "#panel { flex: 0 0 320px; border-left: 1px solid #444; padding-left: 12px; }" in page
     assert "#panel { flex: 1;" not in page
+
+
+def test_the_group_box_uses_the_same_round_as_the_tile():
+    """Same corner radius as the tile, so both sides look like the same shape."""
+    page = page_source()
+    assert (
+        ".box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; border-radius: 6px; padding: 12px; }"
+        in page
+    )
+    assert ".tile { padding: 12px; margin: 8px 0; background: #1b1b22; border-radius: 6px; }" in page
