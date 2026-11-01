@@ -210,7 +210,7 @@ def test_the_saved_file_is_named_with_the_project_and_the_download_time():
 - [ ] **Step 5:** Commit — `git commit --signoff -m "feat(api): save the transcript as markdown or json"`
 ---
 
-### Task 5: Remember the panel state in a cookie
+### Task 5: Remember the toggle state in local storage
 
 **Files:**
 - Modify: `src/ziomek/resources/roster.html`
@@ -218,24 +218,24 @@ def test_the_saved_file_is_named_with_the_project_and_the_download_time():
 
 **Interfaces:**
 - Consumes: `initial` from Task 2, the toggle from Task 3.
-- Produces: `readCookieState() -> str | None` and `setPanelState(state: str) -> None`, which writes `ziomek_panel=open|closed`. `initial` is used only when the cookie has nothing to read.
+- Produces: `readStored(name) -> str | None` and `setStored(name, value)`, one key per toggle (`ziomek_panel`, `ziomek_text`). `initial` is used only when nothing is stored.
 
 - [ ] **Step 1: Write the failing tests**
 
 ```python
-def test_the_page_reads_the_panel_state_from_the_cookie_before_the_config_default():
+def test_the_page_reads_the_panel_state_from_storage_before_the_config_default():
     page = client.get("/api/roster/view").text
-    assert "document.cookie" in page
+    assert "localStorage" in page
     assert 'ziomek_panel' in page
 
 def test_the_page_uses_the_config_default_only_when_nothing_is_stored():
     page = client.get("/api/roster/view").text
-    assert "readCookieState()" in page   # returns null when nothing is stored, and the page then uses initial
+    assert "function readStored(name)" in page   # returns null when nothing is stored, and the page then uses initial
 ```
 
 - [ ] **Step 2:** Run, expect FAIL.
-- [ ] **Step 3:** Implement `readCookieState()` (returns `null` when `ziomek_panel` is not in the cookie) and `setPanelState(state)` on the toggle click; the opening decision is `readCookieState() || initial`, so a click survives a reload and an empty cookie follows config; the reader rejects anything that is not `open` or `closed` and a malformed escape falls back instead of throwing.
+- [ ] **Step 3:** Implement `readStored(name)` (returns `null` when nothing is stored) and `setStored(name, value)` on the toggle click; the opening decision is `readStored(name) || initial`, so a click survives a reload and an empty key follows config. The text toggle falls back to on when its key is empty.
 - [ ] **Step 4:** Run the tests, expect PASS.
-- [ ] **Step 5:** Commit — `git commit --signoff -m "feat(api): remember the panel state in the cookie"`
+- [ ] **Step 5:** Commit — `git commit --signoff -m "feat(api): remember the toggle state in local storage"`
 
-Task 3's "the click is not remembered" line defers to this task. `localStorage` was weighed and left as an idea in `docs/internal/IDEAS.md` (item 11) — cookie stays the choice here because it survives reloads within the browser session.
+Task 3's "the click is not remembered" line defers to this task. Local storage is the choice here; the cookie option was weighed first and replaced by the user (m04759), and both toggles store under their own key.

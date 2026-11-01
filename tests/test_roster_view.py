@@ -211,19 +211,19 @@ def test_a_value_that_is_not_open_or_closed_falls_back_to_closed():
     assert 'const initial = "closed";' in client.get("/api/roster/view").text
 
 
-def test_the_page_reads_the_panel_state_from_the_cookie_before_the_config_default():
+def test_the_page_reads_the_panel_state_from_storage_before_the_config_default():
     client = build_app()
     page = client.get("/api/roster/view").text
 
-    assert "document.cookie" in page
-    assert "ziomek_panel" in page
+    assert "localStorage" in page
+    assert 'readStored("ziomek_panel")' in page
 
 
 def test_the_page_uses_the_config_default_only_when_nothing_is_stored():
     client = build_app()
     page = client.get("/api/roster/view").text
 
-    assert "readCookieState()" in page
+    assert "function readStored(name)" in page
     assert "return null" in page  # nothing stored -> the config default decides the opening
 
 
@@ -233,7 +233,7 @@ def test_the_page_has_the_panel_and_its_toggle():
 
     assert 'id="panel"' in page
     assert 'id="toggle"' in page
-    assert "#roster { flex: 0 0 55% }" in page
+    assert "#roster { flex: 0 0 55%; max-height: 100vh; overflow: auto; }" in page
     assert "@media (max-width: 900px)" in page
 
 
@@ -367,12 +367,16 @@ def test_the_save_and_the_formats_have_actions():
     assert 'document.getElementById("save")' in page
 
 
-def test_the_page_writes_the_state_in_the_form_the_reader_can_follow():
+def test_the_page_stores_each_toggle_under_its_own_name():
     client = build_app()
     page = client.get("/api/roster/view").text
 
-    # Review focus line 1: the cookie interface is `setPanelState(state)`, value "1" or "0".
-    assert 'setPanelState(shown ? "1" : "0")' in page
+    # Review focus line 1: the stored value is "1" or "0", one name per toggle.
+    assert 'readStored("ziomek_panel")' in page
+    assert 'readStored("ziomek_text")' in page
+    assert 'setStored("ziomek_panel", shown ? "1" : "0")' in page
+    assert 'setStored("ziomek_text", on ? "1" : "0")' in page
+    assert "document.cookie" not in page  # storage replaces the cookie
 
 
 def test_the_page_has_one_state_for_the_panel():
@@ -427,11 +431,14 @@ def test_the_page_gives_back_the_object_url_and_the_download_link():
     assert "document.body.appendChild(link)" in page
 
 
-def test_the_cookie_reader_accepts_a_separator_without_the_space():
+def test_the_reader_is_one_rule_for_both_names():
+    """Storage keeps the value as it is, so there is no decoding step to fail."""
     client = build_app()
     page = client.get("/api/roster/view").text
 
-    assert "(?:^|;\\s*)ziomek_panel=" in page
+    assert "function readStored(name)" in page
+    assert "return null" in page
+    assert "decodeURIComponent" not in page
 
 
 def test_the_tile_payload_has_one_texts_key():
@@ -615,3 +622,61 @@ def test_the_page_builds_a_line_only_through_the_rule_in_python():
 
     # The dead map is gone: the words exist in one place.
     assert "const PAST = {" not in page
+
+
+def test_a_truncated_line_shows_the_marker_and_the_full_text_on_hover():
+    """A line cut at a fixed length shows the marker; the whole text stays on hover, and the panel has it too."""
+    page = page_source()
+    assert ".text { color: #ddd; display: block; -webkit-line-clamp: 3; line-height: 20px; overflow: hidden; }" in page
+    assert "el.title = text" in page
+    assert "el.scrollHeight > el.clientHeight" in page
+    assert 'marker.textContent = "(...)"' in page
+    assert "markTruncated(el, value)" in page
+
+
+def test_the_grid_defends_the_shape_of_a_tile_without_reflowing_for_height():
+    """B: fixed minimum width, nothing computed, no rule for height."""
+    page = page_source()
+    assert "grid-template-columns: repeat(auto-fill, minmax(180px, 1fr))" in page
+
+
+def test_the_roster_box_is_bounded_and_scrolls_inside_it():
+    """B+D: the box does not move the page; the tiles inside it scroll."""
+    page = page_source()
+    assert "#roster { flex: 0 0 55%; max-height: 100vh; overflow: auto; }" in page
+
+
+def test_the_page_shows_the_number_of_participants_in_the_call():
+    """D: the number comes from the participants that joined, not from what is drawn."""
+    page = page_source()
+    assert 'count.textContent = tiles.length + " participants"' in page
+
+
+def test_no_cell_is_filled_with_a_placeholder():
+    """A: no placeholders, the last row is partial and nothing is computed."""
+    page = page_source()
+    assert ".empty" not in page
+
+
+def test_the_page_has_a_second_toggle_for_the_text_inside_tiles():
+    """The text inside a tile can be turned off; the tile itself stays."""
+    page = page_source()
+    assert 'id="state_text"' in page
+    assert 'if (textOn()) renderText(el, "text", tile.status_text);' in page
+
+
+def test_the_page_has_one_rule_for_the_text_inside_a_tile():
+    """One rule, written once: the tile text is the class the page writes."""
+    page = page_source()
+    assert ".text { color: #ddd; display: block; -webkit-line-clamp: 3; line-height: 20px; overflow: hidden; }" in page
+    assert page.count(".text {") == 1
+    assert ".status_text {" not in page
+
+
+def test_the_reader_takes_the_name_it_is_asked_for():
+    """One rule for both toggles, so nothing is keyed to one name."""
+    client = build_app()
+    page = client.get("/api/roster/view").text
+
+    assert "function readStored(name)" in page
+    assert "function setStored(name, value)" in page
