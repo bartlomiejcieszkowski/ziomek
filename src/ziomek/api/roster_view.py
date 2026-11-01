@@ -78,7 +78,7 @@ def panel_default() -> str:
     return _settings.roster_transcript_default  # validated to open or closed by Settings
 
 
-@router.get("/api/roster/view", summary="Roster page", description="Serve the roster page HTML.")
+@router.get("/roster", summary="Roster page", description="Serve the roster page HTML.")
 async def get_roster_page() -> HTMLResponse:
     """Serve the roster page HTML with the configured panel default (one tile per participant)."""
     html = _page_html.read_text(encoding="utf-8").replace("__TRANSCRIPT_DEFAULT__", panel_default())

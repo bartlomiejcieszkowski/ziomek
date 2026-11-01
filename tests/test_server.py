@@ -105,3 +105,10 @@ def test_create_app_skips_stt_when_extra_missing():
 
     assert app is not None
     assert server._stt_engine is None
+
+
+def test_the_health_payload_lists_pages_separately_from_api_endpoints(client):
+    data = client.get("/status").json()
+
+    assert data["endpoints"]["pages"] == ["GET /roster", "GET /avatar"]
+    assert "GET /api/avatar/view" not in data["endpoints"]["avatar"]

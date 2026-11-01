@@ -32,7 +32,7 @@ def _not_initialized(msg: str) -> JSONResponse:
 
 
 @router.get(
-    "/api/avatar/view",
+    "/avatar",
     summary="Render HTML",
     description="Serve the avatar renderer HTML page (used by the client to display the avatar in a browser).",
 )

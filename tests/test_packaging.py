@@ -3,7 +3,7 @@
 Root cause ([tool.hatch.build] only-packages = true): hatchling includes only Python
 files within package directories, so `renderer.html`, `debug.html`, and
 `single_frame_sprite_sheet.png` are missing from an installed wheel and
-`GET /api/avatar/view` answers 404 when run through `uvx ziomek[mcp,stt]`.
+`GET /avatar` answers 404 when run through `uvx ziomek[mcp,stt]`.
 
 The build config must therefore force-include the resource directories, and those
 directories must be reachable as package data at runtime.

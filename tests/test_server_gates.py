@@ -50,7 +50,7 @@ class TestBrowserOpeningOnStartup:
         with patch("webbrowser.open") as opened:
             with TestClient(app):
                 pass
-            opened.assert_called_once_with("http://localhost:5004/api/roster/view")
+            opened.assert_called_once_with("http://localhost:5004/roster")
 
     def test_run_server_requests_opening_when_browser_not_disabled(self):
         from ziomek.server import run_server

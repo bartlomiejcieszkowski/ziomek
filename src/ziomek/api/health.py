@@ -74,8 +74,8 @@ async def status():
                 "POST /api/avatar/expression",
                 "GET /api/avatar/sprite",
                 "POST /api/avatar/speak",
-                "GET /api/avatar/view",
             ],
+            "pages": ["GET /roster", "GET /avatar"],
         },
         "stt": stt_info,
     }
