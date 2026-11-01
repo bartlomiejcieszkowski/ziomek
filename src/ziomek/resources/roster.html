@@ -36,7 +36,7 @@
       .tile { padding: 12px; margin: 8px 0; background: #1b1b22; border-radius: 6px; }
       .tile .name { font-weight: bold; margin-bottom: 4px; }
       .system_text, .on_hold { white-space: pre-wrap; font-size: 13px; }
-      .text { color: #ddd; display: -webkit-box; -webkit-line-clamp: 3; line-height: 20px; overflow: hidden; }
+      .text { color: #ddd; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }
       .expression { color: #d2a9ff; font-family: monospace; font-size: 11px; }
       ul.events { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: #999; }
     </style>
@@ -177,19 +177,9 @@
         const el = document.createElement("div");
         el.className = className;
         el.textContent = value || "";
+        // The whole text stays reachable on hover; only the display is cut, and the ellipsis comes from the clamp.
+        if (value) el.title = value;
         root.appendChild(el);
-        markTruncated(el, value);
-      }
-
-      // The whole text stays reachable on hover; only the display is cut.
-      function markTruncated(el, text) {
-        if (!text) return;
-        el.title = text;
-        if (el.scrollHeight > el.clientHeight) {
-          const marker = document.createElement("span");
-          marker.textContent = "(...)";
-          el.appendChild(marker);
-        }
       }
 
       function pad(n) {

@@ -623,17 +623,15 @@ def test_the_page_builds_a_line_only_through_the_rule_in_python():
     assert "const PAST = {" not in page
 
 
-def test_a_truncated_line_shows_the_marker_and_the_full_text_on_hover():
-    """A line cut at a fixed length shows the marker; the whole text stays on hover, and the panel has it too."""
+def test_a_cut_line_keeps_the_full_text_on_hover():
+    """The ellipsis comes from the clamp, so nothing is written by JavaScript; hover still shows the whole text, and the panel has it too."""
     page = page_source()
     assert (
-        ".text { color: #ddd; display: -webkit-box; -webkit-line-clamp: 3; line-height: 20px; overflow: hidden; }"
+        ".text { color: #ddd; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }"
         in page
     )
-    assert "el.title = text" in page
-    assert "el.scrollHeight > el.clientHeight" in page
-    assert 'marker.textContent = "(...)"' in page
-    assert "markTruncated(el, value)" in page
+    assert "el.title = value" in page
+    assert "markTruncated" not in page
 
 
 def test_the_grid_defends_the_shape_of_a_tile_without_reflowing_for_height():
@@ -671,7 +669,7 @@ def test_the_page_has_one_rule_for_the_text_inside_a_tile():
     """One rule, written once: the tile text is the class the page writes."""
     page = page_source()
     assert (
-        ".text { color: #ddd; display: -webkit-box; -webkit-line-clamp: 3; line-height: 20px; overflow: hidden; }"
+        ".text { color: #ddd; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }"
         in page
     )
     assert page.count(".text {") == 1
@@ -816,6 +814,18 @@ def test_the_text_block_can_actually_clamp_three_lines():
     page = page_source()
 
     assert (
-        ".text { color: #ddd; display: -webkit-box; -webkit-line-clamp: 3; line-height: 20px; overflow: hidden; }"
+        ".text { color: #ddd; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }"
         in page
     )
+
+
+def test_the_clamp_is_the_only_marker_and_the_full_text_stays_on_hover():
+    # Browser ellipsis wins, so there is no marker written by JavaScript; hover still works through title.
+    page = page_source()
+
+    assert (
+        ".text { color: #ddd; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }"
+        in page
+    )
+    assert "markTruncated" not in page
+    assert "el.title = value" in page
