@@ -626,7 +626,10 @@ def test_the_page_builds_a_line_only_through_the_rule_in_python():
 def test_a_truncated_line_shows_the_marker_and_the_full_text_on_hover():
     """A line cut at a fixed length shows the marker; the whole text stays on hover, and the panel has it too."""
     page = page_source()
-    assert ".text { color: #ddd; display: -webkit-box; -webkit-line-clamp: 3; line-height: 20px; overflow: hidden; }" in page
+    assert (
+        ".text { color: #ddd; display: -webkit-box; -webkit-line-clamp: 3; line-height: 20px; overflow: hidden; }"
+        in page
+    )
     assert "el.title = text" in page
     assert "el.scrollHeight > el.clientHeight" in page
     assert 'marker.textContent = "(...)"' in page
@@ -667,7 +670,10 @@ def test_the_page_has_a_second_toggle_for_the_text_inside_tiles():
 def test_the_page_has_one_rule_for_the_text_inside_a_tile():
     """One rule, written once: the tile text is the class the page writes."""
     page = page_source()
-    assert ".text { color: #ddd; display: -webkit-box; -webkit-line-clamp: 3; line-height: 20px; overflow: hidden; }" in page
+    assert (
+        ".text { color: #ddd; display: -webkit-box; -webkit-line-clamp: 3; line-height: 20px; overflow: hidden; }"
+        in page
+    )
     assert page.count(".text {") == 1
     assert ".status_text {" not in page
 
