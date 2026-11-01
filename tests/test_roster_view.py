@@ -59,7 +59,7 @@ def test_the_roster_view_lists_the_participants_of_the_call():
 
 def test_the_roster_page_renders_a_tile_for_each_participant():
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     # Tiles are built per participant, and the text areas are filled from the tile data.
     assert 'className = "tile"' in page
@@ -71,7 +71,7 @@ def test_the_roster_page_is_served_by_the_server():
     client = TestClient(app)
 
     assert client.get("/api/roster").status_code == 200
-    assert 'className = "tile"' in client.get("/api/roster/view").text
+    assert 'className = "tile"' in client.get("/roster").text
 
 
 def test_the_shown_participant_is_rendered_with_its_own_machine(monkeypatch):
@@ -138,14 +138,14 @@ def test_a_tile_carries_the_expression_of_that_participant():
 
 def test_the_roster_page_shows_the_expression_of_each_participant():
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     assert 'renderText(top, "expression", tile.expression)' in page
 
 
 def test_the_roster_page_shows_the_text_attached_to_each_event():
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     assert "event.text" in page
     assert "event.author" in page
@@ -199,7 +199,7 @@ def test_the_served_page_carries_the_configured_default():
     source = page_source()
     assert "__TRANSCRIPT_DEFAULT__" in source
 
-    assert 'const initial = "open";' in client.get("/api/roster/view").text
+    assert 'const initial = "open";' in client.get("/roster").text
 
 
 def test_a_value_that_is_not_open_or_closed_falls_back_to_closed():
@@ -208,12 +208,12 @@ def test_a_value_that_is_not_open_or_closed_falls_back_to_closed():
     )
     client = TestClient(app)
 
-    assert 'const initial = "closed";' in client.get("/api/roster/view").text
+    assert 'const initial = "closed";' in client.get("/roster").text
 
 
 def test_the_page_reads_the_panel_state_from_storage_before_the_config_default():
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     assert "localStorage" in page
     assert 'readStored("ziomek_panel")' in page
@@ -221,7 +221,7 @@ def test_the_page_reads_the_panel_state_from_storage_before_the_config_default()
 
 def test_the_page_uses_the_config_default_only_when_nothing_is_stored():
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     assert "function readStored(name)" in page
     assert "return null" in page  # nothing stored -> the config default decides the opening
@@ -229,7 +229,7 @@ def test_the_page_uses_the_config_default_only_when_nothing_is_stored():
 
 def test_the_page_has_the_panel_and_its_toggle():
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     assert 'id="panel"' in page
     assert 'id="toggle"' in page
@@ -258,7 +258,7 @@ def test_the_panel_and_the_saved_file_write_the_same_lines():
     from ziomek.api.roster_view import blocks, format_line, markdown_text
 
     client = build_app()
-    assert "for (const line of block.lines)" in client.get("/api/roster/view").text
+    assert "for (const line of block.lines)" in client.get("/roster").text
     entry = {"name": "John", "action": "text", "text": "compiling", "author": "agent"}
     group = {"kind": "group", "name": entry["name"], "author": entry["author"], "lines": [format_line(entry)]}
     blocks_result = blocks([entry])
@@ -288,7 +288,7 @@ def test_a_group_without_a_name_keeps_the_author_and_the_text():
 
 def test_the_page_writes_lines_with_text_content():
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     # Review focus line 2: a line that HTML would interpret must appear literally.
     assert "p.textContent = line" in page
@@ -296,7 +296,7 @@ def test_the_page_writes_lines_with_text_content():
 
 def test_the_page_has_save_with_the_two_formats():
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     assert 'id="save"' in page
     assert 'data-format="markdown"' in page
@@ -305,7 +305,7 @@ def test_the_page_has_save_with_the_two_formats():
 
 def test_the_saved_file_is_named_with_the_project_and_the_download_time():
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     # ziomek_{YYYY-MM-DD}_{HHMM}_transcript.{md|json}, built from the browser clock
     assert 'return "ziomek_" + nameStamp(at) + "_transcript." + ext' in page
@@ -319,7 +319,7 @@ def test_the_file_keeps_its_header_when_there_is_nothing_to_save():
     assert client.get("/api/roster/transcript/markdown?at=2026-10-31T14:20:04Z").text.startswith(
         "# transcript — 2026-10-31T14:20:04Z"
     )
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
     assert "new Blob(" in page
 
 
@@ -335,7 +335,7 @@ def test_an_entry_with_nothing_to_show_produces_no_line():
 
 def test_the_toggle_stays_reachable_when_the_panel_is_hidden():
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     # Review focus: a control inside the hidden pane cannot be used to open it again.
     assert "#layout.hide #transcript { display: none; }" in page
@@ -354,14 +354,14 @@ def test_the_words_of_the_actions_are_the_sentences_the_spec_asks_for():
 
 def test_the_page_names_the_file_with_the_short_extension():
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     assert 'markdown: "md"' in page
 
 
 def test_the_save_and_the_formats_have_actions():
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     assert 'document.getElementById("formats")' in page
     assert 'document.getElementById("save")' in page
@@ -369,7 +369,7 @@ def test_the_save_and_the_formats_have_actions():
 
 def test_the_page_stores_each_toggle_under_its_own_name():
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     # Review focus line 1: the stored value is "1" or "0", one name per toggle.
     assert 'readStored("ziomek_panel")' in page
@@ -381,7 +381,7 @@ def test_the_page_stores_each_toggle_under_its_own_name():
 
 def test_the_page_has_one_state_for_the_panel():
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     # The class that hides the pane is the only source of truth, and the label follows it.
     assert 'classList.add("open")' not in page
@@ -390,7 +390,7 @@ def test_the_page_has_one_state_for_the_panel():
 
 def test_the_panel_lines_keep_their_newlines_and_are_not_rebuilt_each_tick():
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     # The rule must reach the elements the panel actually builds.
     assert (
@@ -402,7 +402,7 @@ def test_the_panel_lines_keep_their_newlines_and_are_not_rebuilt_each_tick():
 
 def test_the_page_clears_the_panel_when_the_record_is_empty():
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     # A record that shrank means a new call: the old lines must not stay.
     assert 'document.getElementById("transcript").innerHTML = ""' in page
@@ -411,7 +411,7 @@ def test_the_page_clears_the_panel_when_the_record_is_empty():
 
 def test_the_page_asks_for_the_file_content_and_keeps_the_download_in_the_browser():
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     # The file text comes from the server; the download stays a browser action.
     assert 'fetch("/api/roster/transcript/markdown?at="' in page
@@ -421,14 +421,14 @@ def test_the_page_asks_for_the_file_content_and_keeps_the_download_in_the_browse
 
 def test_the_page_survives_a_failed_poll():
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     assert "try {" in page  # a failed fetch must not leave lines that no longer match the record
 
 
 def test_the_page_gives_back_the_object_url_and_the_download_link():
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     assert "URL.revokeObjectURL" in page
     assert "document.body.appendChild(link)" in page
@@ -437,7 +437,7 @@ def test_the_page_gives_back_the_object_url_and_the_download_link():
 def test_the_reader_is_one_rule_for_both_names():
     """Storage keeps the value as it is, so there is no decoding step to fail."""
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     assert "function readStored(name)" in page
     assert "return null" in page
@@ -527,7 +527,7 @@ def test_the_file_uses_the_clock_passed_by_the_page(monkeypatch):
         return "2026-10-31T14:20:04Z"
 
     monkeypatch.setattr(roster_view, "clock", clock)
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
     assert "at = new Date()" in page
     assert "buildFilename(ext, at)" in page
     assert 'request.query_params.get("at")' in module_source()
@@ -679,7 +679,7 @@ def test_the_page_has_one_rule_for_the_text_inside_a_tile():
 def test_the_reader_takes_the_name_it_is_asked_for():
     """One rule for both toggles, so nothing is keyed to one name."""
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     assert "function readStored(name)" in page
     assert "function setStored(name, value)" in page
@@ -688,7 +688,7 @@ def test_the_reader_takes_the_name_it_is_asked_for():
 def test_the_formats_button_shows_the_arrow_before_the_list_of_formats():
     """The label is the marker for the list, not a name for the control."""
     client = build_app()
-    page = client.get("/api/roster/view").text
+    page = client.get("/roster").text
 
     assert 'id="formats">▼' in page
     assert 'id="menu"' in page  # the list is what the marker opens
@@ -850,3 +850,22 @@ def test_the_three_layers_are_the_three_separate_panels():
         ".text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }"
         in page
     )
+
+
+def test_the_roster_page_answers_at_the_root_path():
+    # A page is not an API endpoint, so the HTML is answered at /roster, not under /api.
+    client = build_app()
+    response = client.get("/roster")
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert '<div id="roster">' in response.text
+
+
+def test_the_page_urls_use_the_root_paths():
+    from ziomek.browser import avatar_page_url, view_page_url
+    from ziomek.config import Settings
+
+    settings = Settings()
+    assert view_page_url(settings) == "http://localhost:5004/roster"
+    assert avatar_page_url(settings) == "http://localhost:5004/avatar"

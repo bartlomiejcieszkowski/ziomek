@@ -19,13 +19,13 @@ class TestOpenViewPage:
         settings = Settings(no_browser=False)
         with patch("webbrowser.open") as opened:
             assert open_view_page(settings) is True
-            opened.assert_called_once_with("http://localhost:5004/api/roster/view")
+            opened.assert_called_once_with("http://localhost:5004/roster")
 
     def test_uses_configured_host_and_port(self):
         settings = Settings(host="127.0.0.1", port=8080)
         with patch("webbrowser.open") as opened:
             open_view_page(settings)
-            opened.assert_called_once_with("http://127.0.0.1:8080/api/roster/view")
+            opened.assert_called_once_with("http://127.0.0.1:8080/roster")
 
     def test_returns_false_when_open_fails(self):
         settings = Settings()
@@ -37,7 +37,7 @@ class TestOpenViewPage:
         settings = Settings()
         with patch("webbrowser.open") as opened:
             assert open_view_page(settings) is True
-            opened.assert_called_once_with("http://localhost:5004/api/roster/view")
+            opened.assert_called_once_with("http://localhost:5004/roster")
 
     def test_both_pages_are_printed_to_stdout(self, capsys):
         # Both addresses are printed so the user can reach either page from the terminal.
@@ -45,5 +45,5 @@ class TestOpenViewPage:
         with patch("webbrowser.open"):
             print_page_urls(settings)
         out = capsys.readouterr().out
-        assert "http://localhost:5004/api/roster/view" in out
-        assert "http://localhost:5004/api/avatar/view" in out
+        assert "http://localhost:5004/roster" in out
+        assert "http://localhost:5004/avatar" in out

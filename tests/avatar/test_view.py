@@ -33,29 +33,29 @@ class TestAvatarViewPage:
     """The served page must exist and connect to the WebSocket route."""
 
     def test_view_page_returns_html(self, client):
-        resp = client.get("/api/avatar/view")
+        resp = client.get("/avatar")
         assert resp.status_code == 200
         assert "text/html" in resp.headers["content-type"]
 
     def test_page_has_separate_areas_for_name_and_text(self, client):
-        html = client.get("/api/avatar/view").text
+        html = client.get("/avatar").text
         for element in ("name", "status_text", "system_text"):
             assert f'id="{element}"' in html
 
     def test_page_shows_the_fields_from_a_state_message(self, client):
-        html = client.get("/api/avatar/view").text
+        html = client.get("/avatar").text
         # The message carries the three areas, so the page must render all of them.
         for field in ("name", "status_text", "system_text"):
             assert f"msg.{field}" in html
 
     def test_page_shows_a_participant_as_on_hold(self, client):
-        html = client.get("/api/avatar/view").text
+        html = client.get("/avatar").text
         assert 'id="on_hold"' in html
         # The duration counts up on the client, not only in the message.
         assert "On hold" in html
 
     def test_page_shows_the_events_of_the_call(self, client):
-        html = client.get("/api/avatar/view").text
+        html = client.get("/avatar").text
         assert 'id="events"' in html
         assert "msg.events" in html
 

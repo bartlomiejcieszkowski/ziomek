@@ -10,12 +10,12 @@ _logger = logging.getLogger(__name__)
 
 def view_page_url(settings: Settings) -> str:
     """URL of the page that opens by default: the roster."""
-    return f"http://{settings.host}:{settings.port}/api/roster/view"
+    return f"http://{settings.host}:{settings.port}/roster"
 
 
 def avatar_page_url(settings: Settings) -> str:
     """URL of the served avatar view page for the given settings."""
-    return f"http://{settings.host}:{settings.port}/api/avatar/view"
+    return f"http://{settings.host}:{settings.port}/avatar"
 
 
 def print_page_urls(settings: Settings) -> None:
