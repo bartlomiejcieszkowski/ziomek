@@ -393,7 +393,10 @@ def test_the_panel_lines_keep_their_newlines_and_are_not_rebuilt_each_tick():
     page = client.get("/api/roster/view").text
 
     # The rule must reach the elements the panel actually builds.
-    assert "#transcript .box p, #transcript .event { white-space: pre-wrap; }" in page
+    assert (
+        "#transcript { list-style: none; padding: 0; }"
+        and "#transcript li, #transcript .box p { white-space: pre-wrap; }" in page
+    )
     assert "rendered" in page  # the page keeps what it has already shown instead of clearing the list
 
 
@@ -606,7 +609,10 @@ def test_the_classes_the_page_uses_are_the_classes_the_page_defines():
         )
         == 1
     )
-    assert "#transcript .box p, #transcript .event { white-space: pre-wrap; }" in page
+    assert (
+        "#transcript { list-style: none; padding: 0; }"
+        and "#transcript li, #transcript .box p { white-space: pre-wrap; }" in page
+    )
     assert ".event { color: #e0a568; }" in page
 
 
@@ -790,3 +796,10 @@ def test_the_expression_uses_a_monotype_font_and_is_smaller_than_name():
     page = page_source()
     assert ".expression { color: #d2a9ff; font-family: monospace; font-size: 11px; }" in page
     assert ".name { color: #8ab4f8; }" in page
+
+
+def test_the_record_items_are_list_items_with_the_markers_and_indent_removed():
+    # Option A: a real list item, with the markers and the default indent taken away.
+    page = page_source()
+    assert "#transcript { list-style: none; padding: 0; }" in page
+    assert 'document.createElement("li")' in page
