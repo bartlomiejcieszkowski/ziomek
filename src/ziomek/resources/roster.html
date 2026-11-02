@@ -5,12 +5,12 @@
     <title>ziomek roster</title>
     <style>
       body { font-family: sans-serif; background: #111; color: #eee; }
-      #layout { display: flex; gap: 12px; }
-      #roster { flex: 0 0 55%; max-height: 100vh; overflow: auto; }
-      #main { display: flex; flex-direction: column; min-width: 0; }
+      #layout { display: flex; gap: 12px; min-height: 100vh; }
+      #main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+      #roster { max-height: 100vh; overflow: auto; }
       #roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; padding: 8px; }
       #count { font-size: 13px; color: #999; padding: 8px; }
-      #panel { flex: 0 0 320px; border-left: 1px solid #444; padding-left: 12px; }
+      #panel { flex: 0 0 320px; max-height: 100vh; overflow: auto; border-left: 1px solid #444; padding-left: 12px; }
       #layout.hide #roster { flex: 1 1 auto }
       #layout.hide #transcript { display: none; }
       #layout.hide #panel { flex: 0 0 auto; }
