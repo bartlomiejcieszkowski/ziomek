@@ -36,9 +36,12 @@ class TestMcpListTools:
     """Test the list_tools MCP endpoint."""
 
     def test_tools_list_has_all_tools(self):
-        """TOOLS list has all 11 tools."""
+        """TOOLS list has all 13 tools, named say, play and write instead of speak."""
         tool_names = [t.name for t in mcp_tools_module.TOOLS]
-        assert "speak" in tool_names
+        assert "say" in tool_names
+        assert "play" in tool_names
+        assert "write" in tool_names
+        assert "speak" not in tool_names
         assert "transcribe" in tool_names
         assert "start_listening" in tool_names
         assert "get_transcription" in tool_names
@@ -49,7 +52,7 @@ class TestMcpListTools:
         assert "hold" in tool_names
         assert "leave" in tool_names
         assert "status" in tool_names
-        assert len(tool_names) == 11
+        assert len(tool_names) == 13
 
     def test_tools_have_correct_schema(self):
         """Each tool has name, description, and inputSchema."""
@@ -88,16 +91,38 @@ class TestMcpCallTool:
                                 assert "stt_state" in data
                                 assert "uptime_seconds" in data
 
-    def test_call_speak_tool_no_model(self):
-        """Speak returns error when TTS model not loaded."""
+    def test_call_play_tool_no_model(self):
+        """Play returns error when TTS model not loaded."""
         mock_model = MagicMock()
         mock_model.ready = False
         with patch("ziomek.server._tts_model", mock_model):
             with patch("ziomek.server._settings", None):
-                result = asyncio.run(mcp_tools_module._handle_speak({"text": "hello"}))
+                result = asyncio.run(mcp_tools_module._handle_play({"text": "hello"}))
                 assert result.is_error is True
                 data = json.loads(result.content[0].text)
                 assert "error" in data
+
+
+class TestMcpPlayDoesNotTouchTheRoster:
+    """Play speaks by voice without taking part in a call, so it records nothing."""
+
+    def test_play_records_no_line(self):
+        mock_model = MagicMock()
+        mock_model.ready = True
+        roster = MagicMock()
+        roster.participants = []
+        with patch("ziomek.server._tts_model", mock_model):
+            with patch("ziomek.server._settings", None):
+                with patch.object(mcp_tools_module, "_get_roster", return_value=roster):
+                    with patch("ziomek.tts.generate.generate_wav") as generate:
+                        generate.return_value = (base64.b64encode(b"audio").decode(), 0.5, 16000)
+                        with patch("ziomek.server._voice_cache", object()):
+                            with patch("ziomek.server._audio_player", None):
+                                result = asyncio.run(
+                                    mcp_tools_module._handle_play({"text": "hello", "voice": "cosette"})
+                                )
+        assert json.loads(result.content[0].text)["voice"] == "cosette"
+        roster.record.assert_not_called()
 
     def test_call_transcribe_tool_no_engine(self):
         """Transcribe returns error when STT engine not initialized."""
