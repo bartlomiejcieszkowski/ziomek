@@ -233,7 +233,7 @@ def test_the_page_has_the_panel_and_its_toggle():
 
     assert 'id="panel"' in page
     assert 'id="toggle"' in page
-    assert "#roster { flex: 0 0 55%; max-height: 100vh; overflow: auto; }" in page
+    assert "#roster { max-height: 100vh; overflow: auto; }" in page
     assert "@media (max-width: 900px)" in page
 
 
@@ -643,7 +643,7 @@ def test_the_grid_defends_the_shape_of_a_tile_without_reflowing_for_height():
 def test_the_roster_box_is_bounded_and_scrolls_inside_it():
     """B+D: the box does not move the page; the tiles inside it scroll."""
     page = page_source()
-    assert "#roster { flex: 0 0 55%; max-height: 100vh; overflow: auto; }" in page
+    assert "#roster { max-height: 100vh; overflow: auto; }" in page
 
 
 def test_the_page_shows_the_number_of_participants_in_the_call():
@@ -697,7 +697,7 @@ def test_the_formats_button_shows_the_arrow_before_the_list_of_formats():
 def test_the_sidebar_has_a_fixed_width():
     """It does not grow with the window; the grid takes the rest."""
     page = page_source()
-    assert "#panel { flex: 0 0 320px; border-left: 1px solid #444; padding-left: 12px; }" in page
+    assert "#panel { flex: 0 0 320px; max-height: 100vh; overflow: auto; border-left: 1px solid #444; padding-left: 12px; }" in page
     assert "#panel { flex: 1;" not in page
 
 
@@ -869,3 +869,21 @@ def test_the_page_urls_use_the_root_paths():
     settings = Settings()
     assert view_page_url(settings) == "http://localhost:5004/roster"
     assert avatar_page_url(settings) == "http://localhost:5004/avatar"
+
+
+def test_the_roster_takes_the_rest_of_the_window_and_the_sidebar_stays_on_the_right():
+    """The window is split by a fixed column on the right, so the roster grows into what is left."""
+    page = page_source()
+    assert "#layout { display: flex; gap: 12px; min-height: 100vh; }" in page
+    assert "#main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }" in page
+    assert "#roster { max-height: 100vh; overflow: auto; }" in page
+    assert "#roster { flex: 0 0 55%" not in page
+
+
+def test_the_stacked_fallback_below_narrow_width_is_left_as_it_was():
+    """On a narrow window the sidebar is not bound to the edge, it stacks above the roster."""
+    page = page_source()
+    assert "@media (max-width: 900px)" in page
+    assert "#layout { display: block; }" in page
+    assert "#roster, #panel { flex: none; }" in page
+
