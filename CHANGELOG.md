@@ -2,13 +2,25 @@
 
 All notable changes to this project are documented here.
 
-## [Unreleased]
+## [0.5.0] - 2026-11-02
 
 ### Added
 
 - A roster of participants for a call: join, hold, leave, and a page that shows one tile per participant with the expression of that participant
 - A transcript panel on the roster page: the lines of the call in order, with the author kept, and a Save button that downloads them as Markdown or JSON
 - `roster_transcript_default` in the settings, which decides whether that panel starts open or closed (a value outside those two words is read as `closed`); `roster_pool`, `roster_words`, `roster_quiet_for` and `roster_check_interval` carry the rules for names and quiet drop
+- MCP tools `say`, `play` and `write`: `say` says as a participant and records the text unless `record` is set to false, `play` plays text with a voice without taking part in a call, `write` records text for a participant without producing audio
+
+### Changed
+
+- The HTML pages are served outside `/api`: `/roster` and `/avatar`
+- The sidebar has a fixed width bound to the right side of the window, and the roster takes the rest of the window; below 900 px the stacked fallback is kept
+- Tool descriptions state what a tool does instead of giving usage instructions, so `speak` became `say` and `play`
+
+### Fixed
+
+- The plugin manifest carries the same version as the project instead of claiming its own
+- `-webkit-line-clamp` needs `display: -webkit-box`, so the ellipsis is drawn by the clamp instead of a marker written by JavaScript
 
 ## [0.4.3] - 2026-10-30
 
