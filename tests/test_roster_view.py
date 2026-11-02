@@ -697,7 +697,10 @@ def test_the_formats_button_shows_the_arrow_before_the_list_of_formats():
 def test_the_sidebar_has_a_fixed_width():
     """It does not grow with the window; the grid takes the rest."""
     page = page_source()
-    assert "#panel { flex: 0 0 320px; max-height: 100vh; overflow: auto; border-left: 1px solid #444; padding-left: 12px; }" in page
+    assert (
+        "#panel { flex: 0 0 320px; max-height: 100vh; overflow: auto; border-left: 1px solid #444; padding-left: 12px; }"
+        in page
+    )
     assert "#panel { flex: 1;" not in page
 
 
@@ -886,4 +889,3 @@ def test_the_stacked_fallback_below_narrow_width_is_left_as_it_was():
     assert "@media (max-width: 900px)" in page
     assert "#layout { display: block; }" in page
     assert "#roster, #panel { flex: none; }" in page
-
