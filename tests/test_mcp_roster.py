@@ -202,7 +202,7 @@ def test_speaking_for_a_participant_uses_the_voice_assigned_to_it():
     ):
         asyncio.run(
             mcp_tools_module._on_call_tool(
-                None, CallToolRequestParams(name="speak", arguments={"name": "John A.", "text": "hi"})
+                None, CallToolRequestParams(name="say", arguments={"name": "John A.", "text": "hi"})
             )
         )
 
@@ -210,6 +210,7 @@ def test_speaking_for_a_participant_uses_the_voice_assigned_to_it():
 
 
 def test_saying_text_records_what_was_said_for_that_participant():
+    """The text said for a participant is kept with the participant."""
     settings = Settings(roster_pool=[("John A.", "alice")])
 
     class ready_model:
@@ -228,11 +229,94 @@ def test_saying_text_records_what_was_said_for_that_participant():
         patch("ziomek.server._audio_player", None),
         patch("ziomek.tts.generate.generate_wav", fake_generate_wav),
     ):
-        _, data = _call("speak", {"name": "John A.", "text": "compiling"}, settings)
+        _, data = _call("say", {"name": "John A.", "text": "compiling"}, settings)
 
     record = _get_roster(settings)
     entry = record.events[-1]
     assert entry["name"] == "John A."
     assert entry["action"] == "text"
-    assert entry["text"] == "compiling"
     assert entry["author"] == "agent"
+
+
+def test_write_records_text_without_speaking_it():
+    """The write tool records text for a participant without producing audio."""
+    settings = Settings(roster_pool=[("John A.", "alice")])
+    tool = next(t for t in mcp_tools_module.TOOLS if t.name == "write")
+    assert tool.input_schema["required"] == ["name", "text"]
+
+    _, joined = _call("join", {"name": "John A."}, settings)
+
+    class ready_model:
+        ready = True
+        model_path = None
+
+    spoken = []
+
+    def fake_generate_wav(model, cache, text, voice):
+        spoken.append(voice)
+        return (b"", 0.0, 24000)
+
+    with (
+        patch("ziomek.server._settings", settings),
+        patch("ziomek.server._tts_model", ready_model()),
+        patch("ziomek.server._voice_cache", object()),
+        patch("ziomek.server._audio_player", None),
+        patch("ziomek.tts.generate.generate_wav", fake_generate_wav),
+    ):
+        _, data = _call("write", {"name": "John A.", "text": "note to self"}, settings)
+
+    entry = _get_roster(settings).events[-1]
+    assert entry["action"] == "text"
+    assert entry["text"] == "note to self"
+    assert entry["author"] == "agent"
+    assert spoken == []
+
+
+def test_saying_text_is_recorded_by_default():
+    """The say tool records the text unless the caller says not to record it."""
+    settings = Settings(roster_pool=[("John A.", "alice")])
+    tool = next(t for t in mcp_tools_module.TOOLS if t.name == "say")
+    assert tool.input_schema["required"] == ["name", "text"]
+    assert "record" in tool.input_schema["properties"]
+    assert "record" not in tool.input_schema.get("required", [])
+
+    _call("join", {"name": "John A."}, settings)
+
+    class ready_model:
+        ready = True
+        model_path = None
+
+    with (
+        patch("ziomek.server._settings", settings),
+        patch("ziomek.server._tts_model", ready_model()),
+        patch("ziomek.server._voice_cache", object()),
+        patch("ziomek.server._audio_player", None),
+        patch("ziomek.tts.generate.generate_wav", lambda *a: (b"", 0.0, 24000)),
+    ):
+        _call("say", {"name": "John A.", "text": "thinking"}, settings)
+
+    entry = _get_roster(settings).events[-1]
+    assert entry["text"] == "thinking"
+
+
+def test_saying_text_with_record_false_only_spoken_without_writing_it_down():
+    """When record is false the call is spoken but nothing is written to the record."""
+    settings = Settings(roster_pool=[("John A.", "alice")])
+    _call("join", {"name": "John A."}, settings)
+
+    class ready_model:
+        ready = True
+        model_path = None
+
+    with (
+        patch("ziomek.server._settings", settings),
+        patch("ziomek.server._tts_model", ready_model()),
+        patch("ziomek.server._voice_cache", object()),
+        patch("ziomek.server._audio_player", None),
+        patch("ziomek.tts.generate.generate_wav", lambda *a: (b"", 0.0, 24000)),
+    ):
+        _call("say", {"name": "John A.", "text": "not written", "record": False}, settings)
+
+    record = _get_roster(settings)
+    assert [entry for entry in record.events if entry["action"] == "text"] == []
+    assert record.participants[0].texts == []

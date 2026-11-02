@@ -1,4 +1,4 @@
-"""ziomek MCP tools — speak, transcribe, listening, avatar, status."""
+"""ziomek MCP tools — say, play, transcribe, listening, avatar, status."""
 
 from __future__ import annotations
 
@@ -49,13 +49,38 @@ def _get_listening_session() -> ListeningSession:
 
 TOOLS = [
     Tool(
-        name="speak",
-        description="Synthesize speech and play through ziomek audio player. Use this to make the AI speak to the user.",
+        name="say",
+        description="Say text as a participant. The text is written to the record for that participant unless record is set to false.",
         input_schema={
             "type": "object",
             "properties": {
-                "text": {"type": "string", "description": "Text to speak."},
-                "voice": {"type": "string", "description": "Voice name (default: cosette)."},
+                "name": {"type": "string", "description": "Participant to say for."},
+                "text": {"type": "string", "description": "Text to say."},
+                "record": {"type": "boolean", "description": "Write the text to the record (default: true)."},
+            },
+            "required": ["name", "text"],
+        },
+    ),
+    Tool(
+        name="write",
+        description="Record text for a participant without producing audio.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Participant who wrote the text."},
+                "text": {"type": "string", "description": "Text to record."},
+            },
+            "required": ["name", "text"],
+        },
+    ),
+    Tool(
+        name="play",
+        description="Play text with a voice without taking part in a call. Nothing is written to the record.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "text": {"type": "string", "description": "Text to play."},
+                "voice": {"type": "string", "description": "Voice to use (default voice when not given)."},
             },
             "required": ["text"],
         },
@@ -153,7 +178,45 @@ TOOLS = [
 ]
 
 
-async def _handle_speak(arguments: dict) -> CallToolResult:
+async def _handle_write(arguments: dict) -> CallToolResult:
+    """Record text for a participant without producing audio."""
+    from ziomek.server import _settings
+
+    roster = _get_roster(_settings)
+    name = arguments.get("name")
+    participant = _find_participant(roster, name)
+    if participant is None:
+        return CallToolResult(
+            content=[TextContent(type="text", text=json.dumps({"error": f"Unknown participant: {name}"}))],
+            is_error=True,
+        )
+
+    text = arguments.get("text", "")
+    participant.add_text(text, author="agent")
+    return _text_payload({"name": participant.name, "action": "text", "text": text})
+
+
+async def _handle_say(arguments: dict) -> CallToolResult:
+    """Say text as a participant, and write it down unless asked not to."""
+    from ziomek.server import _settings
+
+    roster = _get_roster(_settings)
+    name = arguments.get("name")
+    participant = _find_participant(roster, name)
+    if participant is None:
+        return CallToolResult(
+            content=[TextContent(type="text", text=json.dumps({"error": f"Unknown participant: {name}"}))],
+            is_error=True,
+        )
+
+    text = arguments.get("text", "")
+    if arguments.get("record", True):
+        participant.add_text(text, author="agent")
+    return await _handle_play({"text": text, "voice": participant.voice})
+
+
+async def _handle_play(arguments: dict) -> CallToolResult:
+    """Play text with a voice without taking part in a call."""
     from ziomek.server import _audio_player, _settings, _tts_model, _voice_cache
 
     if _tts_model is None or not _tts_model.ready:
@@ -168,17 +231,14 @@ async def _handle_speak(arguments: dict) -> CallToolResult:
     from ziomek.tts.generate import generate_wav
 
     text = arguments.get("text", "")
-    # The voice comes from the participant's own record when one is named.
-    participant = _find_participant(_get_roster(_settings), arguments["name"]) if arguments.get("name") else None
-    voice = arguments.get("voice", participant.voice if participant is not None else "default")
+    # Play does not take part in a call, so no participant is looked up here.
+    voice = arguments.get("voice") or "default"
     if _voice_cache is None:
         return CallToolResult(
             content=[TextContent(type="text", text=json.dumps({"error": "Voice cache not initialized"}))],
             is_error=True,
         )
     audio_b64, duration, sample_rate = generate_wav(_tts_model, _voice_cache, text, voice)
-    if participant is not None:
-        participant.add_text(text, author="agent")
     wav_bytes = base64.b64decode(audio_b64)
 
     if _audio_player is not None:
@@ -490,7 +550,9 @@ async def _on_call_tool(ctx: ServerRequestContext, params: CallToolRequestParams
     arguments = params.arguments or {}
 
     handlers = {
-        "speak": _handle_speak,
+        "say": _handle_say,
+        "write": _handle_write,
+        "play": _handle_play,
         "transcribe": _handle_transcribe,
         "start_listening": _handle_start_listening,
         "get_transcription": _handle_get_transcription,
