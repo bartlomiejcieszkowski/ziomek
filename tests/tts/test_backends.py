@@ -50,6 +50,26 @@ def test_sounddevice_backend_list_devices():
     assert isinstance(devices, list)
 
 
+def test_single_shot_playback_waits_for_the_device_to_take_every_sample():
+    # Stopping at the length of the audio is what cut the end of a sentence.
+    backend = SounddeviceBackend()
+    played = []
+    with patch("soundfile.read", return_value=(np.zeros(2400, dtype=np.float32), 24000)):
+        with patch("sounddevice.play", side_effect=lambda *a, **k: played.append(k.get("blocking"))):
+            backend.play(np.zeros(2400, dtype=np.float32).tobytes(), 24000)
+    assert played == [True]
+
+
+def test_overlapping_playback_is_not_stopped_before_the_device_finishes():
+    backend = SounddeviceBackend()
+    with patch("soundfile.read", return_value=(np.zeros(2400, dtype=np.float32), 24000)):
+        with patch("sounddevice.play") as play:
+            with patch("sounddevice.stop") as stop:
+                backend.mix_play(np.zeros(2400, dtype=np.float32).tobytes(), 24000)
+    assert play.call_args.kwargs.get("blocking") is False
+    stop.assert_not_called()
+
+
 def test_sounddevice_backend_play_handles_data():
     backend = SounddeviceBackend()
     wav_data = np.zeros(2400, dtype=np.float32).tobytes()
