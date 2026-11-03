@@ -147,7 +147,6 @@ async def _get_config() -> ReadResourceResult:
         "port": _settings.port,
         "voice": _settings.voice,
         "cache_dir": _settings.cache_dir,
-        "log_level": _settings.log_level,
         "stt_engine": _settings.stt_engine,
         "stt_model": _settings.stt_model,
         "stt_model_dir": _settings.stt_model_dir,
