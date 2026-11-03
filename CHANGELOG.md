@@ -2,6 +2,28 @@
 
 All notable changes to this project are documented here.
 
+## [0.5.1] - 2026-11-03
+
+### Added
+
+- The skin format: a definition file `morda.json` in a skin folder, or an uncompressed tar archive (`.morda`) carrying the image files and that definition. A definition names the skin, states the sheet grid or the single frame, says which frames belong to each expression, the order they are shown in and the interval between them, and names a fallback used when the requested expression is not there. `scripts/morda.py` packages a skin folder into an archive and warns when the definition is missing.
+- `src/ziomek/resources/morda.schema.json`, the machine-readable schema for a definition, checked with `jsonschema` (now a dependency). A definition is reported with all its problems listed together, and a sheet whose picture does not match the grid it declares is not read.
+- Name lists in the package resources: every file ending with `.names.json` is read as one pool of names (`polish_male.names.json`, `polish_female.names.json`). A name already used in the call is not picked, the least used name is picked next, and a file that cannot be read is reported as an error without stopping the other files.
+- `skins_dir` in the settings, where regular skins are looked up (default `skins`), with the package resources read first, so the default skin keeps a name it claims and a skin that claims it again is registered with a suffixed name.
+
+### Changed
+
+- The default skin is its own folder, `src/ziomek/resources/single-frame/`, with its definition and its sheet instead of a single PNG file. Its definition maps the same rows as before, so nothing about what is drawn changes.
+- `roster_avatar` names a skin instead of a file path and defaults to `single-frame`; an entry in `roster_pool` also names the skin that draws that participant's face, and a name that is not registered draws nothing.
+- Each tile shows the row its own skin maps to for the expression that participant is showing, and the page asks for the sheet of that skin through `/api/avatar/sprite?skin=`.
+- Names are taken in this order: the name a participant joined with, then a free entry in `roster_pool`, then any name from the loaded lists, then the words in `roster_words` as the second part.
+- The baseline expression is named `neutral` instead of `idle`, which is what is used when the requested expression is not known.
+- PNG dimensions are read through one helper (`src/ziomek/avatar/png.py`) shared by the registry and the reader, so a picture that is not a PNG is reported instead of read as bytes.
+
+### Fixed
+
+- An entry added to an archive carries its size, so a packaged definition reads back with content instead of as an empty entry.
+
 ## [0.5.0] - 2026-11-02
 
 ### Added
