@@ -76,6 +76,7 @@ class Definition:
     targets: dict[str, Target]
     expressions: dict[str, FrameOrder]
     fallback: Reference | None
+    source: Path | None = None
 
 
 def read_definition(source: Path) -> Definition:
@@ -86,7 +87,7 @@ def read_definition(source: Path) -> Definition:
     inside the folder or the archive.
     """
     errors: list[str] = []
-    entries = _read_entries(source, errors)
+    entries = read_entries(source, errors)
     if errors:
         raise DefinitionError(errors)
 
@@ -149,16 +150,22 @@ def read_definition(source: Path) -> Definition:
         targets={key: Target(key, _cell(value), _file(value)) for key, value in raw.get("frames", {}).items()},
         expressions={key: _order(value) for key, value in raw.get("expressions", {}).items()},
         fallback=_reference(raw.get("fallback")) if raw.get("fallback") else None,
+        source=source,
     )
 
 
-def _read_entries(source: Path, errors: list[str]) -> dict[str, bytes]:
-    """Names to contents, from a folder or an archive."""
+def read_entries(source: Path, errors: list[str] | None = None) -> dict[str, bytes]:
+    """Names to contents, from a folder or an archive.
+
+    A drawing path needs the bytes a name points at, so this is open to it as well; it is the
+    same read the reader uses to check that a referenced file is present.
+    """
+    problems = errors if errors is not None else []
     if source.is_dir():
         entries: dict[str, bytes] = {}
         for path in sorted(p for p in source.rglob("*") if p.is_file()):
             if path.is_symlink():
-                errors.append(f"{path.relative_to(source).as_posix()} is a symlink, which is not followed")
+                problems.append(f"{path.relative_to(source).as_posix()} is a symlink, which is not followed")
                 continue
             entries[path.relative_to(source).as_posix()] = path.read_bytes()
         return entries
@@ -168,7 +175,7 @@ def _read_entries(source: Path, errors: list[str]) -> dict[str, bytes]:
             members = [member for member in archive.getmembers() if member.isfile()]
             return {member.name: archive.extractfile(member).read() for member in members}
 
-    errors.append(f"{source} is neither a skin folder nor an archive")
+    problems.append(f"{source} is neither a skin folder nor an archive")
     return {}
 
 
@@ -259,3 +266,10 @@ def fallback_target(definition: Definition) -> Target | None:
     if definition.fallback is not None:
         return definition.targets.get(definition.fallback.name)
     return definition.targets.get("neutral")
+
+
+def resolve_reference(definition: Definition, reference: Reference) -> Target | None:
+    """The frame a reference points at, whether it names one or names a file directly."""
+    if reference.name is not None:
+        return definition.targets.get(reference.name)
+    return Target(name=reference.file or "", file=reference.file)

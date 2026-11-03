@@ -68,14 +68,17 @@
     let spriteHeight = 0;
     let frameWidth = 0;
     let frameHeight = 0;
-    let rows = 1;
+
+    // The mapping the skin answered with: expression name to the cells it shows, in order
+    let mapping = {};
+    let fallbackEntry = null;
 
     // Current animation state
     let currentExpression = '';
     let currentCycleIndex = -1;
     let animFrameIndex = 0;
     let animTimer = null;
-    const FRAME_DURATION = 200; // ms per frame
+    const DEFAULT_INTERVAL = 200; // ms per frame for a skin that declares none
 
     /**
      * Load sprite sheet from a base64-encoded PNG data URL.
@@ -87,9 +90,7 @@
           spriteImg = img;
           spriteWidth = img.width;
           spriteHeight = img.height;
-          rows = Math.max(1, Math.round(img.height / img.width));
-          frameWidth = Math.floor(img.width / 1);
-          frameHeight = Math.floor(img.height / rows);
+          // The sizes come from what the skin declared, not from a ratio read off the picture.
           canvas.width = frameWidth;
           canvas.height = frameHeight;
           resolve();
@@ -139,19 +140,23 @@
 
       statusEl.textContent = `${expression} ${cycleIndex}`;
 
-      const rowMap = {
-        happy: 0, surprised: 1, curious: 2, looking: 2, thinking: 2,
-        focused: 3, bored: 3, dying: 4, neutral: 1,
-      };
-      const row = rowMap[expression] ?? 1;
-      const col = cycleIndex % rows;
+      // The cells this expression shows come from the mapping the skin answered with; a name the
+      // definition does not cover reaches what it falls back to.
+      const entry = mapping[expression] || fallbackEntry;
+      if (!entry || !entry.frames.length) {
+        statusEl.textContent = `${expression} has no cell to draw`;
+        return;
+      }
+      // A list that loops returns to its first entry, one that does not stops at its last.
+      const count = entry.frames.length;
+      const cell = entry.loop ? entry.frames[cycleIndex % count] : entry.frames[Math.min(cycleIndex, count - 1)];
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(
         spriteImg,
-        col * frameWidth, row * frameHeight,  // source X, Y
-        frameWidth, frameHeight,               // source W, H
-        0, 0, canvas.width, canvas.height      // dest X, Y, W, H
+        cell.column * frameWidth, cell.row * frameHeight,  // source X, Y
+        frameWidth, frameHeight,                           // source W, H
+        0, 0, canvas.width, canvas.height                  // dest X, Y, W, H
       );
 
       currentExpression = expression;
@@ -163,12 +168,18 @@
       if (animTimer) clearInterval(animTimer);
       animFrameIndex = 0;
 
-      animTimer = setInterval(() => {
-        animFrameIndex++;
+      const step = () => {
         const expr = currentExpression;
-        const cycle = currentCycleIndex >= 0 ? currentCycleIndex : animFrameIndex % rows;
+        const entry = mapping[expr] || fallbackEntry;
+        if (!entry || !entry.frames.length) return;  // nothing to advance over
+        const count = entry.frames.length;
+        const cycle = currentCycleIndex >= 0 ? currentCycleIndex : animFrameIndex % count;
         drawFrame(expr, cycle);
-      }, FRAME_DURATION);
+        animFrameIndex++;
+        if (!entry.loop && animFrameIndex >= count) clearInterval(animTimer);  // a list that does not loop stops
+      };
+      const delay = (mapping[currentExpression] && mapping[currentExpression].interval_ms) || DEFAULT_INTERVAL;
+      animTimer = setInterval(step, delay);
     }
 
     /** Try to load sprite from an external URL (JSON API) */
@@ -180,7 +191,14 @@
         })
         .then(data => {
           const sprite_b64 = data.sprite_b64;
-          if (!sprite_b64) throw new Error('No sprite_b64 in response');
+          if (!sprite_b64) throw new Error('No skin data in response');
+          // One source for the mapping: the sizes and the cells come from what the skin declared.
+          mapping = data.expressions || {};
+          fallbackEntry = data.fallback || null;
+          frameWidth = data.frameWidth;
+          frameHeight = data.frameHeight;
+          canvas.width = frameWidth;
+          canvas.height = frameHeight;
           // Server returns the data URL already prefixed, so use it directly
           return loadSprite(sprite_b64, data.width, data.height);
         })

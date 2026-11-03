@@ -163,29 +163,31 @@
         }
       }
 
-      const sheets = {};  // one sheet per skin, so participants that share a skin share one copy
+      const skins = {};  // one sheet and mapping per skin, so participants that share a skin share one copy
 
-      async function load_sheets(tiles) {
+      async function load_skins(tiles) {
         for (const tile of tiles) {
           const name = tile.avatar && tile.avatar.skin;
-          if (!name || sheets[name]) continue;
+          if (!name || skins[name]) continue;
           const response = await fetch("/api/avatar/sprite?skin=" + encodeURIComponent(name));
           // A skin the page cannot get is left undrawn, so nothing is shown for it.
           if (!response.ok) continue;
-          sheets[name] = await response.json();
+          skins[name] = await response.json();
         }
       }
 
-      // A tile shows one row of its own skin's sheet, which is the row that the payload picked.
+      // A tile shows one cell of its own skin's sheet, which is the cell the mapping resolved for it.
       function draw_avatar(tile, block) {
-        const sheet = tile.avatar && sheets[tile.avatar.skin];
-        if (!sheet) return;  // nothing was fetched for this skin, so the block stays as it is
-        const scale = block.getBoundingClientRect().width / sheet.frameWidth;
-        if (!scale) return;  // not laid out yet, so there is no size to scale the row to
-        const height = sheet.frameHeight * scale;
-        block.style.backgroundImage = "url(data:image/png;base64," + sheet.sprite_b64 + ")";
-        block.style.backgroundSize = sheet.width * scale + "px " + sheet.height * scale + "px";
-        block.style.backgroundPosition = "0 " + -tile.avatar.row * height + "px";
+        const skin = tile.avatar && skins[tile.avatar.skin];
+        if (!skin) return;  // nothing was fetched for this skin, so the block stays as it is
+        const scale = block.getBoundingClientRect().width / skin.frameWidth;
+        if (!scale) return;  // not laid out yet, so there is no size to scale the cell to
+        const width = skin.frameWidth * scale;
+        const height = skin.frameHeight * scale;
+        const cell = tile.avatar.cell;
+        block.style.backgroundImage = "url(data:image/png;base64," + skin.sprite_b64 + ")";
+        block.style.backgroundSize = skin.width * scale + "px " + skin.height * scale + "px";
+        block.style.backgroundPosition = -cell.column * width + "px " + -cell.row * height + "px";
       }
 
       function held(tile) {
@@ -320,7 +322,7 @@
         try {
           const response = await fetch("/api/roster");
           const tiles = await response.json();
-          await load_sheets(tiles);
+          await load_skins(tiles);
           render(tiles);
           const stream = await fetch("/api/roster/transcript");
           lastPayload = await stream.json();

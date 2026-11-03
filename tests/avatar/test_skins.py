@@ -1,118 +1,83 @@
-"""Tests for ziomek avatar skin registry."""
+"""Tests for ziomek avatar skins, which are read through their definitions."""
 
-import os
-import tempfile
+from pathlib import Path
 
-import pytest
+from ziomek.avatar.morda import Cell, read_definition
+from ziomek.avatar.skins import Skin, SkinRegistry, build_registry, get_registry
+from ziomek.config import Settings
 
-from ziomek.avatar.skins import SingleFrameSkin, SkinRegistry
+from .morda_helpers import make_folder, sheet_definition
 
 
-def test_skin_registry_returns_default():
-    """Verify SkinRegistry returns default single-frame skin."""
-    registry = SkinRegistry.getInstance()
+def test_a_skin_draws_the_cells_its_definition_declares(tmp_path):
+    definition = read_definition(make_folder(tmp_path / "cosette", sheet_definition()))
+    skin = Skin(definition=definition)
+    assert skin.cell_for("happy") == Cell(row=0, column=0)  # happy names the frame called rest
+    assert skin.expression_names() == ["sad", "happy"]  # the order the definition declares them in
+
+
+def test_an_expression_that_names_only_files_cannot_be_drawn(tmp_path):
+    definition = read_definition(
+        make_folder(
+            tmp_path / "cosette",
+            sheet_definition(expressions={"sad": {"frame_order": ["cry"], "interval_ms": 400}}),
+        )
+    )
+    skin = Skin(definition=definition)
+    # cry is a file, so the drawing path has nothing to show for that expression.
+    assert skin.cell_for("sad") is None
+    assert skin.frame_count("sad") == 0
+    # A name the definition does not cover still reaches the frame it falls back to.
+    assert skin.cell_for("not-a-name") == Cell(row=1, column=0)
+
+
+def test_the_order_and_the_timing_are_read_as_they_are_declared(tmp_path):
+    definition = read_definition(
+        make_folder(
+            tmp_path / "cosette",
+            sheet_definition(
+                frames={
+                    "cry": {"cell": {"row": 2, "column": 1}},
+                    "rest": {"cell": {"row": 0, "column": 0}},
+                    "neutral": {"cell": {"row": 1, "column": 0}},
+                },
+                expressions={"sad": {"frame_order": ["cry", "rest"], "interval_ms": 400, "loop": False}},
+            ),
+        )
+    )
+    skin = Skin(definition=definition)
+    assert [frame.cell for frame in skin.order("sad")] == [Cell(row=2, column=1), Cell(row=0, column=0)]
+    assert skin.interval_ms("sad") == 400
+    assert skin.loops("sad") is False
+
+
+def test_the_default_skin_is_read_through_its_own_definition(tmp_path):
+    # A name the definition does not cover reaches what it falls back to, which is row 1.
+    registry = SkinRegistry(tmp_path / "nothing")
     skin = registry.get("single-frame")
     assert skin is not None
-    assert skin.name == "single-frame"
+    assert skin.cell_for("happy") == Cell(row=0, column=0)
+    assert skin.cell_for("not-a-name") == Cell(row=1, column=0)
 
 
-def test_skin_getFrameRow():
-    """Verify getFrameRow returns correct row for expressions."""
-    skin = SingleFrameSkin(
-        name="test",
-        _sprite_path="/dev/null",
-        _sprite_width=100,
-        _sprite_height=400,
-        _frame_width=100,
-        _frame_height=100,
+def test_a_skin_that_names_no_cell_is_not_registered_and_is_reported(caplog, tmp_path):
+    # Every frame here names a file, so nothing in this definition can be drawn.
+    definition = sheet_definition(
+        frames={"cry": {"file": "parts/cry.png"}, "neutral": {"file": "parts/neutral.png"}},
+        expressions={"sad": "cry"},
     )
-    assert skin.getFrameRow("happy", 0) == 0
-    assert skin.getFrameRow("surprised", 0) == 1
-    assert skin.getFrameRow("unknown", 0) == 1  # default row
-
-
-def test_skin_getExpressionNames():
-    """Verify getExpressionNames returns full list."""
-    skin = SingleFrameSkin(
-        name="test",
-        _sprite_path="/dev/null",
+    make_folder(
+        tmp_path / "cosette",
+        definition,
+        sizes={"sheet.png": (100, 600), "parts/cry.png": (100, 100), "parts/neutral.png": (100, 100)},
     )
-    names = skin.getExpressionNames()
-    assert "happy" in names
-    assert "dying" in names
-    assert len(names) == 10
+    registry = SkinRegistry(tmp_path / "nothing", default_dir=tmp_path / "cosette")
+    assert registry.list() == []
+    assert "cosette names no cell, so it cannot be drawn yet" in caplog.text
 
 
-def test_skin_getFrameCount():
-    """Verify getFrameCount returns 1 for single-frame skin."""
-    skin = SingleFrameSkin(
-        name="test",
-        _sprite_path="/dev/null",
-        _sprite_width=100,
-        _sprite_height=400,
-        _frame_width=100,
-        _frame_height=100,
-    )
-    assert skin.getFrameCount("happy") == 1
-
-
-def test_skin_registry_list():
-    """Verify SkinRegistry.list() returns registered skins."""
-    registry = SkinRegistry.getInstance()
-    skins = registry.list()
-    assert "single-frame" in skins
-
-
-def test_skin_load_sprite_from_file():
-    """Verify skin loads sprite from file."""
-    import struct
-
-    def make_minimal_png(width: int, height: int) -> bytes:
-        """Create a minimal valid PNG with IHDR and a single IDAT chunk."""
-
-        def chunk(ct: bytes, data: bytes) -> bytes:
-            c = ct + data
-            crc = 0x811C9DC5
-            for b in c:
-                crc ^= b
-                for _ in range(8):
-                    crc = (crc << 1) ^ 0x82F63B78 if crc & 0x80000000 else crc << 1
-            return struct.pack(">I", len(data)) + ct + data + struct.pack(">I", crc & 0xFFFFFFFF)
-
-        ihdr_data = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
-        return (
-            b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr_data) + chunk(b"IDAT", b"\x00\xff\x00\x00") + chunk(b"IEND", b"")
-        )
-
-    png_data = make_minimal_png(200, 400)
-    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
-        f.write(png_data)
-        f.flush()
-        temp_path = f.name
-
-    try:
-        skin = SingleFrameSkin(
-            name="test",
-            _sprite_path=temp_path,
-        )
-        buffer = skin.getSpriteBuffer()
-        assert len(buffer) == len(png_data)
-        assert skin.spriteWidth == 200
-        assert skin.spriteHeight == 400
-        assert skin.frameHeight == 200  # 400 / 2 rows (ratio 1:2)
-    finally:
-        os.unlink(temp_path)
-
-
-def test_skin_sprite_not_found():
-    """Verify getSpriteBuffer raises when file doesn't exist."""
-    skin = SingleFrameSkin(
-        name="test",
-        _sprite_path="/nonexistent.png",
-        _sprite_width=100,
-        _sprite_height=400,
-        _frame_width=100,
-        _frame_height=100,
-    )
-    with pytest.raises(FileNotFoundError):
-        skin.getSpriteBuffer()
+def test_the_registry_is_built_once_when_the_app_is_created():
+    settings = Settings()
+    registry = build_registry(settings)
+    assert get_registry() is registry
+    assert "single-frame" in registry.list()

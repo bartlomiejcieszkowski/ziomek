@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import base64
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from ziomek.avatar.sprites import sprite_to_base64
+from ziomek.avatar.morda import resolve_reference
+from ziomek.avatar.png import read_png_dimensions
+from ziomek.avatar.skins import get_registry
 from ziomek.avatar.state_machine import AvatarInput
 
 router = APIRouter(tags=["Avatar"])
@@ -150,27 +153,67 @@ async def speak(request: Request) -> Any:
 
 @router.get(
     "/api/avatar/sprite",
-    summary="Get sprite",
-    description="Return the avatar sprite sheet as base64 for client-side rendering.",
+    summary="Get a skin",
+    description="Return the sheet a skin names and the mapping a page draws from, for the named skin or the configured default.",
 )
 async def get_sprite(request: Request) -> Any:
-    """Get the sheet for the skin the page asked for, or the default when none was named."""
-    from ziomek.server import _skin_registry
-
-    if _skin_registry is None:
+    """Answer for one skin, which is the only place the pages read a mapping from."""
+    registry = get_registry()
+    if registry is None:
         return JSONResponse(status_code=503, content={"error": "Skin registry not initialized"})
-    name = request.query_params.get("skin") or "single-frame"
-    skin = _skin_registry.get(name)
+    from ziomek.server import _settings
+
+    name = request.query_params.get("skin") or _settings.roster_avatar
+    skin = registry.get(name)
     if skin is None:
-        return JSONResponse(status_code=404, content={"error": "No default skin"})
-    try:
-        sprite_data = sprite_to_base64(skin.getSpriteBuffer())
-    except FileNotFoundError:
-        return JSONResponse(status_code=404, content={"error": "Sprite file not found"})
+        return JSONResponse(status_code=404, content={"error": "No such skin"})
+    sheet = skin.sheet()
+    if sheet is None:
+        return JSONResponse(status_code=404, content={"error": "Skin names no sheet"})
+    dimensions = read_png_dimensions(sheet)
+    if dimensions is None:
+        return JSONResponse(status_code=500, content={"error": "Skin sheet does not report its size"})
+    frame = skin.definition.frame
+    grid = skin.definition.grid
     return {
-        "sprite_b64": sprite_data,
-        "width": skin.spriteWidth,
-        "height": skin.spriteHeight,
-        "frameWidth": skin.frameWidth,
-        "frameHeight": skin.frameHeight,
+        "skin": skin.name,
+        "sprite_b64": f"data:image/png;base64,{base64.b64encode(sheet).decode('utf-8')}",
+        "width": dimensions[0],
+        "height": dimensions[1],
+        "frameWidth": frame.width,
+        "frameHeight": frame.height,
+        "grid": {"rows": grid.rows, "columns": grid.columns},
+        "expressions": _mapping(skin),
+        "fallback": _entry(skin, skin.definition.fallback),
     }
+
+
+def _entry(skin, reference) -> dict | None:
+    """One expression as the page needs it: the cells it shows, in order, and its timing."""
+    if reference is None:
+        return None
+    target = resolve_reference(skin.definition, reference)
+    if target is None or target.cell is None:
+        return None
+    return {"frames": [{"row": target.cell.row, "column": target.cell.column}], "interval_ms": None, "loop": False}
+
+
+def _mapping(skin) -> dict:
+    """The cells an expression shows, in the order it declares them.
+
+    A frame that names a file is left out, since nothing draws such a frame yet.
+    """
+    mapping = {}
+    for expression_name in skin.expression_names():
+        cells = []
+        for frame in skin.order(expression_name):
+            if frame.cell is not None:
+                cells.append({"row": frame.cell.row, "column": frame.cell.column})
+        if not cells:
+            continue
+        mapping[expression_name] = {
+            "frames": cells,
+            "interval_ms": skin.interval_ms(expression_name),
+            "loop": skin.loops(expression_name),
+        }
+    return mapping
