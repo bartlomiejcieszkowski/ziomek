@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-20/schema",
+  "$id": "https://ziomek.dev/schemas/morda.json",
+  "title": "Avatar definition",
+  "description": "The definition file inside a .morda archive. Targets are written once, under a name, in frames. An expression references those names, so nothing is drawn from a target written inside an expression. A string is read as a name, unless it starts with a marker prefix such as file:, which says what kind of value it is. Names cannot contain a colon, so a marker can never be mistaken for a name. A string with a colon is read as a marker, and a prefix the format does not know is reported as an error. Every file referenced must be present under the name it gives, and a reference to a name the definition does not declare is reported as an error. An expression that shows one frame is written as the name alone; that is the short form of a frame_order with one entry.",
+  "type": "object",
+  "required": ["name", "type", "expressions"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^:]+$",
+      "description": "The skin name, the same string a config value or a roster pool entry uses. This is the value used for naming; the directory name and the archive file name are not used."
+    },
+    "type": {
+      "enum": ["sheet", "image"],
+      "description": "Which type of archive this is. It decides how the rest is read, so the reader never guesses from the file list."
+    },
+    "frame": {
+      "type": "object",
+      "description": "Frame size in pixels, used only for a sheet.",
+      "required": ["width", "height"],
+      "additionalProperties": false,
+      "properties": {
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "grid": {
+      "type": "object",
+      "description": "Rows and columns of the sheet. Columns are declared as well as rows, because an expression that can show more than one frame needs its second cell. Used only for a sheet.",
+      "required": ["rows", "columns"],
+      "additionalProperties": false,
+      "properties": {
+        "rows": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "columns": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "frames": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[^:]+$",
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/target"
+      },
+      "description": "The targets, each written once under a name. Names are unique inside one definition, so a name is enough to find a target."
+    },
+    "sheet": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/file"
+        },
+        {
+          "$ref": "#/$defs/marker"
+        }
+      ],
+      "description": "The image the cells are cut from. Written as a target, so it is the object form naming a file, or the marker short form of the same thing. Required when type is sheet, because a grid describes an image that is never named without it. Not allowed when type is image, where each expression names its own file."
+    },
+    "expressions": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/expression"
+      },
+      "description": "Each expression name maps to what it walks. An entry here is a reference, not a target."
+    },
+    "fallback": {
+      "$ref": "#/$defs/reference",
+      "description": "The frame used for an expression the definition does not name. Without it an unknown expression draws nothing."
+    }
+  },
+  "$defs": {
+    "target": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/cell"
+        },
+        {
+          "$ref": "#/$defs/file"
+        }
+      ]
+    },
+    "reference": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[^:]+$",
+          "minLength": 1,
+          "description": "A frame name."
+        },
+        {
+          "$ref": "#/$defs/marker"
+        }
+      ]
+    },
+    "marker": {
+      "type": "string",
+      "pattern": "^file:[^:]+$",
+      "description": "A string with a colon, read as a marker: the prefix says the kind, the rest is the value. The prefix is not part of the file name it points at. A marker is only a short form of the object form, so it cannot say anything an object cannot say. A value that needs more than one part, such as a cell, keeps its object form."
+    },
+    "cell": {
+      "type": "object",
+      "required": ["cell"],
+      "additionalProperties": false,
+      "properties": {
+        "cell": {
+          "type": "object",
+          "required": ["row", "column"],
+          "additionalProperties": false,
+          "properties": {
+            "row": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Row in the declared grid. A reader reports a mismatch between the declared grid and the size reported by the PNG header as one error, rather than guessing a grid."
+            },
+            "column": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      },
+      "description": "A target named by the kind, so a target says what it is. Same shape as a target naming a file."
+    },
+    "file": {
+      "type": "object",
+      "required": ["file"],
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^:]+$",
+          "description": "Name of a file in the archive. It may name a file in a subfolder, because an entry path is a name rather than a directory the reader walks, but it is not an absolute path and it has no .. segment, so a definition cannot reach outside the skin folder or the archive."
+        }
+      }
+    },
+    "expression": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/reference",
+          "description": "One frame, written as the name alone. Short form of a frame_order holding that one entry."
+        },
+        {
+          "type": "object",
+          "required": ["frame_order"],
+          "additionalProperties": false,
+          "properties": {
+            "frame_order": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/reference"
+              },
+              "description": "The names this expression shows, in order. Named so it cannot be mistaken for the frames map at the top level. A list carries values only, so it cannot hold a time between frames."
+            },
+            "interval_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Whole milliseconds between frames when this expression shows more than one. Written as it is meant to be read, not computed from a rate, because a rate that does not divide 1000 evenly has no exact interval."
+            },
+            "loop": {
+              "type": "boolean",
+              "default": true,
+              "description": "Optional, default true. After the last entry of frame_order, true goes back to the first entry and shows them again; false stops at the last entry. The default is an annotation, not something a schema validator enforces, so the reader applies it when the field is absent."
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "frame_order": {
+                    "minItems": 2
+                  }
+                },
+                "required": ["frame_order"]
+              },
+              "then": {
+                "required": ["interval_ms"]
+              }
+            }
+          ],
+          "description": "There is no default interval to inherit. An expression that lists more than one name in frame_order has to state its own interval, and one that lists more than one name without stating it is reported as an error. An expression with a single name has no time between frames, so it states none." 
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "sheet"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "required": ["frame", "grid", "sheet"]
+      }
+    },
+    {
+      "if": {
+        "not": {
+          "required": ["fallback"]
+        }
+      },
+      "then": {
+        "properties": {
+          "frames": {
+            "required": ["neutral"]
+          }
+        }
+      },
+      "description": "A definition that declares no fallback has to declare an entry for neutral, so there is always something it can show for a name it does not cover."
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "image"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "not": {
+          "required": ["sheet"]
+        },
+        "properties": {
+          "frames": {
+            "additionalProperties": {
+              "$ref": "#/$defs/file"
+            }
+          }
+        }
+      }
+    }
+  ]
+}
