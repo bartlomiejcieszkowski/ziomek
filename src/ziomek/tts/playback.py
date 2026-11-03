@@ -19,7 +19,9 @@ class AudioPlayer:
         self.backend_name = backend_name
         self._backend: "IBackend" = BackendRegistry().get(backend_name)
         self.device_name: str | None = None
-        self._worker: threading.Thread | None = None
+        self._workers: list[threading.Thread] = []
+        self._active = 0
+        self._counted = threading.Lock()
 
     def play(self, wav_bytes: bytes, sample_rate: int) -> None:
         """Hand the sound to a worker. The wait for the device happens there, not in this call.
@@ -28,8 +30,23 @@ class AudioPlayer:
         which is why a request should not be the thing that waits. The worker still waits, so nothing
         is finished before the device has taken the samples.
         """
-        self._worker = threading.Thread(target=self._backend.play, args=(wav_bytes, sample_rate), daemon=True)
-        self._worker.start()
+        worker = threading.Thread(target=self._run, args=(wav_bytes, sample_rate), daemon=True)
+        self._workers.append(worker)
+        worker.start()
+
+    def _run(self, wav_bytes: bytes, sample_rate: int) -> None:
+        """Take one sound at a time, unless another is already on the device and the backend can mix."""
+        with self._counted:
+            overlaps = self._active > 0
+            self._active += 1
+        try:
+            if overlaps and self._backend.supports_mixing:
+                self._backend.mix_play(wav_bytes, sample_rate)
+            else:
+                self._backend.play(wav_bytes, sample_rate)
+        finally:
+            with self._counted:
+                self._active -= 1
 
     def mix_play(self, wav_bytes: bytes, sample_rate: int) -> None:
         """Overlapping, non-blocking playback."""
