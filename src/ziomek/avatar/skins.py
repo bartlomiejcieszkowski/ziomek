@@ -6,6 +6,8 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ziomek.avatar.png import read_png_dimensions
+
 logger = logging.getLogger(__name__)
 
 # Row index map: expression name → sprite sheet row
@@ -44,10 +46,10 @@ class SingleFrameSkin:
         """Parse PNG header to extract dimensions and compute frame size."""
         if not self._sprite_buffer:
             return
-        # Width: bytes 16-19 (big-endian)
-        self._sprite_width = int.from_bytes(self._sprite_buffer[16:20], "big")
-        # Height: bytes 20-23 (big-endian)
-        self._sprite_height = int.from_bytes(self._sprite_buffer[20:24], "big")
+        dimensions = read_png_dimensions(self._sprite_buffer)
+        if dimensions is None:
+            return
+        self._sprite_width, self._sprite_height = dimensions
         # Auto-calculate rows from sprite ratio (single column)
         rows = max(1, round(self._sprite_height / self._sprite_width))
         self._frame_width = self._sprite_width
@@ -116,7 +118,7 @@ class SkinRegistry:
         return cls._instance
 
     def _register_default(self) -> None:
-        default_path = str(Path(__file__).parent.parent / "resources" / "single_frame_sprite_sheet.png")
+        default_path = str(Path(__file__).parent.parent / "resources" / "single-frame" / "sheet.png")
         self._skins["single-frame"] = SingleFrameSkin(
             name="single-frame",
             _sprite_path=default_path,

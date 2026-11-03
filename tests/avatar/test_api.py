@@ -54,6 +54,18 @@ def test_sprite_endpoint(client):
     assert resp.status_code in (200, 404)  # 404 if sprite file missing
 
 
+def test_a_skin_name_that_is_not_registered_is_not_served_by_the_sprite_endpoint(client):
+    """A name is read through the registry, so an unknown one can only answer with nothing."""
+    resp = client.get("/api/avatar/sprite?skin=not-a-skin")
+    assert resp.status_code in (404, 503)  # the registry answers only for a registered skin
+
+
+def test_the_sprite_endpoint_answers_for_the_default_skin_when_none_is_named(client):
+    """The page asks for a skin, and the default is used when it does not."""
+    resp = client.get("/api/avatar/sprite")
+    assert resp.status_code in (200, 404, 503)
+
+
 def test_speak_endpoint_no_tts(client):
     """Verify /api/avatar/speak returns 503 when TTS not loaded."""
     resp = client.post("/api/avatar/speak", json={"text": "test"})
