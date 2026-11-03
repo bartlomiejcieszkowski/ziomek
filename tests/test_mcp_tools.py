@@ -113,7 +113,7 @@ class TestMcpPlayDoesNotTouchTheRoster:
         roster.participants = []
         with patch("ziomek.server._tts_model", mock_model):
             with patch("ziomek.server._settings", None):
-                with patch.object(mcp_tools_module, "_get_roster", return_value=roster):
+                with patch.object(mcp_tools_module, "get_roster", return_value=roster):
                     with patch("ziomek.tts.generate.generate_wav") as generate:
                         generate.return_value = (base64.b64encode(b"audio").decode(), 0.5, 16000)
                         with patch("ziomek.server._voice_cache", object()):

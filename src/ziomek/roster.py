@@ -7,6 +7,8 @@ import random
 import time
 from dataclasses import dataclass
 
+from ziomek.names import load_name_lists
+
 
 @dataclass
 class TextEntry:
@@ -32,11 +34,14 @@ class Participant:
         name: str,
         roster: "Roster | None" = None,
         voice: str | None = None,
+        skin: str | None = None,
     ) -> None:
         self.name = name
         # The name shown on the page is fixed at join and never taken again.
         self.display_name = name
         self.voice = voice
+        # The skin that draws this participant's face, taken from its pool entry.
+        self.skin = skin
         self.texts: list[TextEntry] = []
         # What happened to this participant during the current call.
         self.events: list[dict] = []
@@ -113,14 +118,20 @@ class Roster:
         rng: random.Random | None = None,
         state_machine_factory=None,
         push_hook=None,
+        default_skin: str = "single-frame",
+        name_lists: dict[str, list[str]] | None = None,
     ) -> None:
-        self.pool: list[tuple[str, str]] = list(pool or [])
+        self.pool: list[tuple[str, str, str]] = list(pool or [])
+        # Used when an entry names no skin, which is the config default.
+        self.default_skin = default_skin
         self.state_machine_factory = state_machine_factory
         # The view push is attached to every machine the roster makes, so a participant's
         # expression change reaches the page instead of being polled.
         self.push_hook = push_hook
         # Words are the second part of a name when the first part is taken in the call.
         self.words: list[str] = list(words or [])
+        # Name lists from the package resources, read as one pool of names.
+        self.name_lists: dict[str, list[str]] = {k: list(v) for k, v in (name_lists or {}).items()}
         self.quiet_for = quiet_for
         self.rng = rng or random.Random()
         self.participants: list[Participant] = []
@@ -136,6 +147,8 @@ class Roster:
         if name is None:
             participant.name = self._pick_name()
         participant.display_name = participant.name
+        # A join with no name has no entry to read, so the default skin applies.
+        participant.skin = self._skin_for(participant.name)
         if voice is None:
             participant.voice = self._pick_voice(participant.name)
         # Usage is tracked on the first part of the name, the one that comes from the pool.
@@ -189,10 +202,18 @@ class Roster:
         lowest = min(counts.values()) if counts else 0
         return [entry for entry in self.pool if counts[entry[0]] == lowest]
 
+    def _skin_for(self, name: str) -> str | None:
+        """Take the skin named by the entry for this name, otherwise the default."""
+        first = name.split(" ")[0]
+        for entry in self.pool:
+            if entry[0] == first and len(entry) > 2 and entry[2]:
+                return entry[2]
+        return self.default_skin or None
+
     def _pick_name(self) -> str:
-        if not self.pool:
-            return ""
         taken = {p.name for p in self.participants}
+
+        # A name listed in the pool comes first, otherwise a name from the loaded lists.
         free = [entry for entry in self.pool if entry[0] not in taken]
         if free:
             # Prefer an entry that has not been used, otherwise the least used one.
@@ -202,9 +223,20 @@ class Roster:
             lowest = min(self.usage_counts.get(entry[0], 0) for entry in free)
             return self.rng.choice([e for e in free if self.usage_counts.get(e[0], 0) == lowest])[0]
 
-        # Every first name is in the call, so the second part comes from the words.
-        if not self.words:
+        names = [name for names in self.name_lists.values() for name in names if name not in taken]
+        if names:
+            # Every loaded list is one pool, so a name is taken from any of them.
+            unused = [name for name in names if self.usage_counts.get(name, 0) == 0]
+            if unused:
+                return self.rng.choice(unused)
+            counts = {name: self.usage_counts.get(name, 0) for name in names}
+            lowest = min(counts.values())
+            return self.rng.choice([name for name in names if counts[name] == lowest])
+
+        if not self.pool or not self.words:
             return ""
+
+        # Every first name is in the call, so the second part comes from the words.
         base = self.rng.choice(self._candidates(0))[0]
         combos = [f"{base} {word}" for word in self.words if f"{base} {word}" not in taken]
         if not combos:
@@ -256,20 +288,29 @@ class Roster:
 _roster: Roster | None = None
 
 
-def get_roster(settings: object | None = None) -> Roster:
-    """Get the roster for the current call, built from the configured pool."""
+def build_roster(settings) -> Roster:
+    """Build the roster for the current call from the configured pool."""
     global _roster
-    if _roster is None:
-        from ziomek.api import avatar_ws
+    from ziomek.api import avatar_ws
 
-        pool = list(settings.roster_pool) if settings else []
-        quiet_for = settings.roster_quiet_for if settings else 3000
-        _roster = Roster(
-            pool=pool,
-            words=list(settings.roster_words) if settings else [],
-            quiet_for=quiet_for,
-            push_hook=avatar_ws.notify_change,
-        )
+    _roster = Roster(
+        pool=list(settings.roster_pool),
+        words=list(settings.roster_words),
+        name_lists=load_name_lists(),
+        quiet_for=settings.roster_quiet_for,
+        push_hook=avatar_ws.notify_change,
+        default_skin=settings.roster_avatar,
+    )
+    return _roster
+
+
+def get_roster() -> Roster:
+    """Get the roster for the current call.
+
+    The call owns its roster. The caller builds it from settings with build_roster.
+    """
+    if _roster is None:
+        raise RuntimeError("the roster for this call was not built")
     return _roster
 
 
