@@ -9,7 +9,7 @@ from pathlib import Path
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
-from ziomek.avatar.skins import SkinRegistry
+from ziomek.avatar.skins import get_registry
 from ziomek.roster import get_roster
 
 router = APIRouter(tags=["Roster"])
@@ -37,18 +37,28 @@ def skin_name(participant, settings=None) -> str:
 
 
 def avatar_for(participant, settings=None) -> dict | None:
-    """The skin and the row that draw this participant's avatar.
+    """The skin and the cell that draw this participant's avatar.
 
-    Only a registered skin can be drawn, so a name that is not in the registry shows nothing;
-    an expression the row map does not know is read as neutral.
+    Only a skin that can be drawn is in the registry, so a name that is not registered shows
+    nothing; an expression a definition does not cover reaches what it falls back to.
     """
+    registry = get_registry()
+    if registry is None:
+        logging.warning("No skin registry was built, so the tile draws no avatar")
+        return None
     name = skin_name(participant, settings)
-    skin = SkinRegistry.getInstance().get(name)
+    skin = registry.get(name)
     if skin is None:
         logging.warning("Skin %s is not registered, so the tile draws no avatar", name)
         return None
     expression = expression_for(participant) or ""
-    return {"skin": name, "row": skin.getFrameRow(expression, 0)}
+    cell = skin.cell_for(expression)
+    if cell is None:
+        logging.warning(
+            "Skin %s names no cell for %s, so the tile draws no avatar", name, expression or "an unnamed expression"
+        )
+        return None
+    return {"skin": name, "cell": {"row": cell.row, "column": cell.column}}
 
 
 def tiles(settings=None) -> list[dict]:

@@ -31,6 +31,10 @@ def fresh_roster():
 
     avatar_ws._shown = None
     build_roster(Settings())
+    from ziomek.avatar.skins import build_registry
+
+    # A registry is built where the app is created, so a test that reads the payload builds one.
+    build_registry(Settings())
 
 
 def build_app():
@@ -759,7 +763,7 @@ def test_a_system_written_line_keeps_its_author_in_the_file():
     assert "> John (system) — a system note" in markdown_text(built, "2026-10-31T14:20:04Z")
 
 
-def test_the_tile_payload_carries_the_default_skin_and_the_row_for_its_expression():
+def test_the_tile_payload_carries_the_default_skin_and_the_cell_for_its_expression():
     # The default is the only skin that exists, so a join with no entry of its own is drawn with it.
     from ziomek.api.roster_view import tiles
 
@@ -768,7 +772,8 @@ def test_the_tile_payload_carries_the_default_skin_and_the_row_for_its_expressio
     assert Settings().roster_avatar == "single-frame"
     avatar = tiles()[0]["avatar"]
     assert avatar["skin"] == "single-frame"
-    assert avatar["row"] == 1  # an unknown name is read as neutral through the row map fallback
+    # An expression the definition does not cover is read through what it falls back to, which is row 1.
+    assert avatar["cell"] == {"row": 1, "column": 0}
 
 
 def test_a_skin_that_is_not_registered_draws_no_avatar_and_leaves_a_warning(caplog):
@@ -816,28 +821,29 @@ def test_the_expression_uses_a_monotype_font_and_is_smaller_than_name():
     assert ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }" in page
 
 
-def test_the_page_draws_one_row_of_the_skin_sheet_for_each_participant():
-    # A single-frame skin shows one row, so the row that the payload picked is what the page draws.
+def test_the_page_draws_one_cell_of_the_skin_sheet_for_each_participant():
+    # The cell that the definition resolved for the participant is what the page shows, so both offsets are used.
     page = page_source()
     assert "image-rendering: pixelated" in page and "background-repeat: no-repeat" in page
     assert "block.style.backgroundSize" in page and "block.style.backgroundPosition" in page
-    assert "-tile.avatar.row * height" in page
+    assert "-cell.column * width" in page and "-cell.row * height" in page
     assert '"url(data:image/png;base64,"' in page
     assert ".avatar img" not in page
 
 
-def test_the_page_gets_one_sheet_per_skin_and_uses_the_cached_copy_for_the_next_tile():
+def test_the_page_gets_one_mapping_per_skin_and_uses_the_cached_copy_for_the_next_tile():
+    # One place answers for a skin, so the page asks once per name and keeps what it got.
     page = page_source()
     assert 'fetch("/api/avatar/sprite?skin="' in page
-    assert "if (!name || sheets[name]) continue" in page
-    assert "await load_sheets(tiles)" in page
+    assert "if (!name || skins[name]) continue" in page
+    assert "await load_skins(tiles)" in page
 
 
 def test_a_tile_that_has_no_avatar_is_left_as_it_is():
     # A skin that is not registered has no payload entry, so there is nothing to draw and no request for it.
     page = page_source()
-    assert "if (!sheet) return" in page
-    assert "if (!name || sheets[name]) continue" in page
+    assert "if (!skin) return" in page
+    assert "if (!name || skins[name]) continue" in page
 
 
 def test_the_record_items_are_list_items_with_the_markers_and_indent_removed():

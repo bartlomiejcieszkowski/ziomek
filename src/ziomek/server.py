@@ -18,7 +18,7 @@ from ziomek import __version__, event_loop
 from ziomek.api import avatar_ws
 from ziomek.api.avatar_ws import router as avatar_ws_router
 from ziomek.api.stt_ws import router as stt_ws_router
-from ziomek.avatar.skins import SkinRegistry
+from ziomek.avatar.skins import build_registry
 from ziomek.avatar.state_machine import AvatarInput, AvatarStateMachine
 from ziomek.browser import open_view_page, print_page_urls
 from ziomek.config import Settings
@@ -41,7 +41,6 @@ _tts_model: Optional[TTSModelWrapper] = None
 _voice_cache: Optional[VoiceStateCache] = None
 _audio_player: Optional[AudioPlayer] = None
 _state_machine: Optional[AvatarStateMachine] = None
-_skin_registry: Optional[SkinRegistry] = None
 _stt_engine: Optional[STTEngine] = None
 _gamepad_manager: Optional[GamepadManager] = None
 _gamepad_thread: Optional[threading.Thread] = None
@@ -107,7 +106,7 @@ def create_app(
     mcp_config_exposed: bool = False,
     open_browser: bool = False,
 ) -> FastAPI:
-    global _tts_model, _voice_cache, _audio_player, _state_machine, _skin_registry, _settings
+    global _tts_model, _voice_cache, _audio_player, _state_machine, _settings
     if settings is None:
         settings = Settings()
     _settings = settings
@@ -155,7 +154,9 @@ def create_app(
     # The state machine pushes expression changes to the view page through the
     # WebSocket route instead of being polled by it.
     _state_machine.on_change = avatar_ws.notify_change
-    _skin_registry = SkinRegistry()
+    # The skins a page can draw come from the definitions found for this app, not from a copy of
+    # the names kept in the code.
+    build_registry(settings)
     # Initialize STT engine only when it is enabled and the optional 'stt' extra is installed
     if not settings.no_stt and stt_installed():
         global _stt_engine
