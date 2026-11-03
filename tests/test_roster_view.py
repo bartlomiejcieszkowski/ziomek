@@ -151,6 +151,14 @@ def test_the_roster_page_shows_the_expression_of_each_participant():
     assert 'renderText(top, "expression", tile.expression)' in page
 
 
+def test_the_labels_at_the_top_of_a_tile_are_painted_above_its_avatar():
+    client = build_app()
+    page = client.get("/roster").text
+
+    # An absolutely positioned box paints above content in normal flow, so a label needs its own level.
+    assert ".top { position: relative; z-index: 1;" in page
+
+
 def test_the_roster_page_shows_the_text_attached_to_each_event():
     client = build_app()
     page = client.get("/roster").text
@@ -807,7 +815,7 @@ def test_the_skin_named_by_a_pool_entry_is_used_for_that_participant():
 def test_the_page_builds_the_name_on_the_left_and_the_expression_on_the_right():
     # The block is the avatar, so these are corners of the block, not elements inside a card.
     page = page_source()
-    assert ".top { display: flex; justify-content: space-between; padding: 8px; }" in page
+    assert "display: flex; justify-content: space-between; padding: 8px;" in page
     assert 'el_class("top")' in page and 'el_class("bottom")' in page
 
 
