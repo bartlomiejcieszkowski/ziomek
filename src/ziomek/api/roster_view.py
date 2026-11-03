@@ -164,10 +164,12 @@ def blocks(entries: list[dict]) -> list[dict]:
 
 
 def sentence(entry: dict) -> str:
-    """Build the system line for one entry, in the words the record stores."""
+    """Build the action part of a system line, in the words the record stores.
+
+    The name belongs to the block that holds it, so a line states only what happened; a line that
+    repeats it is read twice on the page, once as the block name and once as text."""
     word = _PAST.get(entry.get("action", ""), entry.get("action", ""))
-    name = entry.get("name", "")
-    return f"{name} {word}." if name else f"{word}."
+    return f"{word}."
 
 
 @router.get("/api/roster/transcript", summary="Transcript", description="List what happened in the call, in order.")

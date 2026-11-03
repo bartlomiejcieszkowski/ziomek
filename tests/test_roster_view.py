@@ -266,7 +266,7 @@ def test_the_page_words_the_actions_and_keeps_an_unknown_action_as_recorded():
     from ziomek.api.roster_view import sentence
 
     # An action outside the mapping is shown as recorded, not as a broken line.
-    assert sentence({"name": "John", "action": "wave"}) == "John wave."
+    assert sentence({"action": "wave"}) == "wave."
 
 
 def test_the_panel_and_the_saved_file_write_the_same_lines():
@@ -283,13 +283,13 @@ def test_the_panel_and_the_saved_file_write_the_same_lines():
     # Task 5 Step 1: the same content must keep the markers a markdown viewer needs.
     assert "compiling  " in file  # two spaces, the hard break a viewer reads
     assert "### John (agent)" in file  # the heading keeps name and author
-    quote = markdown_text([{"kind": "system", "text": "John left."}], "2026-10-31T14:20:04Z")
-    assert "> John left." in quote
+    quote = markdown_text([{"kind": "system", "name": "John", "text": "left."}], "2026-10-31T14:20:04Z")
+    assert "> John — left." in quote
     # The markers, so a viewer can read the same lines the panel shows.
     assert "### John (agent)" in file
     assert "compiling  " in file  # two spaces: a markdown hard break
-    quoted = markdown_text([{"kind": "system", "text": "John joined."}], "2026-10-31T14:20:04Z")
-    assert "> John joined." in quoted
+    quoted = markdown_text([{"kind": "system", "name": "John", "text": "joined."}], "2026-10-31T14:20:04Z")
+    assert "> John — joined." in quoted
 
 
 def test_a_group_without_a_name_keeps_the_author_and_the_text():
@@ -363,9 +363,17 @@ def test_the_toggle_stays_reachable_when_the_panel_is_hidden():
 def test_the_words_of_the_actions_are_the_sentences_the_spec_asks_for():
     from ziomek.api.roster_view import sentence
 
-    assert sentence({"name": "John", "action": "join"}) == "John joined."
-    assert sentence({"name": "John", "action": "hold"}) == "John is on hold."
-    assert sentence({"name": "John", "action": "leave"}) == "John left."
+    # The name belongs to the block that holds it, so a line carries only what happened.
+    assert sentence({"action": "join"}) == "joined."
+    assert sentence({"action": "hold"}) == "is on hold."
+    assert sentence({"action": "leave"}) == "left."
+
+
+def test_an_action_line_does_not_repeat_the_name_of_the_block_that_holds_it():
+    from ziomek.api.roster_view import format_line
+
+    # On the page the block name is its own element, so a line that names it again is read twice.
+    assert format_line({"name": "John", "action": "join"}) == "joined."
 
 
 def test_the_page_names_the_file_with_the_short_extension():
@@ -497,16 +505,14 @@ def test_a_participant_with_no_message_produces_no_group():
         {"name": "John", "action": "join"},
         {"name": "John", "action": "text", "text": "", "author": "agent"},
     ]
-    assert blocks(entries) == [{"kind": "system", "name": "John", "text": "John joined."}]
+    assert blocks(entries) == [{"kind": "system", "name": "John", "text": "joined."}]
 
 
 def test_the_system_line_is_a_sentence_with_the_word_from_the_record():
     from ziomek.api.roster_view import sentence
 
-    assert sentence({"name": "John", "action": "join"}) == "John joined."
-    assert sentence({"name": "John", "action": "hold"}) == "John is on hold."
-    assert sentence({"name": "John", "action": "left"}) == "John left."
-    assert sentence({"name": "John", "action": "something"}) == "John something."
+    # A word the list does not know is written as it was recorded.
+    assert sentence({"action": "something"}) == "something."
 
 
 def test_the_transcript_payload_carries_the_groups_as_well_as_the_entries():
@@ -585,7 +591,7 @@ def test_a_group_line_is_the_text_as_written():
 
     assert blocks([{"name": "John", "action": "", "text": "", "author": ""}]) == []
     assert blocks([{"name": "John", "action": "join", "text": "", "author": ""}]) == [
-        {"kind": "system", "name": "John", "text": "John joined."}
+        {"kind": "system", "name": "John", "text": "joined."}
     ]
 
 
