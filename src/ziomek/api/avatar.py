@@ -153,13 +153,14 @@ async def speak(request: Request) -> Any:
     summary="Get sprite",
     description="Return the avatar sprite sheet as base64 for client-side rendering.",
 )
-async def get_sprite() -> Any:
-    """Get sprite sheet for client rendering."""
+async def get_sprite(request: Request) -> Any:
+    """Get the sheet for the skin the page asked for, or the default when none was named."""
     from ziomek.server import _skin_registry
 
     if _skin_registry is None:
         return JSONResponse(status_code=503, content={"error": "Skin registry not initialized"})
-    skin = _skin_registry.get("single-frame")
+    name = request.query_params.get("skin") or "single-frame"
+    skin = _skin_registry.get(name)
     if skin is None:
         return JSONResponse(status_code=404, content={"error": "No default skin"})
     try:

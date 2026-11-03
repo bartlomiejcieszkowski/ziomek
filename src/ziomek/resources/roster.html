@@ -20,8 +20,7 @@
       #menu.open { display: block; }
       button { background: #2a2a30; color: #ddd; border: 1px solid #4a4a52; border-radius: 6px; padding: 6px 10px; font: inherit; cursor: pointer; }
       .tile { position: relative; aspect-ratio: 1 / 1; overflow: hidden; }
-      .avatar { position: absolute; inset: 0; background: #2a2a30; border: 1px dashed #4a4a52; border-radius: 6px; }
-      .avatar img { width: 100%; height: 100%; object-fit: cover; }
+      .avatar { position: absolute; inset: 0; background: #2a2a30; border: 1px dashed #4a4a52; border-radius: 6px; background-repeat: no-repeat; image-rendering: pixelated; }
       .top { display: flex; justify-content: space-between; padding: 8px; }
       .bottom { position: absolute; left: 8px; right: 8px; bottom: 8px; }
       @media (max-width: 900px) {
@@ -135,13 +134,8 @@
         for (const tile of tiles) {
           const el = document.createElement("div");
           el.className = "tile";
-          const avatar = el_class("avatar");
-          if (tile.avatar) {
-            const img = document.createElement("img");
-            img.src = tile.avatar;
-            avatar.appendChild(img);
-          }
-          el.appendChild(avatar);
+          const block = el_class("avatar");
+          el.appendChild(block);
 
           const top = el_class("top");
           renderText(top, "name", tile.name);
@@ -165,7 +159,33 @@
           }
           if (list.children.length) el.appendChild(list);
           root.appendChild(el);
+          draw_avatar(tile, block);
         }
+      }
+
+      const sheets = {};  // one sheet per skin, so participants that share a skin share one copy
+
+      async function load_sheets(tiles) {
+        for (const tile of tiles) {
+          const name = tile.avatar && tile.avatar.skin;
+          if (!name || sheets[name]) continue;
+          const response = await fetch("/api/avatar/sprite?skin=" + encodeURIComponent(name));
+          // A skin the page cannot get is left undrawn, so nothing is shown for it.
+          if (!response.ok) continue;
+          sheets[name] = await response.json();
+        }
+      }
+
+      // A tile shows one row of its own skin's sheet, which is the row that the payload picked.
+      function draw_avatar(tile, block) {
+        const sheet = tile.avatar && sheets[tile.avatar.skin];
+        if (!sheet) return;  // nothing was fetched for this skin, so the block stays as it is
+        const scale = block.getBoundingClientRect().width / sheet.frameWidth;
+        if (!scale) return;  // not laid out yet, so there is no size to scale the row to
+        const height = sheet.frameHeight * scale;
+        block.style.backgroundImage = "url(data:image/png;base64," + sheet.sprite_b64 + ")";
+        block.style.backgroundSize = sheet.width * scale + "px " + sheet.height * scale + "px";
+        block.style.backgroundPosition = "0 " + -tile.avatar.row * height + "px";
       }
 
       function held(tile) {
@@ -299,7 +319,9 @@
       async function refresh() {
         try {
           const response = await fetch("/api/roster");
-          render(await response.json());
+          const tiles = await response.json();
+          await load_sheets(tiles);
+          render(tiles);
           const stream = await fetch("/api/roster/transcript");
           lastPayload = await stream.json();
           lastBlocks = lastPayload.blocks;

@@ -117,7 +117,7 @@ class TestChangeHook:
         from ziomek.api.avatar_ws import notify_change
 
         # No state machine registered -> the hook must not raise.
-        notify_change(None, "idle", 0)
+        notify_change(None, "neutral", 0)
 
     def test_hook_receives_the_participant_record(self):
         from ziomek.avatar.state_machine import AvatarStateMachine

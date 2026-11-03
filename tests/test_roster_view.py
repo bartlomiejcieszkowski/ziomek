@@ -21,7 +21,7 @@ import ziomek.roster as module
 from ziomek import server
 from ziomek.api.roster_view import blocks, markdown_text, router, sentence, transcript
 from ziomek.config import Settings
-from ziomek.roster import get_roster
+from ziomek.roster import build_roster, get_roster
 
 
 @pytest.fixture(autouse=True)
@@ -30,6 +30,7 @@ def fresh_roster():
     from ziomek.api import avatar_ws
 
     avatar_ws._shown = None
+    build_roster(Settings())
 
 
 def build_app():
@@ -758,34 +759,38 @@ def test_a_system_written_line_keeps_its_author_in_the_file():
     assert "> John (system) — a system note" in markdown_text(built, "2026-10-31T14:20:04Z")
 
 
-def test_the_tile_payload_carries_no_avatar_when_the_config_default_is_none():
-    # Nothing is bundled yet, so the default is none: the tile shows the block without an image.
+def test_the_tile_payload_carries_the_default_skin_and_the_row_for_its_expression():
+    # The default is the only skin that exists, so a join with no entry of its own is drawn with it.
     from ziomek.api.roster_view import tiles
 
     client = build_app()
     get_roster().join("John")
-    assert Settings().roster_avatar == "none"
-    assert tiles()[0]["avatar"] is None
+    assert Settings().roster_avatar == "single-frame"
+    avatar = tiles()[0]["avatar"]
+    assert avatar["skin"] == "single-frame"
+    assert avatar["row"] == 1  # an unknown name is read as neutral through the row map fallback
 
 
-def test_a_missing_avatar_file_is_treated_as_none_and_leaves_a_warning(caplog):
+def test_a_skin_that_is_not_registered_draws_no_avatar_and_leaves_a_warning(caplog):
+    # A name is read through the registry, never as a path, so an unknown name can only show nothing.
     from ziomek.api.roster_view import tiles
 
-    settings = Settings(roster_avatar="default_avatar.png")
+    settings = Settings(roster_pool=[("John", "", "not-a-skin")])
     client = build_app()
+    build_roster(settings)
     get_roster().join("John")
     assert tiles(settings=settings)[0]["avatar"] is None
-    assert "default_avatar.png" in caplog.text
+    assert "not-a-skin" in caplog.text
 
 
-def test_an_avatar_file_that_exists_shows_up_in_the_payload(tmp_path):
+def test_the_skin_named_by_a_pool_entry_is_used_for_that_participant():
     from ziomek.api.roster_view import tiles
 
-    avatar = tmp_path / "john.png"
-    avatar.write_text("not an image, only a stand-in")
+    settings = Settings(roster_pool=[("cosette", "", "single-frame")])
     client = build_app()
-    get_roster().join("John")
-    assert tiles(settings=Settings(roster_avatar=str(avatar)))[0]["avatar"] == str(avatar)
+    build_roster(settings)
+    get_roster().join("cosette")
+    assert tiles(settings=settings)[0]["avatar"]["skin"] == "single-frame"
 
 
 def test_the_page_builds_the_name_on_the_left_and_the_expression_on_the_right():
@@ -809,6 +814,30 @@ def test_the_expression_uses_a_monotype_font_and_is_smaller_than_name():
         in page
     )
     assert ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }" in page
+
+
+def test_the_page_draws_one_row_of_the_skin_sheet_for_each_participant():
+    # A single-frame skin shows one row, so the row that the payload picked is what the page draws.
+    page = page_source()
+    assert "image-rendering: pixelated" in page and "background-repeat: no-repeat" in page
+    assert "block.style.backgroundSize" in page and "block.style.backgroundPosition" in page
+    assert "-tile.avatar.row * height" in page
+    assert '"url(data:image/png;base64,"' in page
+    assert ".avatar img" not in page
+
+
+def test_the_page_gets_one_sheet_per_skin_and_uses_the_cached_copy_for_the_next_tile():
+    page = page_source()
+    assert 'fetch("/api/avatar/sprite?skin="' in page
+    assert "if (!name || sheets[name]) continue" in page
+    assert "await load_sheets(tiles)" in page
+
+
+def test_a_tile_that_has_no_avatar_is_left_as_it_is():
+    # A skin that is not registered has no payload entry, so there is nothing to draw and no request for it.
+    page = page_source()
+    assert "if (!sheet) return" in page
+    assert "if (!name || sheets[name]) continue" in page
 
 
 def test_the_record_items_are_list_items_with_the_markers_and_indent_removed():

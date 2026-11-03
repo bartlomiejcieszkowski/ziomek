@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
+from ziomek.avatar.skins import SkinRegistry
 from ziomek.roster import get_roster
 
 router = APIRouter(tags=["Roster"])
@@ -26,22 +27,28 @@ def expression_for(participant) -> str | None:
     return None if current is None else current.expressionName
 
 
-def avatar_for(settings=None) -> str | None:
-    """The image for the tile block. "none" and a path that does not exist both mean nothing to show."""
+def skin_name(participant, settings=None) -> str:
+    """The skin for this participant: its entry wins, otherwise the configured default."""
     if settings is None:
         from ziomek.server import _settings
 
         settings = _settings
-    value = getattr(settings, "roster_avatar", "none")
-    if not value or value == "none":
+    return participant.skin or getattr(settings, "roster_avatar", "")
+
+
+def avatar_for(participant, settings=None) -> dict | None:
+    """The skin and the row that draw this participant's avatar.
+
+    Only a registered skin can be drawn, so a name that is not in the registry shows nothing;
+    an expression the row map does not know is read as neutral.
+    """
+    name = skin_name(participant, settings)
+    skin = SkinRegistry.getInstance().get(name)
+    if skin is None:
+        logging.warning("Skin %s is not registered, so the tile draws no avatar", name)
         return None
-    path = Path(value)
-    if not path.is_absolute():
-        path = _resources / path
-    if not path.is_file():
-        logging.warning("Avatar file %s does not exist, so the tile shows the block without an image", path)
-        return None
-    return str(path)
+    expression = expression_for(participant) or ""
+    return {"skin": name, "row": skin.getFrameRow(expression, 0)}
 
 
 def tiles(settings=None) -> list[dict]:
@@ -57,7 +64,7 @@ def tiles(settings=None) -> list[dict]:
             "texts": [entry.as_dict() for entry in participant.texts],
             "events": list(participant.events),
             "expression": expression_for(participant),
-            "avatar": avatar_for(settings),
+            "avatar": avatar_for(participant, settings),
         }
         for participant in roster.participants
     ]

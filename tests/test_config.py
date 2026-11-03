@@ -283,8 +283,23 @@ def test_roster_settings_load_from_config_file():
         path = f.name
     try:
         loaded = Settings.load(path)
-        assert loaded.roster_pool == [("John A.", "alice"), ("Mary S.", "bob")]
+        # An entry that names no skin is read as an empty third part.
+        assert loaded.roster_pool == [("John A.", "alice", ""), ("Mary S.", "bob", "")]
         assert loaded.roster_quiet_for == 3000
+    finally:
+        os.unlink(path)
+
+
+def test_a_pool_entry_that_names_a_skin_is_read_as_that_skin():
+    content = """roster_pool:
+  - [cosette, alice, single-frame]
+"""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write(content)
+        path = f.name
+    try:
+        loaded = Settings.load(path)
+        assert loaded.roster_pool == [("cosette", "alice", "single-frame")]
     finally:
         os.unlink(path)
 
@@ -310,7 +325,7 @@ def test_scaffold_config_documents_the_words():
         content = Settings.scaffold_config(path).read_text()
         assert "# roster_words:" in content
         # The pool example uses single names, not names with a second part.
-        assert "[John, alice]" in content
+        assert "[John, alice, single-frame]" in content
     finally:
         os.unlink(path)
 

@@ -24,16 +24,34 @@ class Settings(BaseModel):
     stt_model_dir: str | None = None
     mcp_port: int = 5004
     mcp_transport: str = "stdio"
-    roster_pool: list[tuple[str, str]] = []
+    # Regular skins are looked up here, relative to the directory the server runs in. The
+    # default skin is read from the package resources and is found first, so it keeps a name
+    # it claims.
+    skins_dir: str = "skins"
+    # A pool entry is a name, a voice and the skin that draws its face.
+    roster_pool: list[tuple[str, str, str]] = []
     roster_words: list[str] = []
     roster_quiet_for: int = 3000
     roster_check_interval: float = 1.0
     roster_transcript_default: str = "open"
-    roster_avatar: str = "none"
+    # The skin used for a participant when its entry names none. A name that is not
+    # registered draws no face, so this reads only through the registry, never as a path.
+    roster_avatar: str = "single-frame"
 
     @field_validator("roster_transcript_default", mode="before")
     def normalize_panel_default(cls, value):
         return value if value in ("open", "closed") else "closed"
+
+    @field_validator("roster_pool", mode="before")
+    def normalize_pool_entries(cls, value):
+        """A part left out of an entry is read as empty, so the default skin still applies."""
+        if not value:
+            return value
+        normalized = []
+        for entry in value:
+            parts = list(entry)
+            normalized.append(tuple((parts + ["", "", ""])[:3]))
+        return normalized
 
     @classmethod
     def load(cls, config_path: str | Path | None = None) -> "Settings":
@@ -174,13 +192,16 @@ class Settings(BaseModel):
 # mcp_port: 5004
 # mcp_transport: stdio  # stdio | http
 
+# Skins
+# skins_dir: skins           # directory under the current directory holding skin folders and .morda archives
+
 # Roster (call mode) settings
-# roster_pool: []            # names and voices, e.g. [John, alice]
+# roster_pool: []            # names, voices and skins, e.g. [John, alice, single-frame]
 # roster_words: []           # words used as the second part of a name
 # roster_quiet_for: 3000     # seconds of quiet before a participant is dropped
 # roster_check_interval: 1.0  # seconds between the quiet checks on the event loop
 # roster_transcript_default: open # whether the transcript panel is open when the page loads (open | closed)
-# roster_avatar: none # image for the tile block; "none" shows the block without an image; a path that does not exist is read as none
+# roster_avatar: single-frame # skin for a participant when its entry names none; an unregistered name draws no face
 """
         p = Path(path).resolve()
         p.parent.mkdir(parents=True, exist_ok=True)
