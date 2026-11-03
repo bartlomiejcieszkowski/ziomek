@@ -1,0 +1,28 @@
+{
+  "name": "single-frame",
+  "type": "sheet",
+  "sheet": { "file": "sheet.png" },
+  "frame": { "width": 100, "height": 100 },
+  "grid": { "rows": 6, "columns": 1 },
+  "frames": {
+    "row0": { "cell": { "row": 0, "column": 0 } },
+    "row1": { "cell": { "row": 1, "column": 0 } },
+    "row2": { "cell": { "row": 2, "column": 0 } },
+    "row3": { "cell": { "row": 3, "column": 0 } },
+    "row4": { "cell": { "row": 4, "column": 0 } },
+    "row5": { "cell": { "row": 5, "column": 0 } }
+  },
+  "expressions": {
+    "happy": "row0",
+    "surprised": "row1",
+    "neutral": "row1",
+    "curious": "row2",
+    "looking": "row2",
+    "thinking": "row2",
+    "focused": "row3",
+    "bored": "row3",
+    "dying": "row4",
+    "excited": "row5"
+  },
+  "fallback": "row1"
+}

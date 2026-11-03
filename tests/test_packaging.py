@@ -1,9 +1,11 @@
 """Packaging tests: data files must be shipped in the wheel.
 
 Root cause ([tool.hatch.build] only-packages = true): hatchling includes only Python
-files within package directories, so `renderer.html`, `debug.html`, and
-`single_frame_sprite_sheet.png` are missing from an installed wheel and
-`GET /avatar` answers 404 when run through `uvx ziomek[mcp,stt]`.
+files within package directories, so `renderer.html`, `debug.html`,
+the default skin (`src/ziomek/resources/single-frame/sheet.png` with its `morda.json`),
+and `morda.schema.json` are missing from an installed
+wheel and `GET /avatar` answers 404 when run through `uvx ziomek[mcp,stt]`, while the skin
+reader cannot validate a definition without the schema.
 
 The build config must therefore force-include the resource directories, and those
 directories must be reachable as package data at runtime.
@@ -29,7 +31,11 @@ def test_data_files_exist_where_the_build_config_maps_them():
     for path in (
         REPO_ROOT / "src/ziomek/resources/renderer.html",
         REPO_ROOT / "src/ziomek/resources/debug.html",
-        REPO_ROOT / "src/ziomek/resources/single_frame_sprite_sheet.png",
+        REPO_ROOT / "src/ziomek/resources/single-frame/sheet.png",
+        REPO_ROOT / "src/ziomek/resources/single-frame/morda.json",
+        REPO_ROOT / "src/ziomek/resources/morda.schema.json",
+        REPO_ROOT / "src/ziomek/resources/polish_male.names.json",
+        REPO_ROOT / "src/ziomek/resources/polish_female.names.json",
     ):
         assert path.is_file(), f"missing data file: {path}"
     assert not (REPO_ROOT / "src/ziomek/client/resources").exists()
