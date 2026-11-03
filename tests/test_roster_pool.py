@@ -110,14 +110,17 @@ def test_a_participant_on_hold_is_not_counted_by_the_timer():
 
 def test_get_roster_uses_the_configured_words():
     class settings:
-        roster_pool = [("John", "alice")]
+        roster_pool = [("John", "alice", "")]
         roster_words = ["compiling"]
+        roster_avatar = "single-frame"
         roster_quiet_for = 3000
 
     import ziomek.roster as module
 
     module._roster = None
-    roster = module.get_roster(settings())
+    # With no names left in the pool or the lists, the second part comes from the words.
+    roster = module.build_roster(settings())
+    roster.name_lists = {}
     first = roster.join()
     second = roster.join()
 

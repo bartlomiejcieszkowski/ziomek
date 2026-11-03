@@ -29,10 +29,6 @@ _listening_session: ListeningSession | None = None
 # The participants taking part in one call.
 
 
-def _get_roster(settings: Any = None) -> Roster:
-    return get_roster(settings)
-
-
 def _text_payload(data: dict) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text=json.dumps(data))])
 
@@ -180,9 +176,7 @@ TOOLS = [
 
 async def _handle_write(arguments: dict) -> CallToolResult:
     """Record text for a participant without producing audio."""
-    from ziomek.server import _settings
-
-    roster = _get_roster(_settings)
+    roster = get_roster()
     name = arguments.get("name")
     participant = _find_participant(roster, name)
     if participant is None:
@@ -198,9 +192,7 @@ async def _handle_write(arguments: dict) -> CallToolResult:
 
 async def _handle_say(arguments: dict) -> CallToolResult:
     """Say text as a participant, and write it down unless asked not to."""
-    from ziomek.server import _settings
-
-    roster = _get_roster(_settings)
+    roster = get_roster()
     name = arguments.get("name")
     participant = _find_participant(roster, name)
     if participant is None:
@@ -431,9 +423,8 @@ async def _handle_get_expression(arguments: dict | None = None) -> CallToolResul
 
 async def _handle_join(arguments: dict) -> CallToolResult:
     from ziomek.api import avatar_ws
-    from ziomek.server import _settings
 
-    roster = _get_roster(_settings)
+    roster = get_roster()
     try:
         participant = roster.join(arguments.get("name"), arguments.get("voice"))
     except DuplicateNameError as exc:
@@ -455,9 +446,7 @@ async def _handle_join(arguments: dict) -> CallToolResult:
 
 
 async def _handle_hold(arguments: dict) -> CallToolResult:
-    from ziomek.server import _settings
-
-    roster = _get_roster(_settings)
+    roster = get_roster()
     participant = _find_participant(roster, arguments.get("name"))
     if participant is None:
         return CallToolResult(
@@ -471,9 +460,7 @@ async def _handle_hold(arguments: dict) -> CallToolResult:
 
 
 async def _handle_leave(arguments: dict) -> CallToolResult:
-    from ziomek.server import _settings
-
-    roster = _get_roster(_settings)
+    roster = get_roster()
     participant = _find_participant(roster, arguments.get("name"))
     if participant is None:
         return CallToolResult(
@@ -488,9 +475,9 @@ async def _handle_leave(arguments: dict) -> CallToolResult:
 
 def _resolve_machine(name: str | None):
     """The machine for the named participant, falling back to the global avatar."""
-    from ziomek.server import _settings, _state_machine
+    from ziomek.server import _state_machine
 
-    participant = _find_participant(_get_roster(_settings), name) if name else None
+    participant = _find_participant(get_roster(), name) if name else None
     if participant is not None and getattr(participant, "state_machine", None) is not None:
         return participant.state_machine, participant
     return _state_machine, participant

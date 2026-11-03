@@ -7,9 +7,10 @@ from unittest.mock import patch
 import pytest
 from mcp.types import CallToolRequestParams
 
+import ziomek.roster
 from ziomek.config import Settings
 from ziomek.mcp import tools as mcp_tools_module
-from ziomek.mcp.tools import _get_roster
+from ziomek.roster import build_roster, get_roster
 
 
 @pytest.fixture(autouse=True)
@@ -30,10 +31,9 @@ def _fresh_roster():
 
 def _call(name, arguments, settings):
     """Call one of the tools as an agent would, and read the reply text."""
-    with patch("ziomek.server._settings", settings):
-        result = asyncio.run(
-            mcp_tools_module._on_call_tool(None, CallToolRequestParams(name=name, arguments=arguments))
-        )
+    if ziomek.roster._roster is None:
+        build_roster(settings)
+    result = asyncio.run(mcp_tools_module._on_call_tool(None, CallToolRequestParams(name=name, arguments=arguments)))
     return result, json.loads(result.content[0].text)
 
 
@@ -77,7 +77,7 @@ def test_hold_marks_the_participant_as_being_on_hold():
 
 def test_the_timer_drops_a_participant_that_stays_quiet():
     settings = Settings(roster_pool=[("John A.", "alice")], roster_quiet_for=10)
-    roster = _get_roster(settings)
+    roster = build_roster(settings)
     participant = roster.join()
     participant.last_seen = 0.0
 
@@ -101,7 +101,7 @@ def test_the_record_kept_through_the_tools_is_for_this_call():
     _, joined = _call("join", {}, settings)
     _call("hold", {"name": joined["name"]}, settings)
 
-    assert [entry["action"] for entry in _get_roster(settings).events] == ["join", "hold"]
+    assert [entry["action"] for entry in get_roster().events] == ["join", "hold"]
 
 
 def test_the_first_join_shows_that_participant_in_the_single_view():
@@ -142,7 +142,7 @@ def test_setting_an_expression_acts_on_the_named_participant():
     settings = Settings(roster_pool=[("John", "alice")])
     _, joined = _call("join", {}, settings)
     fallback = recording_machine()
-    participant = _get_roster(settings).participants[0]
+    participant = get_roster().participants[0]
     participant.state_machine = recording_machine()
 
     with patch("ziomek.server._state_machine", fallback):
@@ -231,7 +231,7 @@ def test_saying_text_records_what_was_said_for_that_participant():
     ):
         _, data = _call("say", {"name": "John A.", "text": "compiling"}, settings)
 
-    record = _get_roster(settings)
+    record = get_roster()
     entry = record.events[-1]
     assert entry["name"] == "John A."
     assert entry["action"] == "text"
@@ -265,7 +265,7 @@ def test_write_records_text_without_speaking_it():
     ):
         _, data = _call("write", {"name": "John A.", "text": "note to self"}, settings)
 
-    entry = _get_roster(settings).events[-1]
+    entry = get_roster().events[-1]
     assert entry["action"] == "text"
     assert entry["text"] == "note to self"
     assert entry["author"] == "agent"
@@ -295,7 +295,7 @@ def test_saying_text_is_recorded_by_default():
     ):
         _call("say", {"name": "John A.", "text": "thinking"}, settings)
 
-    entry = _get_roster(settings).events[-1]
+    entry = get_roster().events[-1]
     assert entry["text"] == "thinking"
 
 
@@ -317,6 +317,6 @@ def test_saying_text_with_record_false_only_spoken_without_writing_it_down():
     ):
         _call("say", {"name": "John A.", "text": "not written", "record": False}, settings)
 
-    record = _get_roster(settings)
+    record = get_roster()
     assert [entry for entry in record.events if entry["action"] == "text"] == []
     assert record.participants[0].texts == []
