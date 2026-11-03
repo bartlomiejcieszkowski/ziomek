@@ -16,19 +16,21 @@ def test_a_skin_draws_the_cells_its_definition_declares(tmp_path):
     assert skin.expression_names() == ["sad", "happy"]  # the order the definition declares them in
 
 
-def test_an_expression_that_names_only_files_cannot_be_drawn(tmp_path):
+def test_a_frame_that_names_a_file_is_drawn_as_its_own_picture(tmp_path):
     definition = read_definition(
         make_folder(
             tmp_path / "cosette",
-            sheet_definition(expressions={"sad": {"frame_order": ["cry"], "interval_ms": 400}}),
+            sheet_definition(expressions={"sad": {"frame_order": ["cry"], "interval_ms": 400}, "happy": "rest"}),
         )
     )
     skin = Skin(definition=definition)
-    # cry is a file, so the drawing path has nothing to show for that expression.
-    assert skin.cell_for("sad") is None
-    assert skin.frame_count("sad") == 0
-    # A name the definition does not cover still reaches the frame it falls back to.
-    assert skin.cell_for("not-a-name") == Cell(row=1, column=0)
+    # An image definition states no size, so the size a file reports comes from its own header.
+    frame = skin.frame_descriptor(skin.entry_for("sad"))
+    assert frame["kind"] == "file" and frame["file"] == "parts/cry.png"
+    assert (frame["width"], frame["height"]) == (100, 100)
+    # An expression the definition does not cover still reaches the frame it falls back to.
+    assert skin.entry_for("not-a-name").name == "neutral"
+    assert skin.frame_count("sad") == 1
 
 
 def test_the_order_and_the_timing_are_read_as_they_are_declared(tmp_path):
@@ -60,8 +62,8 @@ def test_the_default_skin_is_read_through_its_own_definition(tmp_path):
     assert skin.cell_for("not-a-name") == Cell(row=1, column=0)
 
 
-def test_a_skin_that_names_no_cell_is_not_registered_and_is_reported(caplog, tmp_path):
-    # Every frame here names a file, so nothing in this definition can be drawn.
+def test_a_skin_that_names_only_files_is_registered_and_drawn_as_its_own_picture(tmp_path):
+    # A valid definition names at least one frame, so there is nothing here for the registry to skip.
     definition = sheet_definition(
         frames={"cry": {"file": "parts/cry.png"}, "neutral": {"file": "parts/neutral.png"}},
         expressions={"sad": "cry"},
@@ -72,8 +74,9 @@ def test_a_skin_that_names_no_cell_is_not_registered_and_is_reported(caplog, tmp
         sizes={"sheet.png": (100, 600), "parts/cry.png": (100, 100), "parts/neutral.png": (100, 100)},
     )
     registry = SkinRegistry(tmp_path / "nothing", default_dir=tmp_path / "cosette")
-    assert registry.list() == []
-    assert "cosette names no cell, so it cannot be drawn yet" in caplog.text
+    assert registry.list() == ["cosette"]
+    skin = registry.get("cosette")
+    assert skin.frame_descriptor(skin.entry_for("sad"))["kind"] == "file"
 
 
 def test_the_registry_is_built_once_when_the_app_is_created():
@@ -81,3 +84,24 @@ def test_the_registry_is_built_once_when_the_app_is_created():
     registry = build_registry(settings)
     assert get_registry() is registry
     assert "single-frame" in registry.list()
+
+
+def test_the_setting_written_for_the_definition_is_used_for_every_frame(tmp_path):
+    definition = dict(sheet_definition())
+    definition["object-fit"] = "cover"
+    skin = Skin(definition=read_definition(make_folder(tmp_path / "cosette", definition)))
+    assert skin.fit_for(skin.definition.targets["rest"]) == "cover"
+
+
+def test_a_frame_that_states_its_own_setting_is_not_read_with_the_default(tmp_path):
+    definition = dict(sheet_definition())
+    definition["object-fit"] = "cover"
+    definition["frames"] = {
+        "rest": {"cell": {"row": 0, "column": 0}, "object-fit": "fill"},
+        "cry": {"file": "parts/cry.png"},
+        "neutral": {"cell": {"row": 1, "column": 0}},
+    }
+    skin = Skin(definition=read_definition(make_folder(tmp_path / "cosette", definition)))
+    assert skin.fit_for(skin.definition.targets["rest"]) == "fill"  # what it stated for itself
+    assert skin.fit_for(skin.definition.targets["cry"]) == "cover"  # nothing stated, so the definition answers
+    assert skin.frame_descriptor(skin.definition.targets["rest"])["fit"] == "fill"

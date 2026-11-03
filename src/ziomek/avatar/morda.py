@@ -15,6 +15,10 @@ SCHEMA_PATH = Path(__file__).parent.parent / "resources" / "morda.schema.json"
 DEFINITION_FILE = "morda.json"
 FILE_MARKER = "file:"
 
+FIT_FIELD = "object-fit"
+FIT_VALUES = ("fill", "contain", "cover", "none", "scale-down")
+DEFAULT_FIT = "contain"
+
 
 class DefinitionError(Exception):
     """Every problem found in one definition, reported together."""
@@ -55,6 +59,7 @@ class Target:
     name: str
     cell: Cell | None = None
     file: str | None = None
+    fit: str | None = None
 
 
 @dataclass(frozen=True)
@@ -76,6 +81,7 @@ class Definition:
     targets: dict[str, Target]
     expressions: dict[str, FrameOrder]
     fallback: Reference | None
+    fit: str = DEFAULT_FIT
     source: Path | None = None
 
 
@@ -147,9 +153,12 @@ def read_definition(source: Path) -> Definition:
         sheet=_reference(sheet) if sheet else None,
         frame=FrameSize(frame["width"], frame["height"]) if frame else None,
         grid=GridSize(grid["rows"], grid["columns"]) if grid else None,
-        targets={key: Target(key, _cell(value), _file(value)) for key, value in raw.get("frames", {}).items()},
+        targets={
+            key: Target(key, _cell(value), _file(value), _fit(value)) for key, value in raw.get("frames", {}).items()
+        },
         expressions={key: _order(value) for key, value in raw.get("expressions", {}).items()},
         fallback=_reference(raw.get("fallback")) if raw.get("fallback") else None,
+        fit=_fit(raw) or DEFAULT_FIT,
         source=source,
     )
 
@@ -247,6 +256,13 @@ def _cell(value: object) -> Cell | None:
 def _file(value: object) -> str | None:
     if isinstance(value, dict) and "file" in value:
         return value["file"]
+    return None
+
+
+def _fit(value: object) -> str | None:
+    """The stated way a frame is placed, which a target can give for itself."""
+    if isinstance(value, dict) and FIT_FIELD in value:
+        return value[FIT_FIELD]
     return None
 
 
