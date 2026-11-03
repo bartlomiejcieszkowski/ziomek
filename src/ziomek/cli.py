@@ -141,7 +141,7 @@ def main():
         "--audio-backend",
         type=str,
         default=None,
-        help="Audio playback backend (sounddevice, pygame, pyaudio, playsound, noop)",
+        help="Audio playback backend (sounddevice, raw_stream, raw_stream_overlap, pygame, pyaudio, playsound, noop)",
     )
     parser.add_argument("--audio-device", type=str, default=None, help="Audio device index, name, or 'default'")
     parser.add_argument("--host", type=str, default=None, help="Host to bind (default: localhost)")

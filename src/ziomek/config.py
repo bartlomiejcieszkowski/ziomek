@@ -169,7 +169,7 @@ class Settings(BaseModel):
 # cache_dir:
 # host: localhost
 
-# Audio playback backend (sounddevice, pygame, pyaudio, playsound, noop)
+# Audio playback backend (sounddevice, raw_stream, raw_stream_overlap, pygame, pyaudio, playsound, noop)
 # audio_backend: sounddevice
 
 # Audio device (None/default = system default, or int index, or device name string)

@@ -53,7 +53,15 @@ class TestDebugEndpoints:
         resp = client_with_dev.get("/api/debug/state")
         data = resp.json()
         assert isinstance(data["audio_backend"], str)
-        assert data["audio_backend"] in ("noop", "sounddevice", "pygame", "pyaudio", "playsound")
+        assert data["audio_backend"] in (
+            "noop",
+            "sounddevice",
+            "raw_stream",
+            "raw_stream_overlap",
+            "pygame",
+            "pyaudio",
+            "playsound",
+        )
 
     def test_debug_cache_endpoint(self, client_with_dev):
         resp = client_with_dev.get("/api/debug/cache")

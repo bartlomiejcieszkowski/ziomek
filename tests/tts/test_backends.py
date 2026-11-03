@@ -115,3 +115,5 @@ def test_registry_list_backends_includes_registered():
     backends = reg.list_backends()
     assert "noop" in backends
     assert "sounddevice" in backends
+    assert "raw_stream" in backends
+    assert "raw_stream_overlap" in backends
