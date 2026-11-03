@@ -77,6 +77,9 @@ def test_the_roster_page_is_served_by_the_server():
 
     assert client.get("/api/roster").status_code == 200
     assert 'className = "tile"' in client.get("/roster").text
+    # A browser asks for an icon on its own when it renders a page, so a page names the path the
+    # app answers for instead of the one nothing serves.
+    assert '<link rel="icon" href="/favicon.svg"' in client.get("/roster").text
 
 
 def test_the_shown_participant_is_rendered_with_its_own_machine(monkeypatch):

@@ -36,6 +36,7 @@ def test_data_files_exist_where_the_build_config_maps_them():
         REPO_ROOT / "src/ziomek/resources/morda.schema.json",
         REPO_ROOT / "src/ziomek/resources/polish_male.names.json",
         REPO_ROOT / "src/ziomek/resources/polish_female.names.json",
+        REPO_ROOT / "src/ziomek/resources/favicon.svg",
     ):
         assert path.is_file(), f"missing data file: {path}"
     assert not (REPO_ROOT / "src/ziomek/client/resources").exists()

@@ -12,7 +12,7 @@ from typing import Optional
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from ziomek import __version__, event_loop
 from ziomek.api import avatar_ws
@@ -34,6 +34,10 @@ _logger = logging.getLogger(__name__)
 
 # Import version at module level
 _version = __version__
+
+# The icon the pages link to. A browser asks for an icon on its own when it renders an HTML
+# page, so the pages point at a path this server can serve instead of the one nothing answers.
+_icon_path = Path(__file__).parent / "resources" / "favicon.svg"
 
 # Global state (initialized at startup)
 _startup_time: float = time.time()
@@ -190,6 +194,13 @@ def create_app(
     app.include_router(health.router)
     app.include_router(stt_ws_router)
     app.include_router(avatar_ws_router)
+
+    # The icon a page shows in its tab, served for the path the pages link to.
+    @app.get("/favicon.svg")
+    async def get_icon() -> Response:
+        if not _icon_path.exists():
+            return JSONResponse(status_code=404, content={"error": "the icon is not present"})
+        return Response(content=_icon_path.read_text(encoding="utf-8"), media_type="image/svg+xml")
 
     # Debug endpoints (only in dev mode)
     if dev_mode:
