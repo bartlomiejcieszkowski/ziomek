@@ -8,6 +8,8 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from ziomek.tts.voices import DEFAULT_VOICE, VOICES
+
 router = APIRouter(prefix="/api/tts", tags=["TTS"])
 
 
@@ -21,7 +23,7 @@ async def tts_status() -> dict:
     from ziomek.server import _tts_model
 
     ready = _tts_model is not None and _tts_model.ready  # type: ignore[arg-type]
-    return {"ready": ready, "voices": ["cosette", "marius", "javert", "alba"]}
+    return {"ready": ready, "voices": list(VOICES)}
 
 
 @router.get(
@@ -31,37 +33,7 @@ async def tts_status() -> dict:
 )
 async def list_voices() -> dict:
     """List available voices."""
-    return {
-        "voices": [
-            "cosette",
-            "marius",
-            "javert",
-            "alba",
-            "jean",
-            "anna",
-            "vera",
-            "fantine",
-            "charles",
-            "paul",
-            "eponine",
-            "azelma",
-            "george",
-            "mary",
-            "jane",
-            "michael",
-            "eve",
-            "bill_boerst",
-            "peter_yearsley",
-            "stuart_bell",
-            "caro_davy",
-            "giovanni",
-            "lola",
-            "juergen",
-            "rafael",
-            "estelle",
-        ],
-        "default": "cosette",
-    }
+    return {"voices": list(VOICES), "default": DEFAULT_VOICE}
 
 
 @router.post(

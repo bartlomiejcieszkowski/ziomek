@@ -14,6 +14,8 @@ from mcp.types import (
     TextResourceContents,
 )
 
+from ziomek.tts.voices import DEFAULT_VOICE, VOICES
+
 logger = logging.getLogger(__name__)
 
 RESOURCES = [
@@ -41,43 +43,11 @@ RESOURCES = [
 
 
 async def _get_voices() -> ReadResourceResult:
-    from ziomek.server import _tts_model
-
-    voices = [
-        "cosette",
-        "marius",
-        "javert",
-        "alba",
-        "jean",
-        "anna",
-        "vera",
-        "fantine",
-        "charles",
-        "paul",
-        "eponine",
-        "azelma",
-        "george",
-        "mary",
-        "jane",
-        "michael",
-        "eve",
-        "bill_boerst",
-        "peter_yearsley",
-        "stuart_bell",
-        "caro_davy",
-        "giovanni",
-        "lola",
-        "juergen",
-        "rafael",
-        "estelle",
-    ]
-    default = "cosette"
-
     return ReadResourceResult(
         contents=[
             TextResourceContents(
                 uri="voices://",
-                text=json.dumps({"voices": voices, "default": default}),
+                text=json.dumps({"voices": list(VOICES), "default": DEFAULT_VOICE}),
             )
         ],
     )
