@@ -163,7 +163,8 @@
         }
       }
 
-      const skins = {};  // one sheet and mapping per skin, so participants that share a skin share one copy
+      const skins = {};  // one mapping per skin, so participants that share a skin share one copy
+      const images = {};  // bytes by skin name for a sheet, and by skin and file name for a single image
 
       async function load_skins(tiles) {
         for (const tile of tiles) {
@@ -172,22 +173,72 @@
           const response = await fetch("/api/avatar/sprite?skin=" + encodeURIComponent(name));
           // A skin the page cannot get is left undrawn, so nothing is shown for it.
           if (!response.ok) continue;
-          skins[name] = await response.json();
+          const skin = await response.json();
+          skins[name] = skin;
+          // A definition of type image has no sheet, so its images are fetched one at a time when drawn.
+          if (skin.sprite_b64) images[name] = skin.sprite_b64;
         }
       }
 
-      // A tile shows one cell of its own skin's sheet, which is the cell the mapping resolved for it.
+      // The scale that places one frame inside the box, which is what a fit says in numbers.
+      function fit_scale(fit, frameWidth, frameHeight, boxWidth, boxHeight) {
+        const byWidth = boxWidth / frameWidth;
+        const byHeight = boxHeight / frameHeight;
+        if (fit === "fill") return [byWidth, byHeight];
+        if (fit === "cover") {
+          const scale = Math.max(byWidth, byHeight);
+          return [scale, scale];
+        }
+        if (fit === "none") return [1, 1];
+        if (fit === "scale-down") {
+          const scale = Math.min(1, Math.min(byWidth, byHeight));
+          return [scale, scale];
+        }
+        const scale = Math.min(byWidth, byHeight);
+        return [scale, scale];
+      }
+
+      // A tile shows one frame of its own skin, which is the frame the mapping resolved for it.
       function draw_avatar(tile, block) {
-        const skin = tile.avatar && skins[tile.avatar.skin];
+        const avatar = tile.avatar;
+        if (!avatar) return;
+        const skin = skins[avatar.skin];
         if (!skin) return;  // nothing was fetched for this skin, so the block stays as it is
-        const scale = block.getBoundingClientRect().width / skin.frameWidth;
-        if (!scale) return;  // not laid out yet, so there is no size to scale the cell to
-        const width = skin.frameWidth * scale;
-        const height = skin.frameHeight * scale;
-        const cell = tile.avatar.cell;
-        block.style.backgroundImage = "url(data:image/png;base64," + skin.sprite_b64 + ")";
-        block.style.backgroundSize = skin.width * scale + "px " + skin.height * scale + "px";
-        block.style.backgroundPosition = -cell.column * width + "px " + -cell.row * height + "px";
+        const frame = avatar.frame;
+        const bytes = image_for(avatar.skin, frame, () => draw_avatar(tile, block));
+        if (!bytes) return;  // not read yet, so it is drawn once the bytes arrive
+        const boxWidth = block.getBoundingClientRect().width;
+        const boxHeight = block.getBoundingClientRect().height;
+        if (!boxWidth || !boxHeight || !frame.width || !frame.height) return;  // not laid out yet, so there is no size to scale to
+        const [scaleWidth, scaleHeight] = fit_scale(frame.fit, frame.width, frame.height, boxWidth, boxHeight);
+        const drawnWidth = frame.width * scaleWidth;
+        const drawnHeight = frame.height * scaleHeight;
+        // A cell is cut from the sheet, so the whole sheet is scaled by the same amount; a single image is its own frame.
+        const sheet = frame.kind === "cell" ? skin : null;
+        block.style.backgroundImage = "url(data:image/png;base64," + bytes + ")";
+        block.style.backgroundSize =
+          (sheet ? sheet.width * scaleWidth : drawnWidth) + "px " + (sheet ? sheet.height * scaleHeight : drawnHeight) + "px";
+        // What is shown when a frame is larger than the box is decided by its centre, since the format has no position field.
+        const left = (boxWidth - drawnWidth) / 2 - (frame.column || 0) * drawnWidth;
+        const top = (boxHeight - drawnHeight) / 2 - (frame.row || 0) * drawnHeight;
+        block.style.backgroundPosition = left + "px " + top + "px";
+      }
+
+      function image_for(skin_name, frame, redraw) {
+        const key = frame.kind === "cell" ? skin_name : skin_name + "/" + frame.file;
+        if (images[key]) return images[key];
+        const url =
+          frame.kind === "cell"
+            ? "/api/avatar/sprite?skin=" + encodeURIComponent(skin_name)
+            : "/api/avatar/image?skin=" + encodeURIComponent(skin_name) + "&file=" + encodeURIComponent(frame.file);
+        fetch(url)
+          .then((response) => (response.ok ? response.json() : null))
+          .then((data) => {
+            if (!data) return;
+            images[key] = data.sprite_b64 || data.image_b64;
+            redraw();
+          });
+        return null;
       }
 
       function held(tile) {

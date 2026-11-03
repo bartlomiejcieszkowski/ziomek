@@ -55,6 +55,7 @@
   <script>
     const canvas = document.getElementById('avatar');
     const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;  // pixels do not blur, which is how the format reads scaling
     const statusEl = document.getElementById('status');
     const nameEl = document.getElementById('name');
     const statusTextEl = document.getElementById('status_text');
@@ -62,14 +63,10 @@
     const onHoldEl = document.getElementById('on_hold');
     const eventsEl = document.getElementById('events');
 
-    let spriteData = null;
-    let spriteImg = null;
-    let spriteWidth = 0;
-    let spriteHeight = 0;
-    let frameWidth = 0;
-    let frameHeight = 0;
+    let skinName = '';
+    const images = {};  // picture per name: the sheet for a cell, one picture for each file
 
-    // The mapping the skin answered with: expression name to the cells it shows, in order
+    // The mapping the skin answered with: expression name to the frames it shows, in order
     let mapping = {};
     let fallbackEntry = null;
 
@@ -80,24 +77,49 @@
     let animTimer = null;
     const DEFAULT_INTERVAL = 200; // ms per frame for a skin that declares none
 
-    /**
-     * Load sprite sheet from a base64-encoded PNG data URL.
-     */
-    function loadSprite(dataUrl, width, height) {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-          spriteImg = img;
-          spriteWidth = img.width;
-          spriteHeight = img.height;
-          // The sizes come from what the skin declared, not from a ratio read off the picture.
-          canvas.width = frameWidth;
-          canvas.height = frameHeight;
-          resolve();
-        };
-        img.onerror = reject;
-        img.src = dataUrl;
-      });
+    /** The scale that places one frame inside the box, which is what a fit says in numbers */
+    function fitScale(fit, frameWidth, frameHeight, boxWidth, boxHeight) {
+      const byWidth = boxWidth / frameWidth;
+      const byHeight = boxHeight / frameHeight;
+      if (fit === 'fill') return [byWidth, byHeight];
+      if (fit === 'cover') {
+        const scale = Math.max(byWidth, byHeight);
+        return [scale, scale];
+      }
+      if (fit === 'none') return [1, 1];
+      if (fit === 'scale-down') {
+        const scale = Math.min(1, Math.min(byWidth, byHeight));
+        return [scale, scale];
+      }
+      const scale = Math.min(byWidth, byHeight);
+      return [scale, scale];
+    }
+
+    /** Keep one picture under its name and draw again once it is readable */
+    function keepImage(key, dataUrl, onRead) {
+      const image = new Image();
+      image.onload = () => {
+        images[key] = image;
+        onRead();
+      };
+      // The server returns the data URL already prefixed, so use it directly
+      image.src = dataUrl;
+    }
+
+    function imageFor(frame, redraw) {
+      const key = frame.kind === 'cell' ? skinName : skinName + '/' + frame.file;
+      if (images[key]) return images[key];
+      const url =
+        frame.kind === 'cell'
+          ? '/api/avatar/sprite?skin=' + encodeURIComponent(skinName)
+          : '/api/avatar/image?skin=' + encodeURIComponent(skinName) + '&file=' + encodeURIComponent(frame.file);
+      fetch(url)
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data) => {
+          if (!data) return;
+          keepImage(key, data.sprite_b64 || data.image_b64, redraw);
+        });
+      return null;
     }
 
     let heldSeconds = 0;
@@ -133,32 +155,34 @@
 
     /** Draw current frame for the given expression and cycle index */
     function drawFrame(expression, cycleIndex) {
-      if (!spriteImg) {
-        statusEl.textContent = 'No sprite data';
-        return;
-      }
-
-      statusEl.textContent = `${expression} ${cycleIndex}`;
-
-      // The cells this expression shows come from the mapping the skin answered with; a name the
+      // The frames this expression shows come from the mapping the skin answered with; a name the
       // definition does not cover reaches what it falls back to.
       const entry = mapping[expression] || fallbackEntry;
       if (!entry || !entry.frames.length) {
-        statusEl.textContent = `${expression} has no cell to draw`;
+        statusEl.textContent = `${expression} has no frame to draw`;
         return;
       }
       // A list that loops returns to its first entry, one that does not stops at its last.
       const count = entry.frames.length;
-      const cell = entry.loop ? entry.frames[cycleIndex % count] : entry.frames[Math.min(cycleIndex, count - 1)];
+      const frame = entry.loop ? entry.frames[cycleIndex % count] : entry.frames[Math.min(cycleIndex, count - 1)];
+      const picture = imageFor(frame, () => drawFrame(expression, cycleIndex));
+      if (!picture) return;  // drawn again once the picture can be read
 
+      // The box is this page, since the size of the box is not part of a definition.
+      const [scaleWidth, scaleHeight] = fitScale(frame.fit, frame.width, frame.height, canvas.width, canvas.height);
+      const drawnWidth = frame.width * scaleWidth;
+      const drawnHeight = frame.height * scaleHeight;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // What is shown when a frame is larger than the box is decided by its centre, since the format has no position field.
       ctx.drawImage(
-        spriteImg,
-        cell.column * frameWidth, cell.row * frameHeight,  // source X, Y
-        frameWidth, frameHeight,                           // source W, H
-        0, 0, canvas.width, canvas.height                  // dest X, Y, W, H
+        picture,
+        (frame.column || 0) * frame.width, (frame.row || 0) * frame.height,  // source X, Y
+        frame.width, frame.height,                                           // source W, H
+        (canvas.width - drawnWidth) / 2, (canvas.height - drawnHeight) / 2,  // dest X, Y
+        drawnWidth, drawnHeight                                              // dest W, H
       );
 
+      statusEl.textContent = `${expression} ${cycleIndex}`;
       currentExpression = expression;
       currentCycleIndex = cycleIndex;
     }
@@ -190,17 +214,18 @@
           return res.json();
         })
         .then(data => {
-          const sprite_b64 = data.sprite_b64;
-          if (!sprite_b64) throw new Error('No skin data in response');
-          // One source for the mapping: the sizes and the cells come from what the skin declared.
+          // One source for the mapping: the sizes and the frames come from what the skin declared.
           mapping = data.expressions || {};
           fallbackEntry = data.fallback || null;
-          frameWidth = data.frameWidth;
-          frameHeight = data.frameHeight;
-          canvas.width = frameWidth;
-          canvas.height = frameHeight;
-          // Server returns the data URL already prefixed, so use it directly
-          return loadSprite(sprite_b64, data.width, data.height);
+          skinName = data.skin;
+          // A definition of type image states no size, so the box of this page stays as the page sets it.
+          if (data.frameWidth && data.frameHeight) {
+            canvas.width = data.frameWidth;
+            canvas.height = data.frameHeight;
+          }
+          if (data.sprite_b64) {
+            keepImage(skinName, data.sprite_b64, () => drawFrame(currentExpression, currentCycleIndex));
+          }
         })
         .catch(err => {
           statusEl.textContent = 'Sprite load error: ' + err.message;

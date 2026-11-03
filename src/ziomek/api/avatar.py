@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from ziomek.avatar.morda import resolve_reference
+from ziomek.avatar.morda import fallback_target, resolve_reference
 from ziomek.avatar.png import read_png_dimensions
 from ziomek.avatar.skins import get_registry
 from ziomek.avatar.state_machine import AvatarInput
@@ -168,51 +168,77 @@ async def get_sprite(request: Request) -> Any:
     if skin is None:
         return JSONResponse(status_code=404, content={"error": "No such skin"})
     sheet = skin.sheet()
-    if sheet is None:
-        return JSONResponse(status_code=404, content={"error": "Skin names no sheet"})
-    dimensions = read_png_dimensions(sheet)
-    if dimensions is None:
-        return JSONResponse(status_code=500, content={"error": "Skin sheet does not report its size"})
+    dimensions = read_png_dimensions(sheet) if sheet else None
     frame = skin.definition.frame
     grid = skin.definition.grid
     return {
         "skin": skin.name,
-        "sprite_b64": f"data:image/png;base64,{base64.b64encode(sheet).decode('utf-8')}",
+        # A definition of type image names one image per frame, so there is no sheet to send whole.
+        "sprite_b64": None if sheet is None else f"data:image/png;base64,{base64.b64encode(sheet).decode('utf-8')}",
+        "width": None if dimensions is None else dimensions[0],
+        "height": None if dimensions is None else dimensions[1],
+        "frameWidth": None if frame is None else frame.width,
+        "frameHeight": None if frame is None else frame.height,
+        "grid": None if grid is None else {"rows": grid.rows, "columns": grid.columns},
+        "expressions": _mapping(skin),
+        "fallback": skin.frame_descriptor(fallback_target(skin.definition)),
+    }
+
+
+@router.get(
+    "/api/avatar/image",
+    summary="Get one image",
+    description="Return one image a skin names, for a frame that is not cut from a sheet.",
+)
+async def get_image(request: Request) -> Any:
+    """Answer for one file of one skin, which the page caches under that name."""
+    registry = get_registry()
+    if registry is None:
+        return _not_initialized("Skin registry not initialized")
+    from ziomek.server import _settings
+
+    name = request.query_params.get("skin") or _settings.roster_avatar
+    file = request.query_params.get("file") or ""
+    skin = registry.get(name)
+    if skin is None:
+        return JSONResponse(status_code=404, content={"error": "No such skin"})
+    buffer = skin.read_file(file)
+    if buffer is None:
+        return JSONResponse(status_code=404, content={"error": "This skin names no such file"})
+    dimensions = read_png_dimensions(buffer)
+    if dimensions is None:
+        return JSONResponse(status_code=500, content={"error": "Image does not report its size"})
+    return {
+        "skin": skin.name,
+        "file": file,
+        "image_b64": f"data:image/png;base64,{base64.b64encode(buffer).decode('utf-8')}",
         "width": dimensions[0],
         "height": dimensions[1],
-        "frameWidth": frame.width,
-        "frameHeight": frame.height,
-        "grid": {"rows": grid.rows, "columns": grid.columns},
-        "expressions": _mapping(skin),
-        "fallback": _entry(skin, skin.definition.fallback),
     }
 
 
 def _entry(skin, reference) -> dict | None:
-    """One expression as the page needs it: the cells it shows, in order, and its timing."""
+    """One expression as the page needs it: the frames it shows, in order, and its timing."""
     if reference is None:
         return None
     target = resolve_reference(skin.definition, reference)
-    if target is None or target.cell is None:
+    if target is None:
         return None
-    return {"frames": [{"row": target.cell.row, "column": target.cell.column}], "interval_ms": None, "loop": False}
+    frame = skin.frame_descriptor(target)
+    if frame is None:
+        return None
+    return {"frames": [frame], "interval_ms": None, "loop": False}
 
 
 def _mapping(skin) -> dict:
-    """The cells an expression shows, in the order it declares them.
-
-    A frame that names a file is left out, since nothing draws such a frame yet.
-    """
+    """The frames an expression shows, in the order it declares them, each with how it is placed."""
     mapping = {}
     for expression_name in skin.expression_names():
-        cells = []
-        for frame in skin.order(expression_name):
-            if frame.cell is not None:
-                cells.append({"row": frame.cell.row, "column": frame.cell.column})
-        if not cells:
+        frames = [frame for frame in (skin.frame_descriptor(target) for target in skin.order(expression_name)) if frame]
+        if not frames:
             continue
         mapping[expression_name] = {
-            "frames": cells,
+            "frames": frames,
             "interval_ms": skin.interval_ms(expression_name),
             "loop": skin.loops(expression_name),
         }

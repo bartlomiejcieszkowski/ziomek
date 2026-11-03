@@ -37,9 +37,9 @@ def skin_name(participant, settings=None) -> str:
 
 
 def avatar_for(participant, settings=None) -> dict | None:
-    """The skin and the cell that draw this participant's avatar.
+    """The skin and the frame that draw this participant's avatar.
 
-    Only a skin that can be drawn is in the registry, so a name that is not registered shows
+    A skin that cannot draw anything is not registered, so a name that is not in the registry shows
     nothing; an expression a definition does not cover reaches what it falls back to.
     """
     registry = get_registry()
@@ -52,13 +52,19 @@ def avatar_for(participant, settings=None) -> dict | None:
         logging.warning("Skin %s is not registered, so the tile draws no avatar", name)
         return None
     expression = expression_for(participant) or ""
-    cell = skin.cell_for(expression)
-    if cell is None:
+    entry = skin.entry_for(expression)
+    if entry is None:
         logging.warning(
-            "Skin %s names no cell for %s, so the tile draws no avatar", name, expression or "an unnamed expression"
+            "Skin %s names no frame for %s, so the tile draws no avatar", name, expression or "an unnamed expression"
         )
         return None
-    return {"skin": name, "cell": {"row": cell.row, "column": cell.column}}
+    frame = skin.frame_descriptor(entry)
+    if frame is None:
+        logging.warning(
+            "Skin %s cannot report the size of %s, so the tile draws no avatar", name, entry.file or entry.name
+        )
+        return None
+    return {"skin": name, "frame": frame}
 
 
 def tiles(settings=None) -> list[dict]:
