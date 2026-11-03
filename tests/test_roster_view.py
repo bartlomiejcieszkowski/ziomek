@@ -155,8 +155,8 @@ def test_the_labels_at_the_top_of_a_tile_are_painted_above_its_avatar():
     client = build_app()
     page = client.get("/roster").text
 
-    # An absolutely positioned box paints above content in normal flow, so a label needs its own level.
-    assert ".top { position: relative; z-index: 1;" in page
+    # An absolutely positioned box paints above content in normal flow, so the labels carry their own level.
+    assert ".top { position: absolute;" in page and "z-index: 1;" in page
 
 
 def test_the_roster_page_shows_the_text_attached_to_each_event():
@@ -815,13 +815,19 @@ def test_the_skin_named_by_a_pool_entry_is_used_for_that_participant():
 def test_the_page_builds_the_name_on_the_left_and_the_expression_on_the_right():
     # The block is the avatar, so these are corners of the block, not elements inside a card.
     page = page_source()
-    assert "display: flex; justify-content: space-between; padding: 8px;" in page
+    assert "display: flex; justify-content: space-between;" in page
     assert 'el_class("top")' in page and 'el_class("bottom")' in page
 
 
 def test_the_text_stays_at_the_bottom_of_the_block():
     page = page_source()
     assert ".bottom { position: absolute; left: 8px; right: 8px; bottom: 8px; }" in page
+
+
+def test_the_corner_labels_are_placed_from_the_block_as_the_text_is():
+    # Both corners sit at the same inset, so the labels line up with the text.
+    page = page_source()
+    assert ".top { position: absolute; top: 8px; left: 8px; right: 8px;" in page
 
 
 def test_the_expression_uses_a_monotype_font_and_is_smaller_than_name():
