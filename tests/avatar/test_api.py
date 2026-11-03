@@ -70,3 +70,50 @@ def test_speak_endpoint_no_tts(client):
     """Verify /api/avatar/speak returns 503 when TTS not loaded."""
     resp = client.post("/api/avatar/speak", json={"text": "test"})
     assert resp.status_code == 503
+
+
+def image_client(tmp_path):
+    from tests.avatar.morda_helpers import make_folder
+
+    definition = {
+        "name": "cosette",
+        "type": "image",
+        "frames": {"cry": {"file": "parts/cry.png", "object-fit": "cover"}, "neutral": {"file": "parts/cry.png"}},
+        "expressions": {"sad": {"frame_order": ["cry"]}},
+        "fallback": "neutral",
+    }
+    make_folder(tmp_path / "cosette", definition, sizes={"parts/cry.png": (120, 90)})
+
+    from ziomek.config import Settings
+    from ziomek.server import create_app
+
+    return TestClient(create_app(Settings(skins_dir=str(tmp_path), no_gamepad=True)))
+
+
+def test_an_image_definition_answers_with_no_sheet_to_send_whole(tmp_path):
+    client = image_client(tmp_path)
+    data = client.get("/api/avatar/sprite?skin=cosette").json()
+    assert data["skin"] == "cosette"
+    assert data["sprite_b64"] is None  # type image states no sheet
+    assert data["grid"] is None  # and no grid, since there are no cells to name
+    frame = data["expressions"]["sad"]["frames"][0]
+    assert frame["kind"] == "file" and frame["file"] == "parts/cry.png"
+    assert (frame["width"], frame["height"]) == (120, 90)  # the size the picture reports
+    assert frame["fit"] == "cover"  # what that frame stated for itself
+    # The frame it falls back to states nothing, and the definition states nothing, so the default is used.
+    assert data["fallback"]["fit"] == "contain"
+
+
+def test_one_image_is_served_for_a_frame_that_names_a_file(tmp_path):
+    client = image_client(tmp_path)
+    resp = client.get("/api/avatar/image?skin=cosette&file=parts/cry.png")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["image_b64"].startswith("data:image/png;base64,")
+    assert (data["width"], data["height"]) == (120, 90)
+
+
+def test_a_file_that_is_not_there_is_not_served(tmp_path):
+    client = image_client(tmp_path)
+    resp = client.get("/api/avatar/image?skin=cosette&file=parts/missing.png")
+    assert resp.status_code == 404

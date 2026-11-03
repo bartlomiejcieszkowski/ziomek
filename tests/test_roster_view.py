@@ -763,7 +763,7 @@ def test_a_system_written_line_keeps_its_author_in_the_file():
     assert "> John (system) — a system note" in markdown_text(built, "2026-10-31T14:20:04Z")
 
 
-def test_the_tile_payload_carries_the_default_skin_and_the_cell_for_its_expression():
+def test_the_tile_payload_carries_the_default_skin_and_the_frame_for_its_expression():
     # The default is the only skin that exists, so a join with no entry of its own is drawn with it.
     from ziomek.api.roster_view import tiles
 
@@ -773,7 +773,10 @@ def test_the_tile_payload_carries_the_default_skin_and_the_cell_for_its_expressi
     avatar = tiles()[0]["avatar"]
     assert avatar["skin"] == "single-frame"
     # An expression the definition does not cover is read through what it falls back to, which is row 1.
-    assert avatar["cell"] == {"row": 1, "column": 0}
+    frame = avatar["frame"]
+    assert (frame["kind"], frame["row"], frame["column"]) == ("cell", 1, 0)
+    assert (frame["width"], frame["height"]) == (100, 100)  # the size the default skin declares
+    assert frame["fit"] == "contain"  # nothing states a setting, so the default is used
 
 
 def test_a_skin_that_is_not_registered_draws_no_avatar_and_leaves_a_warning(caplog):
@@ -821,22 +824,28 @@ def test_the_expression_uses_a_monotype_font_and_is_smaller_than_name():
     assert ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }" in page
 
 
-def test_the_page_draws_one_cell_of_the_skin_sheet_for_each_participant():
-    # The cell that the definition resolved for the participant is what the page shows, so both offsets are used.
+def test_the_page_places_a_frame_inside_the_box_of_the_tile_it_draws():
+    # The size of the box is not part of a definition, so the page measures the block it was given.
     page = page_source()
     assert "image-rendering: pixelated" in page and "background-repeat: no-repeat" in page
     assert "block.style.backgroundSize" in page and "block.style.backgroundPosition" in page
-    assert "-cell.column * width" in page and "-cell.row * height" in page
+    assert "function fit_scale(" in page
+    # What is shown when a frame is larger than the box is decided by its centre, since the format has no position field.
+    assert "(boxWidth - drawnWidth) / 2" in page and "(boxHeight - drawnHeight) / 2" in page
     assert '"url(data:image/png;base64,"' in page
     assert ".avatar img" not in page
 
 
-def test_the_page_gets_one_mapping_per_skin_and_uses_the_cached_copy_for_the_next_tile():
+def test_the_page_gets_one_mapping_per_skin_and_reads_a_file_as_its_own_picture():
     # One place answers for a skin, so the page asks once per name and keeps what it got.
     page = page_source()
     assert 'fetch("/api/avatar/sprite?skin="' in page
+    assert "fetch(url)\n          .then((response) => (response.ok ? response.json() : null))" in page
     assert "if (!name || skins[name]) continue" in page
     assert "await load_skins(tiles)" in page
+    # A frame that names a file cannot be cut from a sheet, so it is read one at a time and cached by its name.
+    assert '"/api/avatar/image?skin="' in page
+    assert 'const key = frame.kind === "cell" ? skin_name : skin_name + "/" + frame.file;' in page
 
 
 def test_a_tile_that_has_no_avatar_is_left_as_it_is():
