@@ -91,6 +91,34 @@ class TestMcpCallTool:
                                 assert "stt_state" in data
                                 assert "uptime_seconds" in data
 
+    def test_calling_a_tool_through_the_server_reaches_the_handler_with_arguments(self):
+        """The path a client uses passes arguments, so a handler that takes none fails there.
+
+        Calling a handler directly cannot show this, which is why the tests for these tools
+        passed while a running server refused them.
+        """
+
+        class FakeSession:
+            def get_result(self):
+                return {}
+
+            def stop(self):
+                return True
+
+        with patch("ziomek.mcp.tools._get_listening_session", return_value=FakeSession()):
+            with patch("ziomek.server._state_machine", None):
+                with patch("ziomek.server._stt_engine", None):
+                    with patch("ziomek.server._audio_player", None):
+                        with patch("ziomek.server._tts_model", None):
+                            with patch("ziomek.server.get_uptime", return_value=123.45):
+                                for name in ("status", "get_transcription", "stop_listening"):
+                                    result = asyncio.run(
+                                        mcp_tools_module._on_call_tool(
+                                            None, CallToolRequestParams(name=name, arguments={})
+                                        )
+                                    )
+                                    assert result.is_error is False, name
+
     def test_call_play_tool_no_model(self):
         """Play returns error when TTS model not loaded."""
         mock_model = MagicMock()

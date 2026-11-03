@@ -324,14 +324,14 @@ async def _handle_start_listening(arguments: dict) -> CallToolResult:
     )
 
 
-async def _handle_get_transcription() -> CallToolResult:
+async def _handle_get_transcription(arguments: dict | None = None) -> CallToolResult:
     session = _get_listening_session()
     return CallToolResult(
         content=[TextContent(type="text", text=json.dumps(session.get_result()))],
     )
 
 
-async def _handle_stop_listening() -> CallToolResult:
+async def _handle_stop_listening(arguments: dict | None = None) -> CallToolResult:
     session = _get_listening_session()
     success = session.stop()
 
@@ -487,7 +487,7 @@ def _find_participant(roster: Roster, name: str):
     return next((p for p in roster.participants if p.name == name), None)
 
 
-async def _handle_status() -> CallToolResult:
+async def _handle_status(arguments: dict | None = None) -> CallToolResult:
     from ziomek.server import _audio_player, _stt_engine, _tts_model, get_uptime
 
     tts_ready = _tts_model is not None and _tts_model.ready
