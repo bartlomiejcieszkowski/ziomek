@@ -22,8 +22,8 @@
       button { background: #2a2a30; color: #ddd; border: 1px solid #4a4a52; border-radius: 6px; padding: 6px 10px; font: inherit; cursor: pointer; }
       .tile { position: relative; aspect-ratio: 1 / 1; overflow: hidden; }
       .avatar { position: absolute; inset: 0; background: #2a2a30; border: 1px dashed #4a4a52; border-radius: 6px; background-repeat: no-repeat; image-rendering: pixelated; }
-      /* An absolutely positioned box paints above content in normal flow, so the labels need their own level. */
-      .top { position: relative; z-index: 1; display: flex; justify-content: space-between; padding: 8px; }
+      /* Both corners sit at the same inset; a positioned row also paints above the avatar block. */
+      .top { position: absolute; top: 8px; left: 8px; right: 8px; z-index: 1; display: flex; justify-content: space-between; }
       .bottom { position: absolute; left: 8px; right: 8px; bottom: 8px; }
       @media (max-width: 900px) {
         #layout { display: block; }
