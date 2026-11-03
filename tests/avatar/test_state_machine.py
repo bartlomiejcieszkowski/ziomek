@@ -37,8 +37,8 @@ def test_button_press_triggers_happy():
     assert state.expressionName == "happy"
 
 
-def test_button_release_returns_to_idle():
-    """Verify button release returns to idle."""
+def test_button_release_returns_to_neutral():
+    """Verify button release returns to neutral."""
     sm = AvatarStateMachine()
     input = AvatarInput(
         buttons=[{"pressed": True, "value": 0}],
@@ -52,8 +52,8 @@ def test_button_release_returns_to_idle():
     sm.tick(600)  # trigger happy
     input.buttons[0]["pressed"] = False  # release
     sm.update(input)
-    state = sm.tick(1000)  # wait for idle cycle
-    assert state.expressionName in ("bored", "neutral", "idle")
+    state = sm.tick(1000)  # wait for the idle cycle
+    assert state.expressionName in ("bored", "neutral")
 
 
 def test_intensity_preemption():
@@ -94,16 +94,16 @@ def test_get_expression_names():
     """Verify getExpressionNames() returns full list."""
     sm = AvatarStateMachine()
     names = sm.getExpressionNames()
-    assert "idle" in names
+    assert "neutral" in names
     assert "happy" in names
     assert "thinking" in names
     assert "dying" in names
 
 
 def test_get_default_expression():
-    """Verify getDefaultExpression() returns 'idle'."""
+    """Verify getDefaultExpression() returns 'neutral'."""
     sm = AvatarStateMachine()
-    assert sm.getDefaultExpression() == "idle"
+    assert sm.getDefaultExpression() == "neutral"
 
 
 def test_reset_clears_state():

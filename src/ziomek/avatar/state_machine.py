@@ -66,7 +66,7 @@ class _CurrentState:
 
 _EXPRESSIONS: list[ExpressionDef] = [
     ExpressionDef(
-        name="idle",
+        name="neutral",
         cycleCount=60,
         durationMs=999999999,
         intensity=0,
@@ -219,7 +219,7 @@ class AvatarStateMachine:
             # Check message expiry
             has_msg = self._message_expiry_timestamp and time.time() * 1000 < self._message_expiry_timestamp
             return ExpressionState(
-                expressionName="idle",
+                expressionName="neutral",
                 cycleIndex=0,
                 message=self._current_message if has_msg else None,
                 messageExpiry=self._message_expiry_timestamp if has_msg else None,
@@ -295,7 +295,7 @@ class AvatarStateMachine:
 
     def getCurrentState(self) -> ExpressionState:
         return ExpressionState(
-            expressionName=self._current.name if self._current else "idle",
+            expressionName=self._current.name if self._current else "neutral",
             cycleIndex=self._current.cycleIndex if self._current else 0,
         )
 
@@ -303,7 +303,7 @@ class AvatarStateMachine:
         return [e.name for e in _EXPRESSIONS]
 
     def getDefaultExpression(self) -> str:
-        return "idle"
+        return "neutral"
 
     def setExpression(self, expression_name: str, duration_ms: float | None = None) -> bool:
         expr = next((e for e in _EXPRESSIONS if e.name == expression_name), None)
