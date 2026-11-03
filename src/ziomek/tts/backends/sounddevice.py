@@ -1,9 +1,6 @@
 """ziomek TTS audio backends — Sounddevice (default) backend."""
 
-import gc
 import io
-import threading
-import time
 
 import numpy as np
 import sounddevice as sd
@@ -20,37 +17,24 @@ class SounddeviceBackend(IBackend):
         return True
 
     def play(self, data: bytes, sr: int) -> None:
-        """Single-shot blocking playback."""
-        thread = threading.Thread(
-            target=self._playback_thread,
-            args=(data, sr),
-            daemon=True,
-        )
-        thread.start()
-        thread.join()
+        """Single-shot playback: wait until the device has taken every sample."""
+        self._playback(data, sr, wait=True)
 
     def mix_play(self, data: bytes, sr: int) -> None:
-        """Overlapping non-blocking playback."""
-        thread = threading.Thread(
-            target=self._playback_thread,
-            args=(data, sr),
-            daemon=True,
-        )
-        thread.start()
+        """Overlapping playback: return while the device is still taking samples."""
+        self._playback(data, sr, wait=False)
 
-    def _playback_thread(self, data: bytes, sr: int) -> None:
+    def _playback(self, data: bytes, sr: int, wait: bool) -> None:
         try:
-            wav_file = io.BytesIO(data)
-            audio_data, read_sr = sf.read(wav_file)
+            audio_data, read_sr = sf.read(io.BytesIO(data))
             if audio_data.ndim == 2:
                 audio_data = audio_data.mean(axis=1)
             if audio_data.dtype != np.float32:
                 audio_data = audio_data.astype(np.float32)
-            sd.play(audio_data, samplerate=read_sr, blocking=False)
-            duration_s = len(audio_data) / read_sr if len(audio_data) > 0 else 0
-            time.sleep(duration_s + 0.1)
-            sd.stop()
-            gc.collect()
+            sd.play(audio_data, samplerate=read_sr, blocking=wait)
+            # Nothing is stopped after a playback that is not waited for: stopping before the device
+            # has taken the samples cuts the end of what was queued. Overlapping playback needs an
+            # explicit output stream, which is recorded in docs/internal/TODO.md.
         except Exception:
             # Silent failure — playback errors shouldn't crash the server
             pass
