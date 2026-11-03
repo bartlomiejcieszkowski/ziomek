@@ -88,22 +88,24 @@ class TestMcpReadResources:
 
     def test_read_config_resource_with_settings(self):
         """config:// returns config when settings exist."""
+        from ziomek.config import Settings
         from ziomek.mcp import set_expose_full_config
 
-        mock_settings = MagicMock()
-        mock_settings.host = "localhost"
-        mock_settings.port = 5003
-        mock_settings.voice = "cosette"
-        mock_settings.cache_dir = "/tmp/cache"
-        mock_settings.log_level = "INFO"
-        mock_settings.stt_engine = "faster_whisper"
-        mock_settings.stt_model = "tiny.en"
-        mock_settings.stt_model_dir = "/tmp/models"
-        mock_settings.model_path = None
+        # A mock answers any name, so this has to use the real settings object: a field the
+        # settings object does not have is caught here instead of on a running server.
+        settings = Settings(
+            host="localhost",
+            port=5003,
+            voice="cosette",
+            cache_dir="/tmp/cache",
+            stt_engine="faster_whisper",
+            stt_model="tiny.en",
+            stt_model_dir="/tmp/models",
+        )
 
         set_expose_full_config(True)
 
-        with patch("ziomek.server._settings", mock_settings):
+        with patch("ziomek.server._settings", settings):
             result = asyncio.run(
                 mcp_resources_module._on_read_resource(None, ReadResourceRequestParams(uri="config://"))
             )
@@ -117,3 +119,5 @@ class TestMcpReadResources:
             assert data["voice"] == "cosette"
             assert data["stt_engine"] == "faster_whisper"
             assert data["stt_model"] == "tiny.en"
+            # The level a process runs at is not a settings field, so the config does not name it.
+            assert "log_level" not in data
