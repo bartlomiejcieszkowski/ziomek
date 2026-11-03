@@ -20,6 +20,7 @@ dependencies = [
     "fastapi>=0.100", "uvicorn[standard]>=0.23", "pydantic>=2.0",
     "pillow>=10.0", "requests>=2.31",
     "pygame-ce>=2.5.8",
+    "jsonschema>=4.26",
 ]
 
 [project.urls]
