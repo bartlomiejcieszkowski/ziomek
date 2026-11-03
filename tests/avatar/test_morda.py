@@ -159,3 +159,36 @@ def test_no_fallback_and_no_neutral_is_reported_as_an_error(tmp_path):
         ),
     )
     assert any("neutral" in error for error in errors)
+
+
+def test_the_setting_of_the_whole_definition_is_read(tmp_path):
+    definition = dict(sheet_definition())
+    definition["object-fit"] = "cover"
+    definition = read_definition(make_folder(tmp_path / "cosette", definition))
+    assert definition.fit == "cover"
+
+
+def test_nothing_stated_keeps_the_default_that_the_reader_applies(tmp_path):
+    # A default written in the schema is an annotation, so the reader is what applies it.
+    definition = read_definition(make_folder(tmp_path / "cosette", sheet_definition()))
+    assert definition.fit == "contain"
+    assert definition.targets["rest"].fit is None
+
+
+def test_a_target_can_state_the_setting_for_itself(tmp_path):
+    definition = dict(sheet_definition())
+    definition["frames"] = {
+        "rest": {"cell": {"row": 0, "column": 0}, "object-fit": "fill"},
+        "cry": {"file": "parts/cry.png"},
+        "neutral": {"cell": {"row": 1, "column": 0}},
+    }
+    definition = read_definition(make_folder(tmp_path / "cosette", definition))
+    assert definition.targets["rest"].fit == "fill"
+    assert definition.targets["cry"].fit is None  # nothing stated for itself, so the definition answers
+
+
+def test_a_setting_that_is_not_one_of_the_values_is_reported(tmp_path):
+    definition = dict(sheet_definition())
+    definition["object-fit"] = "stretch"
+    errors = read_errors(tmp_path / "cosette", definition)
+    assert any("object-fit" in error for error in errors)

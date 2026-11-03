@@ -84,6 +84,10 @@
     "fallback": {
       "$ref": "#/$defs/reference",
       "description": "The frame used for an expression the definition does not name. Without it an unknown expression draws nothing."
+    },
+    "object-fit": {
+      "$ref": "#/$defs/fit",
+      "description": "How a frame is placed inside the box that draws it. Written here, it is the setting for every frame in the definition; a target can state its own. The size of the box is not part of a definition, because the box belongs to the view that draws it. A default written here is an annotation, so the reader is what applies it."
     }
   },
   "$defs": {
@@ -110,6 +114,12 @@
         }
       ]
     },
+    "fit": {
+      "type": "string",
+      "enum": ["fill", "contain", "cover", "none", "scale-down"],
+      "default": "contain",
+      "description": "fill stretches a frame to the box and ignores its shape. contain keeps the whole frame inside the box, so an odd shape leaves empty space on one pair of sides. cover fills the box, so nothing is left empty and what does not fit is cut. none draws at the size the frame reports, which can reach outside the box. scale-down never makes a frame larger, so it is none when the frame is already smaller than the box and contain otherwise. What is shown when a frame is larger than the box is decided by its centre, since there is no position field for a target. Every value is read as nearest-neighbour, so pixels do not blur."
+    },
     "marker": {
       "type": "string",
       "pattern": "^file:[^:]+$",
@@ -135,6 +145,10 @@
               "minimum": 0
             }
           }
+        },
+        "object-fit": {
+          "$ref": "#/$defs/fit",
+          "description": "The setting this target uses instead of the one written for the definition. It needs the object form, because a marker cannot carry a second part."
         }
       },
       "description": "A target named by the kind, so a target says what it is. Same shape as a target naming a file."
@@ -149,6 +163,10 @@
           "minLength": 1,
           "pattern": "^[^:]+$",
           "description": "Name of a file in the archive. It may name a file in a subfolder, because an entry path is a name rather than a directory the reader walks, but it is not an absolute path and it has no .. segment, so a definition cannot reach outside the skin folder or the archive."
+        },
+        "object-fit": {
+          "$ref": "#/$defs/fit",
+          "description": "The setting this target uses instead of the one written for the definition. A file is placed by the size its own header reports, since an image definition states no size."
         }
       }
     },
