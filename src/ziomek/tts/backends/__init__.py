@@ -27,6 +27,8 @@ class BackendRegistry:
         if not self._backends:
             self._register_backend("noop", "ziomek.tts.backends.noop", "NoopBackend")
             self._register_backend("sounddevice", "ziomek.tts.backends.sounddevice", "SounddeviceBackend")
+            self._register_backend("raw_stream", "ziomek.tts.backends.raw_stream", "RawStreamBackend")
+            self._register_backend("raw_stream_overlap", "ziomek.tts.backends.raw_stream", "RawStreamOverlapBackend")
             self._register_backend("pygame", "ziomek.tts.backends.pygame_mixer", "PygameMixerBackend")
             self._register_backend("pyaudio", "ziomek.tts.backends.pyaudio", "PyaudioBackend")
             self._register_backend("playsound", "ziomek.tts.backends.playsound", "PlaysoundBackend")
