@@ -207,8 +207,8 @@
         const skin = skins[avatar.skin];
         if (!skin) return;  // nothing was fetched for this skin, so the block stays as it is
         const frame = avatar.frame;
-        const bytes = image_for(avatar.skin, frame, () => draw_avatar(tile, block));
-        if (!bytes) return;  // not read yet, so it is drawn once the bytes arrive
+        const image = image_for(avatar.skin, frame, () => draw_avatar(tile, block));
+        if (!image) return;  // not read yet, so it is drawn once the picture arrives
         const boxWidth = block.getBoundingClientRect().width;
         const boxHeight = block.getBoundingClientRect().height;
         if (!boxWidth || !boxHeight || !frame.width || !frame.height) return;  // not laid out yet, so there is no size to scale to
@@ -217,7 +217,8 @@
         const drawnHeight = frame.height * scaleHeight;
         // A cell is cut from the sheet, so the whole sheet is scaled by the same amount; a single image is its own frame.
         const sheet = frame.kind === "cell" ? skin : null;
-        block.style.backgroundImage = "url(data:image/png;base64," + bytes + ")";
+        // The server answers with a data address, so the page uses it as it is.
+        block.style.backgroundImage = "url(" + image + ")";
         block.style.backgroundSize =
           (sheet ? sheet.width * scaleWidth : drawnWidth) + "px " + (sheet ? sheet.height * scaleHeight : drawnHeight) + "px";
         // What is shown when a frame is larger than the box is decided by its centre, since the format has no position field.

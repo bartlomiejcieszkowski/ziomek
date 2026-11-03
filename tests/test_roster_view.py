@@ -843,8 +843,14 @@ def test_the_page_places_a_frame_inside_the_box_of_the_tile_it_draws():
     assert "function fit_scale(" in page
     # What is shown when a frame is larger than the box is decided by its centre, since the format has no position field.
     assert "(boxWidth - drawnWidth) / 2" in page and "(boxHeight - drawnHeight) / 2" in page
-    assert '"url(data:image/png;base64,"' in page
     assert ".avatar img" not in page
+
+
+def test_the_page_uses_the_image_address_the_server_answered_with():
+    # The API answers with a data address, so the page must not build one again.
+    page = page_source()
+    assert 'block.style.backgroundImage = "url(" + image + ")"' in page
+    assert '"url(data:image/png;base64,"' not in page
 
 
 def test_the_page_gets_one_mapping_per_skin_and_reads_a_file_as_its_own_picture():
