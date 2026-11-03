@@ -138,3 +138,50 @@ def test_the_voice_for_a_combined_name_stays_on_the_pool_entry_of_its_first_part
     second = roster.join()
     assert second.name.startswith("John")
     assert second.voice == "alice"
+
+
+def test_a_voice_is_drawn_in_order_for_a_name_that_is_not_in_the_pool():
+    roster = Roster(name_lists={"male": ["Adam", "Bob"]}, voices=["cosette", "marius"])
+    first = roster.join()
+    second = roster.join()
+
+    assert {first.name, second.name} == {"Adam", "Bob"}
+    assert first.voice == "cosette"
+    assert second.voice == "marius"
+
+
+def test_the_round_robin_wraps_when_every_entry_is_held():
+    roster = Roster(name_lists={"male": ["Adam", "Bob", "Cyril"]}, voices=["cosette", "marius"])
+    roster.join()
+    roster.join()
+
+    # Nothing is free, so the pick starts again from the beginning.
+    assert roster.join().voice == "cosette"
+
+
+def test_a_rejoining_name_keeps_the_voice_it_was_given():
+    roster = Roster(name_lists={"male": ["Adam", "Bob"]}, voices=["cosette", "marius"])
+    first = roster.join()
+    first.leave()
+
+    # The other voice is free, but the pair remembered for this name decides.
+    assert roster.join(first.name).voice == first.voice
+
+
+def test_a_face_is_drawn_in_order_for_a_name_that_is_not_in_the_pool():
+    roster = Roster(name_lists={"male": ["Adam", "Bob"]}, skins=["single-frame", "melancholy"])
+    first = roster.join()
+    second = roster.join()
+
+    assert first.skin == "single-frame"
+    assert second.skin == "melancholy"
+
+    roster.release(first)
+    # A face taken off a participant stays worn by the name that was given it.
+    assert roster.join(first.name).skin == "single-frame"
+
+
+def test_the_configured_face_is_used_when_nothing_can_be_drawn():
+    roster = Roster(name_lists={"male": ["Adam"]}, skins=[], default_skin="single-frame")
+
+    assert roster.join().skin == "single-frame"

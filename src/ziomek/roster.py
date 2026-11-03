@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass
 
 from ziomek.names import load_name_lists
+from ziomek.tts.voices import VOICES
 
 
 @dataclass
@@ -120,6 +121,8 @@ class Roster:
         push_hook=None,
         default_skin: str = "single-frame",
         name_lists: dict[str, list[str]] | None = None,
+        voices: list[str] | None = None,
+        skins: list[str] | None = None,
     ) -> None:
         self.pool: list[tuple[str, str, str]] = list(pool or [])
         # Used when an entry names no skin, which is the config default.
@@ -132,11 +135,18 @@ class Roster:
         self.words: list[str] = list(words or [])
         # Name lists from the package resources, read as one pool of names.
         self.name_lists: dict[str, list[str]] = {k: list(v) for k, v in (name_lists or {}).items()}
+        # The sets a name that is not in the pool is drawn from, in order.
+        self.voices: list[str] = list(voices or VOICES)
+        self.skins: list[str] = list(skins or [])
         self.quiet_for = quiet_for
         self.rng = rng or random.Random()
         self.participants: list[Participant] = []
         # Usage counts are kept only while the call is open.
         self.usage_counts: dict[str, int] = {}
+        # The voice and the face a name was drawn with stay, so a rejoin gets the same pair.
+        self.assigned: dict[str, tuple[str | None, str | None]] = {}
+        # Where the round-robin stands in each set, so picks move forward instead of repeating.
+        self.cursor: dict[str, int] = {}
         # What happened during this call, kept only while it is open.
         self.events: list[dict] = []
 
@@ -147,12 +157,14 @@ class Roster:
         if name is None:
             participant.name = self._pick_name()
         participant.display_name = participant.name
-        # A join with no name has no entry to read, so the default skin applies.
-        participant.skin = self._skin_for(participant.name)
+        # The name is picked first, so the voice and the face are drawn for it.
+        first = self._key(participant.name)
         if voice is None:
             participant.voice = self._pick_voice(participant.name)
-        # Usage is tracked on the first part of the name, the one that comes from the pool.
-        participant.usage = self._count(participant.name.split(" ")[0])
+        participant.skin = self._pick_skin(participant.name)
+        self.assigned[first] = (participant.voice, participant.skin)
+        # Usage is tracked on the entry a name belongs to.
+        participant.usage = self._count(first)
         # Each participant drives its own state machine, reading the name and text
         # areas from its own record.
         participant.state_machine = self._machine_for(participant)
@@ -202,14 +214,6 @@ class Roster:
         lowest = min(counts.values()) if counts else 0
         return [entry for entry in self.pool if counts[entry[0]] == lowest]
 
-    def _skin_for(self, name: str) -> str | None:
-        """Take the skin named by the entry for this name, otherwise the default."""
-        first = name.split(" ")[0]
-        for entry in self.pool:
-            if entry[0] == first and len(entry) > 2 and entry[2]:
-                return entry[2]
-        return self.default_skin or None
-
     def _pick_name(self) -> str:
         taken = {p.name for p in self.participants}
 
@@ -243,19 +247,49 @@ class Roster:
             return ""
         return self.rng.choice(combos)
 
-    def _pick_voice(self, name: str) -> str | None:
-        if not self.pool:
-            return None
+    def _key(self, name: str) -> str:
+        """The entry a name belongs to: itself when an entry holds it, otherwise its first part."""
         for entry in self.pool:
             if entry[0] == name:
+                return name
+        return name.split(" ")[0]
+
+    def _draw(self, field: str, source: list[str], held: set[str]) -> str | None:
+        """Take the next entry of a set in order, skipping the ones held in the call."""
+        if not source:
+            return None
+        start = self.cursor.get(field, 0)
+        for step in range(len(source)):
+            index = (start + step) % len(source)
+            if source[index] not in held:
+                self.cursor[field] = (index + 1) % len(source)
+                return source[index]
+        # Nothing is free, so the round-robin wraps and the next entry is reused.
+        return source[start]
+
+    def _pick_voice(self, name: str) -> str | None:
+        """Take the voice stated for this name, otherwise the one remembered or drawn for it."""
+        first = self._key(name)
+        for entry in self.pool:
+            if entry[0] == first and entry[1]:
                 return entry[1]
-        used_voices = {p.voice for p in self.participants if p.voice}
-        unused = [entry[1] for entry in self.pool if entry[1] not in used_voices]
-        if unused:
-            return self.rng.choice(unused)
-        counts = {entry[1]: self.usage_counts.get(entry[0], 0) for entry in self.pool}
-        lowest = min(counts.values())
-        return self.rng.choice([voice for voice, c in counts.items() if c == lowest])
+        remembered = self.assigned.get(first)
+        if remembered and remembered[0]:
+            return remembered[0]
+        return self._draw("voice", self.voices, {p.voice for p in self.participants if p.voice})
+
+    def _pick_skin(self, name: str) -> str | None:
+        """Take the face stated for this name, otherwise the one remembered or drawn for it."""
+        first = self._key(name)
+        for entry in self.pool:
+            if entry[0] == first and len(entry) > 2 and entry[2]:
+                return entry[2]
+        remembered = self.assigned.get(first)
+        if remembered and remembered[1]:
+            return remembered[1]
+        drawn = self._draw("skin", self.skins, {p.skin for p in self.participants if p.skin})
+        # With no face registered there is nothing to draw from, so the configured one applies.
+        return drawn or self.default_skin or None
 
     def record(self, name: str, action: str, text: str | None = None, author: str | None = None) -> dict:
         """Note what happened, on the call record and on the participant's own record.
@@ -292,11 +326,14 @@ def build_roster(settings) -> Roster:
     """Build the roster for the current call from the configured pool."""
     global _roster
     from ziomek.api import avatar_ws
+    from ziomek.avatar.skins import get_registry
 
+    registry = get_registry()
     _roster = Roster(
         pool=list(settings.roster_pool),
         words=list(settings.roster_words),
         name_lists=load_name_lists(),
+        skins=list(registry.list()) if registry else [],
         quiet_for=settings.roster_quiet_for,
         push_hook=avatar_ws.notify_change,
         default_skin=settings.roster_avatar,
