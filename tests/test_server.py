@@ -112,3 +112,20 @@ def test_the_health_payload_lists_pages_separately_from_api_endpoints(client):
 
     assert data["endpoints"]["pages"] == ["GET /roster", "GET /avatar"]
     assert "GET /api/avatar/view" not in data["endpoints"]["avatar"]
+
+
+def test_the_icon_is_served_for_the_path_a_page_links_to(client):
+    resp = client.get("/favicon.svg")
+
+    assert resp.status_code == 200
+    assert "image/svg+xml" in resp.headers.get("content-type", "")
+    assert "<svg" in resp.text
+
+
+def test_an_icon_that_is_not_there_is_not_served(client, monkeypatch, tmp_path):
+    from ziomek import server
+
+    monkeypatch.setattr(server, "_icon_path", tmp_path / "favicon.svg")
+    resp = client.get("/favicon.svg")
+
+    assert resp.status_code == 404

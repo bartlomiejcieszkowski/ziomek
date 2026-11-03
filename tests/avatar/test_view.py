@@ -36,6 +36,9 @@ class TestAvatarViewPage:
         resp = client.get("/avatar")
         assert resp.status_code == 200
         assert "text/html" in resp.headers["content-type"]
+        # A browser asks for an icon on its own when it renders a page, so the page names the
+        # path the app answers for instead of the one nothing serves.
+        assert '<link rel="icon" href="/favicon.svg">' in resp.text
 
     def test_page_has_separate_areas_for_name_and_text(self, client):
         html = client.get("/avatar").text
