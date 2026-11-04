@@ -84,9 +84,25 @@
         return el;
       }
 
+      const END_TOLERANCE = 4;
+
+      function was_at_the_end() {
+        const panel = document.getElementById("panel");
+        // A viewer this close to the bottom still counts as being at the end, so a line that
+        // arrives while they are reading above it does not pull them down.
+        return panel.scrollTop + panel.clientHeight >= panel.scrollHeight - END_TOLERANCE;
+      }
+
+      function follow_to_the_end(follow) {
+        const panel = document.getElementById("panel");
+        if (follow) panel.scrollTop = panel.scrollHeight;
+      }
+
       function renderBlock(block) {
         // Each record item is a list item; the panel is a record, so the marker rule and the
-        // indent are both taken away.
+        // indent are both taken away. The position is read before the line is added, so a viewer
+        // who is above the end keeps reading where they were.
+        const follow = was_at_the_end();
         const row = document.createElement("li");
         if (block.kind === "system") {
           // A system line is its own line between the boxes, in the color for quotes.
@@ -114,6 +130,7 @@
           }
           row.append(item);
           document.getElementById("transcript").append(row);
+          follow_to_the_end(follow);
           return;
         }
 
@@ -138,6 +155,7 @@
         }
         row.append(box);
         document.getElementById("transcript").append(row);
+        follow_to_the_end(follow);
       }
 
       function render(tiles) {

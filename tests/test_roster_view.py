@@ -491,6 +491,27 @@ def test_the_page_clears_the_panel_when_the_record_is_empty():
     assert "lastBlocks.length < rendered" in page
 
 
+def test_the_panel_follows_a_new_line_only_when_the_viewer_is_at_the_end():
+    client = build_app()
+    page = client.get("/roster").text
+
+    # Being at the end is measured against the box, and a position this close counts as being there.
+    assert "const END_TOLERANCE = 4;" in page
+    assert "function was_at_the_end(" in page
+    assert "panel.scrollTop + panel.clientHeight >= panel.scrollHeight - END_TOLERANCE" in page
+
+
+def test_a_viewer_reading_above_the_end_is_not_pulled_down_by_a_new_line():
+    client = build_app()
+    page = client.get("/roster").text
+
+    # The position is read before the line is added, and the move only follows from that reading.
+    added_before = page.index('document.getElementById("transcript").append(row)')
+    assert page.index("const follow = was_at_the_end()") < added_before
+    assert "if (follow) panel.scrollTop = panel.scrollHeight;" in page
+    assert page.count("panel.scrollTop =") == 1
+
+
 def test_the_page_asks_for_the_file_content_and_keeps_the_download_in_the_browser():
     client = build_app()
     page = client.get("/roster").text
