@@ -158,3 +158,68 @@ def test_the_summing_path_returns_while_the_device_is_still_taking_samples():
 def test_the_queue_form_reports_no_mixing_and_the_summing_form_reports_mixing():
     assert RawStreamBackend().supports_mixing is False
     assert RawStreamOverlapBackend().supports_mixing is True
+
+
+class SilentThenSpaceStream(FakeStream):
+    """A stream that reports no space until it has begun taking samples, as a stream can do."""
+
+    def __init__(self, recorder, silent_reads, space, consume_on_write=False):
+        super().__init__(recorder, 0)
+        self._silent_reads = silent_reads
+        self._space = space
+        self._consume_on_write = consume_on_write
+
+    @property
+    def write_available(self):
+        if self._silent_reads > 0:
+            self._silent_reads -= 1
+            return 0
+        return self._space
+
+    def write(self, data):
+        self._recorder.append(("write", len(data), threading.current_thread().name))
+        if self._consume_on_write:
+            # Space only comes back as the device plays, so a stream keeps less of it while samples
+            # are still with the device.
+            self._space -= len(data) // 4
+
+    def make_available(self, count):
+        # Freeing space here means the same thing as the device having taken the samples.
+        self._space = count
+
+
+def test_a_stream_that_reports_no_space_at_first_still_writes_every_sample():
+    # A stream that shows nothing at the start is not a reason to stop writing, so the samples are
+    # handed over as soon as it shows space.
+    recorder = []
+    stream = SilentThenSpaceStream(recorder, silent_reads=2, space=2)  # nothing is taken back yet, so the space stays
+    timeline = Timeline()
+    timeline.add(np.ones(5, dtype=np.float32))
+    from ziomek.tts.backends.raw_stream import pump
+
+    space = pump(stream, timeline)
+    chunks = [entry for entry in recorder if entry[0] == "write"]
+    assert [entry[1] for entry in chunks] == [8, 8, 4]
+    assert timeline.pending() == 0
+    assert space == 2
+
+
+def test_the_wait_is_for_the_space_measured_when_the_first_sample_was_written():
+    # A stream that shows no space until it starts cannot be waited for by its value at open, which
+    # is nothing, so the wait has to use the space measured at the point of writing.
+    from ziomek.tts.backends.raw_stream import pump, wait_for_device
+
+    recorder = []
+    stream = SilentThenSpaceStream(recorder, silent_reads=1, space=3, consume_on_write=True)
+    timeline = Timeline()
+    timeline.add(np.ones(2, dtype=np.float32))
+    space = pump(stream, timeline)
+    assert space == 3
+
+    finished = threading.Event()
+    thread = threading.Thread(target=lambda: (wait_for_device(stream, space), finished.set()))
+    thread.start()
+    assert finished.wait(0.5) is False
+    # The device has taken the samples, so the space measured at the first write is free again.
+    stream.make_available(3)
+    assert finished.wait(2)
