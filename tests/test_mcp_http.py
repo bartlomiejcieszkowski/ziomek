@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from starlette.testclient import TestClient
 
 from ziomek import __version__
-from ziomek.mcp import set_expose_full_config
+from ziomek.mcp import set_dev_mode, set_expose_full_config
 from ziomek.mcp.http import create_http_app, register_mcp_http_routes
 
 # Accept both so the transport can answer with JSON or SSE.
@@ -212,6 +212,40 @@ class TestMcpResources:
                 assert content["full_config"] is True
         finally:
             set_expose_full_config(False)
+
+
+class TestMcpDebugToolGating:
+    """A debug tool is only reachable through the transport when the server was built with --dev."""
+
+    def _tools(self, client, session_id):
+        data = _payload(
+            _rpc(
+                client,
+                "/mcp",
+                {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+                session_id=session_id,
+            )
+        )
+        return [t["name"] for t in data["result"]["tools"]]
+
+    def test_a_debug_tool_is_not_listed_when_the_app_is_built_without_dev_mode(self):
+        """A tool that cannot answer should not appear in a client's tool list."""
+        app = create_http_app()
+        try:
+            with _client(app) as client:
+                session_id = _session(client)
+                assert "debug_get_render_state" not in self._tools(client, session_id)
+        finally:
+            set_dev_mode(False)
+
+    def test_a_debug_tool_is_listed_when_the_app_is_built_with_dev_mode(self):
+        app = create_http_app(dev_mode=True)
+        try:
+            with _client(app) as client:
+                session_id = _session(client)
+                assert "debug_get_render_state" in self._tools(client, session_id)
+        finally:
+            set_dev_mode(False)
 
 
 if __name__ == "__main__":

@@ -111,6 +111,17 @@ async def debug_logs_clear() -> JSONResponse:
     return JSONResponse(content={"status": "cleared"})
 
 
+@router.post("/api/debug/render")
+async def debug_render_report(request: Request) -> JSONResponse:
+    """Keep what a page measured for itself, as the last report."""
+    from ziomek import debug_report
+
+    report = debug_report.store(await request.json())
+    if report is None:
+        return JSONResponse(status_code=400, content={"error": "the report must be a set of values"})
+    return JSONResponse(content={"status": "stored", "report": report})
+
+
 @router.post("/api/debug/config/reload")
 async def debug_config_reload() -> JSONResponse:
     """Reload configuration from disk."""

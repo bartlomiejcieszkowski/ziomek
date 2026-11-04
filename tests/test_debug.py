@@ -6,7 +6,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from ziomek import server
+from ziomek import debug_report, server
 
 
 @pytest.fixture
@@ -112,6 +112,21 @@ class TestDebugEndpoints:
         assert data["status"] == "reloaded"
         assert "config_path" in data
 
+    def test_a_page_can_post_what_it_measured_and_the_path_keeps_it(self, client_with_dev):
+        debug_report.clear()
+        resp = client_with_dev.post(
+            "/api/debug/render",
+            json={"room": {"width": 1580, "height": 1064}, "cell": {"width": 790, "height": 1064}, "frames": 7},
+        )
+        assert resp.status_code == 200
+        assert debug_report.last()["frames"] == 7
+
+    def test_a_report_that_is_not_an_object_is_not_kept(self, client_with_dev):
+        debug_report.clear()
+        resp = client_with_dev.post("/api/debug/render", json="the page measured a room")
+        assert resp.status_code == 400
+        assert debug_report.last() is None
+
     def test_debug_page(self, client_with_dev):
         resp = client_with_dev.get("/debug")
         assert resp.status_code == 200
@@ -136,3 +151,9 @@ class TestDebugEndpointsDisabled:
     def test_debug_page_not_available(self, client_without_dev):
         resp = client_without_dev.get("/debug")
         assert resp.status_code == 404
+
+    def test_the_report_path_is_not_open_when_the_server_runs_without_dev_mode(self, client_without_dev):
+        debug_report.clear()
+        resp = client_without_dev.post("/api/debug/render", json={"room": {"width": 640, "height": 480}})
+        assert resp.status_code == 404
+        assert debug_report.last() is None

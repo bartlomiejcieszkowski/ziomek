@@ -220,7 +220,7 @@ def create_app(
         def _start_mcp() -> None:
             from ziomek.mcp import start_mcp_server
 
-            start_mcp_server(mcp_config_exposed)
+            start_mcp_server(mcp_config_exposed, dev_mode)
 
         mcp_thread = threading.Thread(target=_start_mcp, daemon=True)
         mcp_thread.start()
@@ -229,7 +229,7 @@ def create_app(
     if mcp_http:
         from ziomek.mcp.http import register_mcp_http_routes
 
-        register_mcp_http_routes(app, mcp_config_exposed)
+        register_mcp_http_routes(app, mcp_config_exposed, dev_mode)
         _logger.info("MCP server started (http transport)")
 
     return app
@@ -346,7 +346,7 @@ def run_server(
             def _start_mcp_http() -> None:
                 from ziomek.mcp.http import start_mcp_http_server
 
-                start_mcp_http_server(host=settings.host, port=_mcp_port)
+                start_mcp_http_server(host=settings.host, port=_mcp_port, dev_mode=dev_mode)
 
             mcp_thread = threading.Thread(target=_start_mcp_http, daemon=True)
             mcp_thread.start()

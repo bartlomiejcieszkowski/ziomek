@@ -14,7 +14,16 @@ import pytest
 from mcp.server import Server
 from mcp.types import CallToolRequestParams, TextContent
 
+from ziomek import debug_report
+from ziomek.mcp import set_dev_mode
 from ziomek.mcp import tools as mcp_tools_module
+
+
+@pytest.fixture(autouse=True)
+def no_report_yet():
+    """The report is kept for the life of the server, so a test starts from nothing."""
+    debug_report.clear()
+    set_dev_mode(False)
 
 
 def _make_wav_bytes(duration_s: float = 0.1, sample_rate: int = 16000) -> bytes:
@@ -61,6 +70,41 @@ class TestMcpListTools:
             assert isinstance(tool.description, str) and len(tool.description) > 0
             assert isinstance(tool.input_schema, dict)
             assert tool.input_schema.get("type") == "object"
+
+    def test_a_debug_tool_is_not_listed_when_the_server_runs_without_dev_mode(self):
+        """A tool that cannot answer should not appear in a client's tool list."""
+        result = asyncio.run(mcp_tools_module._on_list_tools(None, None))
+        assert "debug_get_render_state" not in [t.name for t in result.tools]
+
+    def test_a_debug_tool_is_listed_when_the_server_runs_with_dev_mode(self):
+        set_dev_mode(True)
+        result = asyncio.run(mcp_tools_module._on_list_tools(None, None))
+        assert "debug_get_render_state" in [t.name for t in result.tools]
+
+    def test_calling_a_debug_tool_without_dev_mode_is_refused(self):
+        result = asyncio.run(
+            mcp_tools_module._on_call_tool(None, CallToolRequestParams(name="debug_get_render_state", arguments={}))
+        )
+        assert result.is_error is True
+        assert "dev" in result.content[0].text
+
+    def test_the_debug_tool_answers_the_last_report(self):
+        set_dev_mode(True)
+        debug_report.store({"room": {"width": 1580, "height": 1064}, "frames": 10})
+        result = asyncio.run(
+            mcp_tools_module._on_call_tool(None, CallToolRequestParams(name="debug_get_render_state", arguments={}))
+        )
+        assert result.is_error is False
+        data = json.loads(result.content[0].text)
+        assert data["frames"] == 10
+
+    def test_nothing_is_answered_before_a_page_reports(self):
+        set_dev_mode(True)
+        result = asyncio.run(
+            mcp_tools_module._on_call_tool(None, CallToolRequestParams(name="debug_get_render_state", arguments={}))
+        )
+        assert result.is_error is True
+        assert "nothing has reported" in result.content[0].text
 
 
 class TestMcpCallTool:
