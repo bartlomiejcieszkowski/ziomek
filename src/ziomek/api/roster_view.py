@@ -159,8 +159,22 @@ def blocks(entries: list[dict]) -> list[dict]:
             item = {"kind": "system", "name": entry.get("name", ""), "text": line}
             if entry.get("author"):
                 item["author"] = entry["author"]
+            if assignment_text(entry):
+                # The voice and the face are shown as their own part, so the line itself stays
+                # the action; a colour can only be put on something kept apart.
+                item["assignment"] = assignment_text(entry)
             grouped.append(item)
     return [g for g in grouped if g["kind"] == "system" or g["lines"]]
+
+
+def assignment_text(entry: dict) -> str:
+    """Build the part naming what was drawn for a name, as the record stored it.
+
+    It is kept apart from the action so the page can show it in its own color; the file writes
+    the same words as text, because a color cannot show there."""
+    parts = [entry.get("voice", ""), entry.get("skin", "")]
+    parts = [part for part in parts if part]
+    return f"({', '.join(parts)})" if parts else ""
 
 
 def sentence(entry: dict) -> str:
@@ -186,7 +200,8 @@ def markdown_text(grouped: list[dict], timestamp: str) -> str:
             author = block.get("author")
             # The author stays as text: colors cannot show in a file, so both sides keep it.
             head = f"{block.get('name', '')} ({author})" if author else block.get("name", "")
-            parts.append(f"> {head} — {block['text']}" if head else f"> {block['text']}")
+            line = f"> {head} — {block['text']}" if head else f"> {block['text']}"
+            parts.append(f"{line} {block['assignment']}" if block.get("assignment") else line)
             continue
         name = block.get("name", "")
         author = block.get("author")

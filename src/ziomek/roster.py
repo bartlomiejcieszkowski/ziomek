@@ -169,7 +169,8 @@ class Roster:
         # areas from its own record.
         participant.state_machine = self._machine_for(participant)
         self.participants.append(participant)
-        self.record(participant.name, "join")
+        # The join entry carries what was drawn for the name, so the record shows the assignment.
+        self.record(participant.name, "join", voice=participant.voice, skin=participant.skin)
         return participant
 
     def drop_quiet(self, now: float) -> list[Participant]:
@@ -291,16 +292,29 @@ class Roster:
         # With no face registered there is nothing to draw from, so the configured one applies.
         return drawn or self.default_skin or None
 
-    def record(self, name: str, action: str, text: str | None = None, author: str | None = None) -> dict:
+    def record(
+        self,
+        name: str,
+        action: str,
+        text: str | None = None,
+        author: str | None = None,
+        voice: str | None = None,
+        skin: str | None = None,
+    ) -> dict:
         """Note what happened, on the call record and on the participant's own record.
 
         The text and its author are included only when there is something attached to the
-        event, so an entry for a plain join, hold or leave stays comparable."""
+        event, so an entry for a plain join, hold or leave stays comparable. The voice and the
+        face are recorded only for a join, because that is where they are decided."""
         entry = {"name": name, "action": action}
         if text is not None:
             entry["text"] = text
         if author is not None:
             entry["author"] = author
+        if voice is not None:
+            entry["voice"] = voice
+        if skin is not None:
+            entry["skin"] = skin
         self.events.append(entry)
         participant = self._find(name)
         if participant is not None:
