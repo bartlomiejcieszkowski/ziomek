@@ -1,18 +1,23 @@
 """Tests for the raw output stream backends."""
 
 import io
+import logging
 import threading
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 import soundfile as sf
 
 from ziomek.tts.backends.raw_stream import (
     RawStreamBackend,
     RawStreamOverlapBackend,
     Timeline,
+    pump,
     scale_to_edge,
 )
+
+LOGGER = "ziomek.tts.backends.raw_stream"
 
 
 def wav_bytes(samples, rate):
@@ -197,7 +202,7 @@ def test_a_stream_that_reports_no_space_at_first_still_writes_every_sample():
     timeline.add(np.ones(5, dtype=np.float32))
     from ziomek.tts.backends.raw_stream import pump
 
-    space = pump(stream, timeline)
+    space = pump(stream, timeline, 24000)
     chunks = [entry for entry in recorder if entry[0] == "write"]
     assert [entry[1] for entry in chunks] == [8, 8, 4]
     assert timeline.pending() == 0
@@ -213,13 +218,45 @@ def test_the_wait_is_for_the_space_measured_when_the_first_sample_was_written():
     stream = SilentThenSpaceStream(recorder, silent_reads=1, space=3, consume_on_write=True)
     timeline = Timeline()
     timeline.add(np.ones(2, dtype=np.float32))
-    space = pump(stream, timeline)
+    space = pump(stream, timeline, 24000)
     assert space == 3
 
     finished = threading.Event()
-    thread = threading.Thread(target=lambda: (wait_for_device(stream, space), finished.set()))
+    thread = threading.Thread(target=lambda: (wait_for_device(stream, space, 24000), finished.set()))
     thread.start()
     assert finished.wait(0.5) is False
     # The device has taken the samples, so the space measured at the first write is free again.
     stream.make_available(3)
     assert finished.wait(2)
+
+
+def test_a_stream_that_shows_no_space_for_long_enough_is_reported_as_stuck(caplog):
+    # A stream that never shows space cannot be written to, so waiting for it forever has no end. It is
+    # reported instead, because that is what makes a sound with no audio answerable.
+    caplog.set_level(logging.ERROR, logger=LOGGER)
+    recorder = []
+    stream = SilentThenSpaceStream(recorder, silent_reads=10_000, space=0)
+    timeline = Timeline()
+    timeline.add(np.ones(2, dtype=np.float32))
+    with patch("ziomek.tts.backends.raw_stream.WRITE_STUCK_SECONDS", 0.05):
+        assert pump(stream, timeline, 24000) == 0
+    assert recorder == []
+    assert "showed no space" in caplog.text
+
+
+def test_a_stream_that_never_gives_back_what_it_took_is_reported_as_stuck(caplog):
+    # A stream that keeps samples does not have an end to wait for, so the wait is reported rather than
+    # held open. The write side is not what is measured here, so its limit stays the shorter one.
+    caplog.set_level(logging.ERROR, logger=LOGGER)
+    recorder = []
+    stream = SilentThenSpaceStream(recorder, silent_reads=0, space=2, consume_on_write=True)
+    timeline = Timeline()
+    timeline.add(np.ones(2, dtype=np.float32))
+    from ziomek.tts.backends.raw_stream import wait_for_device
+
+    space = pump(stream, timeline, 24000)
+    with patch("ziomek.tts.backends.raw_stream.PLAY_STUCK_SECONDS", 0.05):
+        wait_for_device(stream, space, 24000)
+    assert space == 2
+    assert [entry[0] for entry in recorder] == ["write"]
+    assert "kept 2 samples" in caplog.text
