@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 # Every part of a report is kept even when a page cannot state it, so a reader does not read a
-# missing part as a bug.
-PARTS = ["path", "room", "cell", "frames", "tile"]
+# missing part as a bug. The grid is stated as the base track, and the blocks a page made beyond it are
+# kept as it stated them, because blocks of different sizes cannot be described with one value.
+PARTS = ["path", "room", "cell", "frames", "tile", "blocks"]
 
 _report: dict | None = None
 

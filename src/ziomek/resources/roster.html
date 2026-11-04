@@ -31,6 +31,11 @@
       /* A tile fills its cell up to this size. It is set by the page from the frames it can
          show, so a tile is never scaled past the point where pixels stop being even. */
       .tile { max-width: var(--largest-tile); max-height: var(--largest-tile); }
+      /* Being capped is not being sized: a box with only an upper limit falls back to its content,
+         which is what makes a capped tile look small. The tile takes the size the page measured.
+         The picture fills the content box, so the picture area stays exactly the whole-frame size;
+         the padding around it is outside that measurement. */
+      .tile { width: var(--largest-tile); height: var(--largest-tile); }
       /* A capped tile is smaller than the cell it was measured for, so it stays in the middle
          of that cell rather than at its corner. */
       .tile { justify-self: center; align-self: center; }
@@ -170,23 +175,21 @@
       // longer edge is halved first, and a cell is only split when the parts cannot hold
       // everyone. A cell is not made smaller than this, so a tile stays readable.
       const MIN_CELL = 80;
-      const REPORT_PATH = "/api/debug/render";
-      let last_report = null;
+      let made_blocks = [];  // the blocks this render made, in position order
+      let stated_blocks = [];  // each block with the size its own tile can be given
 
-      // The values only exist in the browser, so the page states them to the debug path. Every part is
-      // stated even when it cannot be known, so a reader does not read a missing part as a bug.
-      function report_sizes(path, room, parts, frame, frames) {
-        const report = {
-          path: path,
-          room: room,
-          cell: parts ? { width: room.width / parts.cols, height: room.height / parts.rows } : null,
-          frames: frames,
-          tile: frame && frames ? frame * frames : null,
-        };
-        const text = JSON.stringify(report);
-        if (text === last_report) return;  // the page reports on every render, so the same values are not sent again
-        last_report = text;
-        fetch(REPORT_PATH, { method: "POST", headers: { "Content-Type": "application/json" }, body: text });
+      // A page cannot state what it measured on its own: the values only exist in the browser. It asks for
+      // them through this, and a part that a server started with --dev adds is what carries them to the
+      // debug path. Without that part nothing is stated.
+      let state_sizes = null;
+
+      // A block is measured from the tracks it spans, so a block that is not square gets a size for each
+      // axis. The same values are used for the tile and for what the page states, so a reader is not shown
+      // two different numbers.
+      function measure_blocks(frame, room, parts) {
+        return made_blocks.map(function (block) {
+          return { row: block.row, col: block.col, rows: block.rowSpan, cols: block.colSpan, tile: tile_size(frame, block.colSpan * (room.width / parts.cols), block.rowSpan * (room.height / parts.rows)) };
+        });
       }
 
       // Pixels stay even only when a picture is scaled by whole numbers, so the size a tile can be
@@ -210,7 +213,8 @@
       function apply_largest_tile(root, room, parts, tiles) {
         const frame = largest_tile(tiles);
         if (!frame) {  // nothing was read for these skins, so no size can be derived
-          report_sizes("no frame size was read for these skins", room, parts, null, null);
+          stated_blocks = [];
+          state_sizes?.("no frame size was read for these skins", room, parts, null, null);
           return;
         }
         const cell_width = room.width / parts.cols;
@@ -219,7 +223,55 @@
         // cell allows in whole frames rather than a fixed count.
         const frames = Math.max(1, Math.floor(Math.min(cell_width / frame, cell_height / frame)));
         root.style.setProperty("--largest-tile", frames * frame + "px");
-        report_sizes("measured", room, parts, frame, frames);
+        stated_blocks = measure_blocks(frame, room, parts);
+        state_sizes?.("measured", room, parts, frame, frames);
+      }
+
+      // A block is split only when it is the biggest one, so the number of cells matches the number of
+      // participants instead of overshooting to the next whole grid. The grid stays uniform: a block spans
+      // a whole number of tracks, which is how a split becomes a span.
+      function pick_the_biggest(blocks, track_width, track_height) {
+        let biggest = null;
+        // Blocks of the same size are read in position order, so the one closest to the top-left is taken.
+        for (const block of blocks.slice().sort(function (a, b) {
+          return a.row - b.row || a.col - b.col;
+        })) {
+          if (block.rowSpan < 2 && block.colSpan < 2) continue;  // a single track cannot be split in half
+          const area = block.rowSpan * track_height * block.colSpan * track_width;
+          if (!biggest || area > biggest.area) biggest = { block: block, area: area };
+        }
+        return biggest ? biggest.block : null;
+      }
+
+      function split_the_blocks(room, parts, count) {
+        const track_width = room.width / parts.cols;
+        const track_height = room.height / parts.rows;
+        const blocks = [{ row: 0, col: 0, rowSpan: parts.rows, colSpan: parts.cols }];
+        while (blocks.length < count) {
+          const biggest = pick_the_biggest(blocks, track_width, track_height);
+          if (!biggest) break;  // nothing can be split without going below the size a tile needs to be readable
+          if (biggest.rowSpan * track_height >= biggest.colSpan * track_width) {
+            const half = biggest.rowSpan / 2;
+            blocks.push({ row: biggest.row + half, col: biggest.col, rowSpan: half, colSpan: biggest.colSpan });
+            biggest.rowSpan = half;
+          } else {
+            const half = biggest.colSpan / 2;
+            blocks.push({ row: biggest.row, col: biggest.col + half, rowSpan: biggest.rowSpan, colSpan: half });
+            biggest.colSpan = half;
+          }
+        }
+        return blocks.sort(function (a, b) {
+          return a.row - b.row || a.col - b.col;
+        });
+      }
+
+      // A whole number of frames is the only scale that keeps pixels even. Each axis is scaled by its own
+      // whole count, so a block that is not square is filled rather than left with bars inside it.
+      function tile_size(frame, block_width, block_height) {
+        return {
+          width: Math.max(1, Math.floor(block_width / frame)) * frame,
+          height: Math.max(1, Math.floor(block_height / frame)) * frame,
+        };
       }
 
       function divide_room(room, count) {
@@ -254,11 +306,23 @@
         count.textContent = tiles.length + " participants";
         const room = measure_room(root);
         const parts = divide_the_room(root, room, tiles.length);
-        if (!parts) report_sizes("cannot be measured", room, null, null, null);
-        else apply_largest_tile(root, room, parts, tiles);
+        if (!parts) state_sizes?.("cannot be measured", room, null, null, null);
+        else {
+          made_blocks = split_the_blocks(room, parts, tiles.length);
+          apply_largest_tile(root, room, parts, tiles);
+        }
+        let placed = 0;
         for (const tile of tiles) {
+          const place = stated_blocks[placed];
+          placed += 1;
+          if (!place) continue;  // the room cannot be divided further, so this participant has no block
           const el = document.createElement("div");
           el.className = "tile";
+          el.style.gridColumn = (place.col + 1) + " / span " + place.cols;
+          el.style.gridRow = (place.row + 1) + " / span " + place.rows;
+          el.style.width = place.tile.width + "px";
+          el.style.height = place.tile.height + "px";
+          }
           const block = el_class("avatar");
           el.appendChild(block);
 

@@ -21,19 +21,9 @@ _mcp_server: Server | None = None
 # Config exposure flag (set by server.py before calling start_mcp_server)
 _expose_full_config: bool = False
 
-# Dev mode flag (set by server.py): a debug tool is only reachable when the server runs with --dev.
-_dev_mode: bool = False
-
-
-def set_dev_mode(dev: bool) -> None:
-    """Set whether the server runs in dev mode, which is what makes debug tools answer."""
-    global _dev_mode
-    _dev_mode = dev
-
-
-def get_dev_mode() -> bool:
-    """Get the current dev mode."""
-    return _dev_mode
+# Dev mode is one flag, read by the paths that answer only in it: the debug paths and the page that
+# states values. A page that posts values is served only where something can read them back.
+from ziomek.dev_mode import get_dev_mode, set_dev_mode
 
 
 def set_expose_full_config(expose: bool) -> None:

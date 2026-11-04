@@ -1,0 +1,619 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>ziomek roster</title>
+    <link rel="icon" href="/favicon.svg" />
+    <style>
+      body { font-family: sans-serif; background: #111; color: #eee; }
+      #layout { display: flex; gap: 12px; min-height: 100vh; }
+      #main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+      #roster { max-height: 100vh; overflow: auto; }
+      #roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; padding: 8px; }
+      /* Rows can only fill the page when the grid is given the height it is asked for. */
+      #main > #roster { flex: 1 1 auto; min-height: 0; }
+      #count { font-size: 13px; color: #999; padding: 8px; }
+      #panel { flex: 0 0 320px; max-height: 100vh; overflow: auto; border-left: 1px solid #444; padding-left: 12px; }
+      #layout.hide #roster { flex: 1 1 auto }
+      #layout.hide #transcript { display: none; }
+      #layout.hide #panel { flex: 0 0 auto; }
+      #transcript { list-style: none; padding: 0; }
+      #transcript li, #transcript .box p { white-space: pre-wrap; }
+      /* Wrapping at spaces is not enough: a run with no space in it keeps going past the box,
+         which is what makes the page scroll sideways. The tile text and the lines under it are
+         reached by the same kind of run. */
+      #transcript li, #transcript .box p { overflow-wrap: break-word; }
+      .text, ul.events li { overflow-wrap: break-word; }
+      #menu { display: none; }
+      #menu.open { display: block; }
+      button { background: #2a2a30; color: #ddd; border: 1px solid #4a4a52; border-radius: 6px; padding: 6px 10px; font: inherit; cursor: pointer; }
+      .tile { position: relative; overflow: hidden; }
+      /* A tile fills its cell up to this size. It is set by the page from the frames it can
+         show, so a tile is never scaled past the point where pixels stop being even. */
+      .tile { max-width: var(--largest-tile); max-height: var(--largest-tile); }
+      /* Being capped is not being sized: a box with only an upper limit falls back to its content,
+         which is what makes a capped tile look small. The tile takes the size the page measured.
+         The picture fills the content box, so the picture area stays exactly the whole-frame size;
+         the padding around it is outside that measurement. */
+      .tile { width: var(--largest-tile); height: var(--largest-tile); }
+      /* A capped tile is smaller than the cell it was measured for, so it stays in the middle
+         of that cell rather than at its corner. */
+      .tile { justify-self: center; align-self: center; }
+      .avatar { position: absolute; inset: 0; background: #2a2a30; border: 1px dashed #4a4a52; border-radius: 6px; background-repeat: no-repeat; image-rendering: pixelated; }
+      /* Both corners sit at the same inset; a positioned row also paints above the avatar block. */
+      .top { position: absolute; top: 8px; left: 8px; right: 8px; z-index: 1; display: flex; justify-content: space-between; }
+      .bottom { position: absolute; left: 8px; right: 8px; bottom: 8px; }
+      @media (max-width: 900px) {
+        #layout { display: block; }
+        #roster, #panel { flex: none; }
+      }
+      .box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; border-radius: 6px; padding: 12px; }
+      .name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }
+      .event { color: #e0a568; }
+      .group_author { color: #999; }
+      .assignment { color: #c586c0; }
+      .system_text, .box p.system_text { color: #7fb069; }
+      .tile { padding: 12px; margin: 8px 0; background: #1b1b22; border-radius: 6px; }
+      .tile .name { font-weight: bold; margin-bottom: 4px; }
+      .system_text, .on_hold { white-space: pre-wrap; font-size: 13px; }
+      .text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }
+      .expression { color: #d2a9ff; font-family: monospace; font-size: 11px; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }
+      ul.events { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: #999; }
+    </style>
+  </head>
+  <body>
+    <div id="layout">
+      <div id="main">
+        <div id="count"></div>
+        <div id="roster"></div>
+      </div>
+      <div id="panel">
+        <div id="header">
+          <button id="toggle">hide</button>
+          <button id="state_text">show text</button>
+          <button id="save">Save</button>
+          <button id="formats">▼</button>
+          <div id="menu">
+            <button data-format="markdown">Markdown</button>
+            <button data-format="json">JSON</button>
+          </div>
+        </div>
+        <ul id="transcript"></ul>
+      </div>
+    </div>
+
+    <script>
+      const initial = "__TRANSCRIPT_DEFAULT__";
+
+      let lastPayload = {};
+      let lastBlocks = [];
+      let rendered = 0;
+
+      const EXT = { markdown: "md", json: "json" };
+
+      function el_class(className) {
+        const el = document.createElement("span");
+        el.className = className;
+        return el;
+      }
+
+      const END_TOLERANCE = 4;
+
+      function was_at_the_end() {
+        const panel = document.getElementById("panel");
+        // A viewer this close to the bottom still counts as being at the end, so a line that
+        // arrives while they are reading above it does not pull them down.
+        return panel.scrollTop + panel.clientHeight >= panel.scrollHeight - END_TOLERANCE;
+      }
+
+      function follow_to_the_end(follow) {
+        const panel = document.getElementById("panel");
+        if (follow) panel.scrollTop = panel.scrollHeight;
+      }
+
+      function renderBlock(block) {
+        // Each record item is a list item; the panel is a record, so the marker rule and the
+        // indent are both taken away. The position is read before the line is added, so a viewer
+        // who is above the end keeps reading where they were.
+        const follow = was_at_the_end();
+        const row = document.createElement("li");
+        if (block.kind === "system") {
+          // A system line is its own line between the boxes, in the color for quotes.
+          const item = document.createElement("p");
+          item.className = block.author === "system" ? "system_text" : "event";
+          if (block.name) {
+            const name = el_class("name");
+            name.textContent = block.name;
+            item.append(name);
+            if (block.author) {
+              // The author is kept on the line because the file keeps it too.
+              const mark = el_class("group_author");
+              mark.textContent = " (" + block.author + ")";
+              item.append(mark);
+            }
+          }
+          const text = document.createElement("span");
+          text.textContent = block.text;
+          item.append(text);
+          if (block.assignment) {
+            // The voice and the face stand apart from the action, in their own color.
+            const drawn = el_class("assignment");
+            drawn.textContent = " " + block.assignment;
+            item.append(drawn);
+          }
+          row.append(item);
+          document.getElementById("transcript").append(row);
+          follow_to_the_end(follow);
+          return;
+        }
+
+        const box = document.createElement("div");
+        box.className = "box";
+
+        const header = document.createElement("div");
+        header.append(el_class("name"));           // the name keeps its own element, the box has none
+        header.lastChild.textContent = block.name;
+        if (block.author) {
+          const mark = el_class("group_author");
+          // The author stays as text: colors cannot show in a file, so both sides keep it.
+          mark.textContent = " (" + block.author + ")";
+          header.append(mark);
+        }
+        box.appendChild(header);
+
+        for (const line of block.lines) {
+          const p = document.createElement("p");
+          p.textContent = line;
+          box.appendChild(p);
+        }
+        row.append(box);
+        document.getElementById("transcript").append(row);
+        follow_to_the_end(follow);
+      }
+
+      // Cells come from the space that is actually available, not from a fixed minimum: the
+      // longer edge is halved first, and a cell is only split when the parts cannot hold
+      // everyone. A cell is not made smaller than this, so a tile stays readable.
+      const MIN_CELL = 80;
+      let made_blocks = [];  // the blocks this render made, in position order
+      let stated_blocks = [];  // each block with the size its own tile can be given
+
+      // A page cannot state what it measured on its own: the values only exist in the browser. It asks for
+      // them through this, and a part that a server started with --dev adds is what carries them to the
+      // debug path. Without that part nothing is stated.
+      let state_sizes = null;
+
+      // A block is measured from the tracks it spans, so a block that is not square gets a size for each
+      // axis. The same values are used for the tile and for what the page states, so a reader is not shown
+      // two different numbers.
+      function measure_blocks(frame, room, parts) {
+        return made_blocks.map(function (block) {
+          return { row: block.row, col: block.col, rows: block.rowSpan, cols: block.colSpan, tile: tile_size(frame, block.colSpan * (room.width / parts.cols), block.rowSpan * (room.height / parts.rows)) };
+        });
+      }
+
+      // Pixels stay even only when a picture is scaled by whole numbers, so the size a tile can be
+      // given is a whole number of frames rather than a size in pixels. The smallest frame among the
+      // skins present is used, so every tile on the page is measured the same way.
+      function measure_room(root) {
+        return { width: root.clientWidth, height: root.clientHeight };
+      }
+
+      function largest_tile(tiles) {
+        let frame = 0;
+        for (const tile of tiles) {
+          const skin = tile.avatar && skins[tile.avatar.skin];
+          if (!skin || !skin.frameWidth || !skin.frameHeight) continue;
+          const side = Math.min(skin.frameWidth, skin.frameHeight);
+          if (!frame || side < frame) frame = side;
+        }
+        return frame;
+      }
+
+      function apply_largest_tile(root, room, parts, tiles) {
+        const frame = largest_tile(tiles);
+        if (!frame) {  // nothing was read for these skins, so no size can be derived
+          stated_blocks = [];
+          state_sizes?.("no frame size was read for these skins", room, parts, null, null);
+          return;
+        }
+        const cell_width = room.width / parts.cols;
+        const cell_height = room.height / parts.rows;
+        // A whole number is the only scale that keeps pixels even, so a tile is as large as the
+        // cell allows in whole frames rather than a fixed count.
+        const frames = Math.max(1, Math.floor(Math.min(cell_width / frame, cell_height / frame)));
+        root.style.setProperty("--largest-tile", frames * frame + "px");
+        stated_blocks = measure_blocks(frame, room, parts);
+        state_sizes?.("measured", room, parts, frame, frames);
+      }
+
+      // A block is split only when it is the biggest one, so the number of cells matches the number of
+      // participants instead of overshooting to the next whole grid. The grid stays uniform: a block spans
+      // a whole number of tracks, which is how a split becomes a span.
+      function pick_the_biggest(blocks, track_width, track_height) {
+        let biggest = null;
+        // Blocks of the same size are read in position order, so the one closest to the top-left is taken.
+        for (const block of blocks.slice().sort(function (a, b) {
+          return a.row - b.row || a.col - b.col;
+        })) {
+          if (block.rowSpan < 2 && block.colSpan < 2) continue;  // a single track cannot be split in half
+          const area = block.rowSpan * track_height * block.colSpan * track_width;
+          if (!biggest || area > biggest.area) biggest = { block: block, area: area };
+        }
+        return biggest ? biggest.block : null;
+      }
+
+      function split_the_blocks(room, parts, count) {
+        const track_width = room.width / parts.cols;
+        const track_height = room.height / parts.rows;
+        const blocks = [{ row: 0, col: 0, rowSpan: parts.rows, colSpan: parts.cols }];
+        while (blocks.length < count) {
+          const biggest = pick_the_biggest(blocks, track_width, track_height);
+          if (!biggest) break;  // nothing can be split without going below the size a tile needs to be readable
+          if (biggest.rowSpan * track_height >= biggest.colSpan * track_width) {
+            const half = biggest.rowSpan / 2;
+            blocks.push({ row: biggest.row + half, col: biggest.col, rowSpan: half, colSpan: biggest.colSpan });
+            biggest.rowSpan = half;
+          } else {
+            const half = biggest.colSpan / 2;
+            blocks.push({ row: biggest.row, col: biggest.col + half, rowSpan: biggest.rowSpan, colSpan: half });
+            biggest.colSpan = half;
+          }
+        }
+        return blocks.sort(function (a, b) {
+          return a.row - b.row || a.col - b.col;
+        });
+      }
+
+      // A whole number of frames is the only scale that keeps pixels even. Each axis is scaled by its own
+      // whole count, so a block that is not square is filled rather than left with bars inside it.
+      function tile_size(frame, block_width, block_height) {
+        return {
+          width: Math.max(1, Math.floor(block_width / frame)) * frame,
+          height: Math.max(1, Math.floor(block_height / frame)) * frame,
+        };
+      }
+
+      function divide_room(room, count) {
+        let rows = 1;
+        let cols = 1;
+        while (rows * cols < count) {
+          const cell_width = room.width / cols;
+          const cell_height = room.height / rows;
+          if (Math.min(cell_width, cell_height) / 2 < MIN_CELL) break;
+          // Halve the longer edge, since that is the one with room left to split.
+          if (cell_width >= cell_height) {
+            cols *= 2;
+          } else {
+            rows *= 2;
+          }
+        }
+        return { rows: rows, cols: cols };
+      }
+
+      function divide_the_room(root, room, count) {
+        if (room.width <= 0 || room.height <= 0) return null;  // the stacked layout has no room to measure, so nothing here applies
+        const parts = divide_room(room, count);
+        root.style.gridTemplateColumns = "repeat(" + parts.cols + ", minmax(0, 1fr))";
+        root.style.gridTemplateRows = "repeat(" + parts.rows + ", minmax(0, 1fr))";
+        return parts;
+      }
+
+      function render(tiles) {
+        const root = document.getElementById("roster");
+        root.innerHTML = "";
+        const count = document.getElementById("count");
+        count.textContent = tiles.length + " participants";
+        const room = measure_room(root);
+        const parts = divide_the_room(root, room, tiles.length);
+        if (!parts) state_sizes?.("cannot be measured", room, null, null, null);
+        else {
+          made_blocks = split_the_blocks(room, parts, tiles.length);
+          apply_largest_tile(root, room, parts, tiles);
+        }
+        let placed = 0;
+        for (const tile of tiles) {
+          const place = stated_blocks[placed];
+          placed += 1;
+          if (!place) continue;  // the room cannot be divided further, so this participant has no block
+          const el = document.createElement("div");
+          el.className = "tile";
+          el.style.gridColumn = (place.col + 1) + " / span " + place.cols;
+          el.style.gridRow = (place.row + 1) + " / span " + place.rows;
+          el.style.width = place.tile.width + "px";
+          el.style.height = place.tile.height + "px";
+          }
+          const block = el_class("avatar");
+          el.appendChild(block);
+
+          const top = el_class("top");
+          renderText(top, "name", tile.name);
+          renderText(top, "expression", tile.expression);
+          el.appendChild(top);
+
+          // The text sits at the bottom of the block; the whole text is in the transcript panel.
+          const bottom = el_class("bottom");
+          if (textOn()) renderText(bottom, "text", tile.status_text);
+          renderText(bottom, "system_text", tile.system_text);
+          el.appendChild(bottom);
+          renderText(el, "on_hold", tile.state === "held" ? "On hold " + held(tile) : "");
+          const list = document.createElement("ul");
+          list.className = "events";
+          for (const event of tile.events || []) {
+            const item = document.createElement("li");
+            const line = event.name + " " + event.action;
+            const author = event.author ? " (" + event.author + ")" : "";
+            item.textContent = line + (event.text ? author + ": " + event.text : "");
+            list.appendChild(item);
+          }
+          if (list.children.length) el.appendChild(list);
+          root.appendChild(el);
+          draw_avatar(tile, block);
+        }
+      }
+
+      const skins = {};  // one mapping per skin, so participants that share a skin share one copy
+      const images = {};  // bytes by skin name for a sheet, and by skin and file name for a single image
+
+      async function load_skins(tiles) {
+        for (const tile of tiles) {
+          const name = tile.avatar && tile.avatar.skin;
+          if (!name || skins[name]) continue;
+          const response = await fetch("/api/avatar/sprite?skin=" + encodeURIComponent(name));
+          // A skin the page cannot get is left undrawn, so nothing is shown for it.
+          if (!response.ok) continue;
+          const skin = await response.json();
+          skins[name] = skin;
+          // A definition of type image has no sheet, so its images are fetched one at a time when drawn.
+          if (skin.sprite_b64) images[name] = skin.sprite_b64;
+        }
+      }
+
+      // The scale that places one frame inside the box, which is what a fit says in numbers.
+      function fit_scale(fit, frameWidth, frameHeight, boxWidth, boxHeight) {
+        const byWidth = boxWidth / frameWidth;
+        const byHeight = boxHeight / frameHeight;
+        if (fit === "fill") return [byWidth, byHeight];
+        if (fit === "cover") {
+          const scale = Math.max(byWidth, byHeight);
+          return [scale, scale];
+        }
+        if (fit === "none") return [1, 1];
+        if (fit === "scale-down") {
+          const scale = Math.min(1, Math.min(byWidth, byHeight));
+          return [scale, scale];
+        }
+        const scale = Math.min(byWidth, byHeight);
+        return [scale, scale];
+      }
+
+      // A tile shows one frame of its own skin, which is the frame the mapping resolved for it.
+      function draw_avatar(tile, block) {
+        const avatar = tile.avatar;
+        if (!avatar) return;
+        const skin = skins[avatar.skin];
+        if (!skin) return;  // nothing was fetched for this skin, so the block stays as it is
+        const frame = avatar.frame;
+        const image = image_for(avatar.skin, frame, () => draw_avatar(tile, block));
+        if (!image) return;  // not read yet, so it is drawn once the picture arrives
+        const boxWidth = block.getBoundingClientRect().width;
+        const boxHeight = block.getBoundingClientRect().height;
+        if (!boxWidth || !boxHeight || !frame.width || !frame.height) return;  // not laid out yet, so there is no size to scale to
+        const [scaleWidth, scaleHeight] = fit_scale(frame.fit, frame.width, frame.height, boxWidth, boxHeight);
+        const drawnWidth = frame.width * scaleWidth;
+        const drawnHeight = frame.height * scaleHeight;
+        // A cell is cut from the sheet, so the whole sheet is scaled by the same amount; a single image is its own frame.
+        const sheet = frame.kind === "cell" ? skin : null;
+        // The server answers with a data address, so the page uses it as it is.
+        block.style.backgroundImage = "url(" + image + ")";
+        block.style.backgroundSize =
+          (sheet ? sheet.width * scaleWidth : drawnWidth) + "px " + (sheet ? sheet.height * scaleHeight : drawnHeight) + "px";
+        // What is shown when a frame is larger than the box is decided by its centre, since the format has no position field.
+        const left = (boxWidth - drawnWidth) / 2 - (frame.column || 0) * drawnWidth;
+        const top = (boxHeight - drawnHeight) / 2 - (frame.row || 0) * drawnHeight;
+        block.style.backgroundPosition = left + "px " + top + "px";
+      }
+
+      function image_for(skin_name, frame, redraw) {
+        const key = frame.kind === "cell" ? skin_name : skin_name + "/" + frame.file;
+        if (images[key]) return images[key];
+        const url =
+          frame.kind === "cell"
+            ? "/api/avatar/sprite?skin=" + encodeURIComponent(skin_name)
+            : "/api/avatar/image?skin=" + encodeURIComponent(skin_name) + "&file=" + encodeURIComponent(frame.file);
+        fetch(url)
+          .then((response) => (response.ok ? response.json() : null))
+          .then((data) => {
+            if (!data) return;
+            images[key] = data.sprite_b64 || data.image_b64;
+            redraw();
+          });
+        return null;
+      }
+
+      function held(tile) {
+        const seconds = tile.held_seconds || 0;
+        return String(Math.floor(seconds / 60)).padStart(2, "0") + ":" + String(seconds % 60).padStart(2, "0");
+      }
+
+      function renderText(root, className, value) {
+        const el = document.createElement("div");
+        el.className = className;
+        el.textContent = value || "";
+        // The whole text stays reachable on hover; only the display is cut, and the ellipsis comes from the clamp.
+        if (value) el.title = value;
+        root.appendChild(el);
+      }
+
+      function pad(n) {
+        return String(n).padStart(2, "0");
+      }
+
+      function dateParts(at) {
+        return [at.getUTCFullYear(), pad(at.getUTCMonth() + 1), pad(at.getUTCDate())];
+      }
+
+      function clockParts(at) {
+        return [pad(at.getUTCHours()), pad(at.getUTCMinutes()), pad(at.getUTCSeconds())];
+      }
+
+      // The header and the name show the same clock, in the forms each of them needs.
+      function headerStamp(at) {
+        return dateParts(at).join("-") + "T" + clockParts(at).join("") + "Z";
+      }
+
+      function nameStamp(at) {
+        return dateParts(at).join("-") + "_" + clockParts(at).slice(0, 2).join("");
+      }
+
+      function buildFilename(ext, at) {
+        return "ziomek_" + nameStamp(at) + "_transcript." + ext;
+      }
+
+      function jsonFile(entries) {
+        return new Blob([JSON.stringify(entries)], { type: "application/json" });
+      }
+
+      function download(content, name) {
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(content);
+        link.download = name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(link.href), 0);
+      }
+
+      function readStored(name) {
+        const value = localStorage.getItem(name);
+        if (value === null) return null;  // nothing stored -> the config default decides the opening
+        return value;
+      }
+
+      function textOn() {
+        const stored = readStored("ziomek_text");
+        return stored !== "0";  // nothing stored means the text is shown
+      }
+
+      function setStored(name, value) {
+        localStorage.setItem(name, value);
+      }
+
+      function panelOpen() {
+        const stored = readStored("ziomek_panel");
+        if (!stored) return initial === "open";
+        return stored === "1";
+      }
+
+      function setShown(shown) {
+        document.getElementById("layout").classList.toggle("hide", !shown);
+        const label = document.getElementById("toggle");
+        label.textContent = shown ? "hide" : "show";
+      }
+
+      function labelTextToggle() {
+        document.getElementById("state_text").textContent = textOn() ? "hide text" : "show text";
+      }
+
+      document.getElementById("state_text").addEventListener("click", () => {
+        const on = !textOn();
+        setStored("ziomek_text", on ? "1" : "0");
+        labelTextToggle();
+        render(lastTiles);
+      });
+
+      labelTextToggle();
+
+      document.getElementById("toggle").addEventListener("click", () => {
+        const shown = !document.getElementById("layout").classList.contains("hide");
+        setShown(!shown);
+        setStored("ziomek_panel", shown ? "1" : "0");
+      });
+
+      document.getElementById("formats").addEventListener("click", () => {
+        document.getElementById("menu").classList.toggle("open");
+      });
+
+      function stampOf(at) {
+        return [at.getFullYear(), pad(at.getMonth() + 1), pad(at.getDate())].join("-") + "T" + pad(at.getHours()) + pad(at.getMinutes()) + pad(at.getSeconds()) + "Z";
+      }
+
+      async function save(format, at) {
+        const ext = EXT[format] || format;
+        if (format === "json") {
+          download(jsonFile(lastPayload), buildFilename(ext, at));
+          return;
+        }
+        const response = await fetch("/api/roster/transcript/markdown?at=" + encodeURIComponent(headerStamp(at)));
+        download(new Blob([await response.text()], { type: "text/markdown" }), buildFilename(ext, at));
+      }
+
+      document.getElementById("save").addEventListener("click", () => {
+        const at = new Date();
+        save("markdown", at);
+      });
+
+      document.getElementById("menu").addEventListener("click", (event) => {
+        const ext = event.target.dataset.format;
+        if (!ext) return;
+        save(event.target.dataset.format, new Date());
+      });
+
+      async function refresh() {
+        try {
+          const response = await fetch("/api/roster");
+          const tiles = await response.json();
+          await load_skins(tiles);
+          render(tiles);
+          const stream = await fetch("/api/roster/transcript");
+          lastPayload = await stream.json();
+          lastBlocks = lastPayload.blocks;
+        } catch (error) {
+          return;  // a failed poll keeps the record as it was, so nothing is shown from it
+        }
+
+        if (lastBlocks.length < rendered) {
+          // The record shrank, which means a new call: the panel starts from nothing.
+          document.getElementById("transcript").innerHTML = "";
+          rendered = 0;
+        }
+        for (const block of lastBlocks.slice(rendered)) {
+          renderBlock(block);
+        }
+        rendered = lastBlocks.length;
+      }
+
+      /* the debug part */
+
+      const REPORT_PATH = "/api/debug/render";
+      let last_report = null;
+
+      // One block is the whole grid, which the cell part already states, so nothing is added for it.
+      function describe_blocks() {
+        if (stated_blocks.length < 2) return null;  // one block is the whole grid, which the cell part already states
+        return stated_blocks;
+      }
+
+      // This is the part that carries what a page measured to the debug path, and it is read only in dev mode,
+      // where the path that answers is open. A page without it asks for values and nothing states them.
+      state_sizes = function (path, room, parts, frame, frames) {
+        const report = {
+          path: path,
+          room: room,
+          cell: parts ? { width: room.width / parts.cols, height: room.height / parts.rows } : null,
+          frames: frames,
+          tile: frame && frames ? frame * frames : null,
+          blocks: describe_blocks(),
+        };
+        const text = JSON.stringify(report);
+        if (text === last_report) return;  // the page asks for values on every render, so the same values are not sent again
+        last_report = text;
+        fetch(REPORT_PATH, { method: "POST", headers: { "Content-Type": "application/json" }, body: text });
+      };
+
+      setShown(panelOpen());
+      refresh();
+      setInterval(refresh, 1000);
+    </script>
+  </body>
+</html>
