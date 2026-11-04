@@ -739,7 +739,10 @@ def test_a_cell_that_cannot_be_measured_keeps_the_size_the_stylesheet_gives_it()
     """The stacked layout under a narrow window has no room to measure, so the stylesheet default still applies."""
     page = page_source()
     assert "grid-template-columns: repeat(auto-fill, minmax(180px, 1fr))" in page
-    assert "if (room.width <= 0 || room.height <= 0)" in page
+    assert (
+        "if (room.width <= 0 || room.height <= 0) return null;  // the stacked layout has no room to measure, so nothing here applies"
+        in page
+    )
 
 
 def test_the_cells_are_divided_from_the_space_available_and_not_from_a_fixed_minimum():
@@ -763,13 +766,18 @@ def test_the_division_is_written_for_both_edges_of_the_grid():
     assert 'root.style.gridTemplateRows = "repeat(" + parts.rows + ", minmax(0, 1fr))";' in page
 
 
-def test_a_tile_is_not_drawn_larger_than_a_whole_number_of_the_frames_it_could_show():
-    """Pixels stay even only when a picture is scaled by whole numbers, so the largest tile is a whole number of frames, not a size in pixels."""
+def test_a_tile_is_scaled_by_the_whole_number_of_frames_that_fits_the_cell():
+    """Pixels stay even only when a picture is scaled by whole numbers, so the size a tile can be given is a whole number of frames that fits the cell rather than a fixed count. The smallest frame among the skins present is used, so every tile on the page is measured the same way."""
     page = page_source()
-    assert "const LARGEST_FRAMES = 4;" in page
     assert "function largest_tile(tiles)" in page
-    assert "Math.min(skin.frameWidth, skin.frameHeight)" in page
-    assert 'root.style.setProperty("--largest-tile", LARGEST_FRAMES * frame + "px")' in page
+    assert "if (!skin || !skin.frameWidth || !skin.frameHeight) continue;" in page
+    assert "const side = Math.min(skin.frameWidth, skin.frameHeight);" in page
+    assert "if (!frame) return;  // nothing was read for these skins, so no size can be derived" in page
+    assert "function apply_largest_tile(root, room, parts, tiles)" in page
+    assert "const cell_width = room.width / parts.cols;" in page
+    assert "const cell_height = room.height / parts.rows;" in page
+    assert "const frames = Math.max(1, Math.floor(Math.min(cell_width / frame, cell_height / frame)));" in page
+    assert 'root.style.setProperty("--largest-tile", frames * frame + "px")' in page
     assert ".tile { max-width: var(--largest-tile); max-height: var(--largest-tile); }" in page
 
 
@@ -786,10 +794,13 @@ def test_a_skin_that_was_not_read_cannot_set_a_size_for_the_tile():
 
 
 def test_the_division_is_made_before_the_tiles_are_written():
-    """A tile is placed in the cell that exists at the time it is added, so the division comes first."""
+    """A tile is placed in the cell that exists at the time it is added, and a size can only be derived from a cell that was already divided. The order is read from the render path, so a definition earlier in the file does not stand for a call."""
     page = page_source()
-    assert page.index("apply_largest_tile(root, tiles)") < page.index('el.className = "tile"')
-    assert page.index("divide_the_room(root, tiles.length)") < page.index('el.className = "tile"')
+    body = page.split("function render(tiles)")[1]
+    assert body.index("divide_the_room(root, room, tiles.length)") < body.index(
+        "apply_largest_tile(root, room, parts, tiles)"
+    )
+    assert body.index("apply_largest_tile(root, room, parts, tiles)") < body.index('el.className = "tile"')
 
 
 def test_the_tiles_use_the_height_available_to_the_grid_as_well_as_its_width():
