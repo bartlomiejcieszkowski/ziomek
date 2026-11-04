@@ -89,21 +89,37 @@ def write_available(stream) -> int:
         return 0
 
 
-def pump(stream, timeline: Timeline) -> None:
-    """Hand over what the device takes until nothing is left pending."""
+def measure_space(stream) -> int:
+    """Report the space the stream can hold, or nothing when it has not shown any yet.
+
+    A stream can report no space before it starts, so the space is only known at the point where the
+    first sample is written. Measuring it at open would compare against nothing and let a stop come
+    before the device has taken the samples.
+    """
+    return write_available(stream)
+
+
+def pump(stream, timeline: Timeline) -> int:
+    """Hand over what the device takes until nothing is left pending, and report the space measured at the first write."""
+    space = 0
     while timeline.pending() > 0:
-        take = min(write_available(stream), timeline.pending())
+        available = write_available(stream)
+        if space == 0:
+            space = measure_space(stream)
+        take = min(available, timeline.pending())
         if take <= 0:
             time.sleep(POLL_SECONDS)
             continue
         stream.write(timeline.take(take))
+    return space
 
 
 def wait_for_device(stream, capacity: int) -> None:
-    """Wait until the space the stream reported at the start is free again.
+    """Wait until the space measured at the first write is free again.
 
     Space a stream reports as free again is the space it has already played, so this is what keeps a
-    stop from cutting the end of a sound.
+    stop from cutting the end of a sound. With nothing measured there is nothing to wait for, so a
+    stream that never took a sample is not held here.
     """
     while write_available(stream) < capacity:
         time.sleep(POLL_SECONDS)
@@ -148,11 +164,10 @@ class RawStreamBackend(_RawStreamBackend):
         stream = open_stream(rate)
         if stream is None:
             return
-        capacity = write_available(stream)
         try:
             with self._lock:
-                pump(stream, self._timeline)
-                wait_for_device(stream, capacity)
+                space = pump(stream, self._timeline)
+                wait_for_device(stream, space)
         except Exception as exc:
             logger.error("the output stream could not write the samples: %s", exc)
         finally:
@@ -183,14 +198,17 @@ class _Writer:
         if stream is None:
             self._drained.set()
             return
-        capacity = write_available(stream)
+        space = 0
         try:
             while True:
-                take = min(write_available(stream), self._timeline.pending())
+                available = write_available(stream)
+                if space == 0:
+                    space = measure_space(stream)
+                take = min(available, self._timeline.pending())
                 if take > 0:
                     stream.write(self._timeline.take(take))
                     continue
-                if self._timeline.pending() == 0 and write_available(stream) >= capacity:
+                if self._timeline.pending() == 0 and write_available(stream) >= space:
                     self._drained.set()
                     return
                 time.sleep(POLL_SECONDS)
