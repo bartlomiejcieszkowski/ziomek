@@ -17,6 +17,11 @@
       #layout.hide #panel { flex: 0 0 auto; }
       #transcript { list-style: none; padding: 0; }
       #transcript li, #transcript .box p { white-space: pre-wrap; }
+      /* Wrapping at spaces is not enough: a run with no space in it keeps going past the box,
+         which is what makes the page scroll sideways. The tile text and the lines under it are
+         reached by the same kind of run. */
+      #transcript li, #transcript .box p { overflow-wrap: break-word; }
+      .text, ul.events li { overflow-wrap: break-word; }
       #menu { display: none; }
       #menu.open { display: block; }
       button { background: #2a2a30; color: #ddd; border: 1px solid #4a4a52; border-radius: 6px; padding: 6px 10px; font: inherit; cursor: pointer; }

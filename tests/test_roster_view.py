@@ -466,6 +466,22 @@ def test_the_panel_lines_keep_their_newlines_and_are_not_rebuilt_each_tick():
     assert "rendered" in page  # the page keeps what it has already shown instead of clearing the list
 
 
+def test_a_long_run_of_characters_breaks_inside_the_panel_box_instead_of_running_past_it():
+    client = build_app()
+    page = client.get("/roster").text
+
+    # Wrapping at spaces is not enough: a run with no space in it keeps going past the box.
+    assert "#transcript li, #transcript .box p { overflow-wrap: break-word; }" in page
+
+
+def test_a_long_run_of_characters_breaks_in_the_tile_text_and_event_lines_so_the_page_does_not_scroll_sideways():
+    client = build_app()
+    page = client.get("/roster").text
+
+    # The same run reaches the tile, so the rule covers the text and the lines under it.
+    assert ".text, ul.events li { overflow-wrap: break-word; }" in page
+
+
 def test_the_page_clears_the_panel_when_the_record_is_empty():
     client = build_app()
     page = client.get("/roster").text
