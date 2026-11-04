@@ -10,11 +10,23 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from ziomek.avatar.skins import get_registry
+from ziomek.dev_mode import get_dev_mode
 from ziomek.roster import get_roster
 
 router = APIRouter(tags=["Roster"])
 
 _page_html = Path(__file__).parent.parent / "resources" / "roster.html"
+_debug_page_html = Path(__file__).parent.parent / "resources" / "roster_debug.html"
+
+
+def page_path() -> Path:
+    """The file answered by the roster path.
+
+    A page that states values is only given when something can read them back, so this reads the same flag
+    that decides whether the debug paths are open."""
+    return _debug_page_html if get_dev_mode() else _page_html
+
+
 _resources = Path(__file__).parent.parent / "resources"
 
 
@@ -104,7 +116,7 @@ def panel_default() -> str:
 @router.get("/roster", summary="Roster page", description="Serve the roster page HTML.")
 async def get_roster_page() -> HTMLResponse:
     """Serve the roster page HTML with the configured panel default (one tile per participant)."""
-    html = _page_html.read_text(encoding="utf-8").replace("__TRANSCRIPT_DEFAULT__", panel_default())
+    html = page_path().read_text(encoding="utf-8").replace("__TRANSCRIPT_DEFAULT__", panel_default())
     return HTMLResponse(html)
 
 

@@ -31,7 +31,19 @@ def test_a_part_that_is_not_there_is_kept_as_empty_rather_than_left_out():
     debug_report.store({"room": {"width": 640, "height": 480}})
 
     report = debug_report.last()
-    assert sorted(report) == ["cell", "frames", "path", "room", "tile"]
+    assert sorted(report) == ["blocks", "cell", "frames", "path", "room", "tile"]
+
+
+def test_the_blocks_a_page_stated_are_kept_with_the_report():
+    """A page that drew blocks of different sizes cannot describe them with one value, so what it stated about each block is kept as it was stated."""
+    blocks = [
+        {"row": 0, "col": 0, "rows": 1, "cols": 1, "tile": {"width": 544, "height": 300}},
+        {"row": 0, "col": 1, "rows": 2, "cols": 2, "tile": {"width": 1088, "height": 600}},
+    ]
+    debug_report.store({"path": "measured", "room": {"width": 2176, "height": 1243}, "blocks": blocks})
+
+    report = debug_report.last()
+    assert report["blocks"] == blocks
 
 
 def test_a_page_that_could_not_measure_says_which_path_it_took():

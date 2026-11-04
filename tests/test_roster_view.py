@@ -772,7 +772,7 @@ def test_a_tile_is_scaled_by_the_whole_number_of_frames_that_fits_the_cell():
     assert "function largest_tile(tiles)" in page
     assert "if (!skin || !skin.frameWidth || !skin.frameHeight) continue;" in page
     assert "const side = Math.min(skin.frameWidth, skin.frameHeight);" in page
-    assert "if (!frame) return;  // nothing was read for these skins, so no size can be derived" in page
+    assert "if (!frame) {  // nothing was read for these skins, so no size can be derived" in page
     assert "function apply_largest_tile(root, room, parts, tiles)" in page
     assert "const cell_width = room.width / parts.cols;" in page
     assert "const cell_height = room.height / parts.rows;" in page
@@ -787,10 +787,17 @@ def test_a_tile_that_is_capped_stays_in_the_middle_of_its_cell():
     assert ".tile { justify-self: center; align-self: center; }" in page
 
 
+def test_a_tile_takes_the_size_the_page_measured_rather_than_only_an_upper_limit():
+    """An upper limit is not a size: a box with only a maximum falls back to its content, so a tile that could fill its cell showed as a small box. The tile takes the size the page measured, and the picture still fills it. The padding sits outside that measurement, so the picture area is the whole-frame size and not a larger box."""
+    page = page_source()
+    assert ".tile { width: var(--largest-tile); height: var(--largest-tile); }" in page
+
+
 def test_a_skin_that_was_not_read_cannot_set_a_size_for_the_tile():
     page = page_source()
     assert "if (!skin || !skin.frameWidth || !skin.frameHeight) continue;" in page
-    assert "if (!frame) return;  // nothing was read for these skins, so no size can be derived" in page
+    guard = page.split("function apply_largest_tile(")[1].split("if (!frame) {")[1].split("}")[0]
+    assert "return;" in guard
 
 
 def test_the_division_is_made_before_the_tiles_are_written():
@@ -1115,3 +1122,66 @@ def test_the_stacked_fallback_below_narrow_width_is_left_as_it_was():
     assert "@media (max-width: 900px)" in page
     assert "#layout { display: block; }" in page
     assert "#roster, #panel { flex: none; }" in page
+
+
+def test_the_page_asks_for_the_values_to_be_stated_after_dividing():
+    """The page cannot state values on its own, so it asks for them through the part that a server in dev mode adds."""
+    page = page_source()
+    assert "let state_sizes = null;" in page
+    assert 'state_sizes?.("measured", room, parts, frame, frames);' in page
+
+    body = page.split("function apply_largest_tile(")[1]
+    assert body.index('root.style.setProperty("--largest-tile", frames * frame + "px");') < body.index(
+        'state_sizes?.("measured"'
+    )
+
+
+def test_a_page_that_cannot_measure_reports_that_it_used_the_size_it_was_given():
+    """The stacked layout has no room to measure, which is a result worth stating."""
+    page = page_source()
+    assert 'state_sizes?.("cannot be measured", room, null, null, null);' in page
+
+
+def test_a_page_that_cannot_read_a_frame_size_says_that_nothing_was_read_for_those_skins():
+    """A skin with no header to read gives no size, which is a result worth stating."""
+    page = page_source()
+    guard = page.split("function apply_largest_tile(")[1].split("if (!frame) {")[1].split("}")[0]
+    assert 'state_sizes?.("no frame size was read for these skins", room, parts, null, null);' in guard
+    assert "return;" in guard
+
+
+def test_a_page_that_made_blocks_states_the_size_its_own_tile_can_be_given():
+    """A page that drew blocks of different sizes cannot describe them with one value, so each block is measured from the tracks it spans."""
+    page = page_source()
+    assert "function measure_blocks(frame, room, parts)" in page
+    assert (
+        "{ row: block.row, col: block.col, rows: block.rowSpan, cols: block.colSpan, "
+        "tile: tile_size(frame, block.colSpan * (room.width / parts.cols), block.rowSpan * (room.height / parts.rows)) }"
+        in page
+    )
+    assert "made_blocks = split_the_blocks(room, parts, tiles.length);" in page
+
+
+def test_the_size_of_a_block_is_measured_before_it_is_asked_for():
+    """A state that came before the measurement would state a size the page never used."""
+    page = page_source()
+    body = page.split("function apply_largest_tile(")[1]
+    assert body.index("stated_blocks = measure_blocks(frame, room, parts);") < body.index('state_sizes?.("measured"')
+
+
+def test_a_tile_takes_the_size_the_page_stated_for_its_block():
+    """The same measurement is used for the tile and for what the page states, so a reader is not shown two different numbers."""
+    page = page_source()
+    body = page.split("function render(tiles)")[1]
+    assert "const place = stated_blocks[placed];" in body
+    assert 'el.style.gridColumn = (place.col + 1) + " / span " + place.cols;' in body
+    assert 'el.style.gridRow = (place.row + 1) + " / span " + place.rows;' in body
+    assert 'el.style.width = place.tile.width + "px";' in body
+    assert 'el.style.height = place.tile.height + "px";' in body
+
+
+def test_a_participant_that_has_no_block_is_not_drawn():
+    """The room can only be divided so far. Past that a participant has no block, and nothing is drawn for them rather than a placeholder."""
+    page = page_source()
+    body = page.split("function render(tiles)")[1]
+    assert "if (!place) continue;  // the room cannot be divided further, so this participant has no block" in body

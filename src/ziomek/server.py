@@ -22,6 +22,7 @@ from ziomek.avatar.skins import build_registry
 from ziomek.avatar.state_machine import AvatarInput, AvatarStateMachine
 from ziomek.browser import open_view_page, print_page_urls
 from ziomek.config import Settings
+from ziomek.dev_mode import set_dev_mode
 from ziomek.gamepad import GamepadManager, handle_gamepad_input
 from ziomek.logging import RequestIDMiddleware, get_log_buffer, setup_logging
 from ziomek.roster import build_roster, get_roster, quiet_check
@@ -48,7 +49,6 @@ _state_machine: Optional[AvatarStateMachine] = None
 _stt_engine: Optional[STTEngine] = None
 _gamepad_manager: Optional[GamepadManager] = None
 _gamepad_thread: Optional[threading.Thread] = None
-_dev_mode: bool = False
 
 
 def get_uptime() -> float:
@@ -114,6 +114,9 @@ def create_app(
     if settings is None:
         settings = Settings()
     _settings = settings
+    # One flag decides which parts answer only in dev mode: the debug paths and the page that states
+    # values. It is set here so an app built without dev mode does not answer from a previous one.
+    set_dev_mode(dev_mode)
 
     # Open the served page on startup, but only when the server actually starts
     # and opening is not disabled (no_browser).
@@ -205,7 +208,6 @@ def create_app(
     # Debug endpoints (only in dev mode)
     if dev_mode:
         app.include_router(debug.router)
-        _dev_mode = True
 
         # Debug page HTML
         @app.get("/debug")
