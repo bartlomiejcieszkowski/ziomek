@@ -735,10 +735,67 @@ def test_a_cut_line_keeps_the_full_text_on_hover():
     assert "markTruncated" not in page
 
 
-def test_the_grid_defends_the_shape_of_a_tile_without_reflowing_for_height():
-    """B: fixed minimum width, nothing computed, no rule for height."""
+def test_a_cell_that_cannot_be_measured_keeps_the_size_the_stylesheet_gives_it():
+    """The stacked layout under a narrow window has no room to measure, so the stylesheet default still applies."""
     page = page_source()
     assert "grid-template-columns: repeat(auto-fill, minmax(180px, 1fr))" in page
+    assert "if (room.width <= 0 || room.height <= 0)" in page
+
+
+def test_the_cells_are_divided_from_the_space_available_and_not_from_a_fixed_minimum():
+    """The longer edge is halved first, and a cell is only split when the parts cannot hold everyone."""
+    page = page_source()
+    assert "function divide_room(room, count)" in page
+    assert "while (rows * cols < count)" in page
+    assert "if (cell_width >= cell_height)" in page
+    assert "cols *= 2;" in page
+    assert "rows *= 2;" in page
+
+
+def test_a_cell_is_not_divided_further_when_it_would_be_too_small_to_read():
+    page = page_source()
+    assert "if (Math.min(cell_width, cell_height) / 2 < MIN_CELL) break;" in page
+
+
+def test_the_division_is_written_for_both_edges_of_the_grid():
+    page = page_source()
+    assert 'root.style.gridTemplateColumns = "repeat(" + parts.cols + ", minmax(0, 1fr))";' in page
+    assert 'root.style.gridTemplateRows = "repeat(" + parts.rows + ", minmax(0, 1fr))";' in page
+
+
+def test_a_tile_is_not_drawn_larger_than_a_whole_number_of_the_frames_it_could_show():
+    """Pixels stay even only when a picture is scaled by whole numbers, so the largest tile is a whole number of frames, not a size in pixels."""
+    page = page_source()
+    assert "const LARGEST_FRAMES = 4;" in page
+    assert "function largest_tile(tiles)" in page
+    assert "Math.min(skin.frameWidth, skin.frameHeight)" in page
+    assert 'root.style.setProperty("--largest-tile", LARGEST_FRAMES * frame + "px")' in page
+    assert ".tile { max-width: var(--largest-tile); max-height: var(--largest-tile); }" in page
+
+
+def test_a_skin_that_was_not_read_cannot_set_a_size_for_the_tile():
+    page = page_source()
+    assert "if (!skin || !skin.frameWidth || !skin.frameHeight) continue;" in page
+    assert "if (!frame) return;  // nothing was read for these skins, so no size can be derived" in page
+
+
+def test_the_division_is_made_before_the_tiles_are_written():
+    """A tile is placed in the cell that exists at the time it is added, so the division comes first."""
+    page = page_source()
+    assert page.index("apply_largest_tile(root, tiles)") < page.index('el.className = "tile"')
+    assert page.index("divide_the_room(root, tiles.length)") < page.index('el.className = "tile"')
+
+
+def test_the_tiles_use_the_height_available_to_the_grid_as_well_as_its_width():
+    """Rows can only fill the page when the grid is given the height it is asked for."""
+    page = page_source()
+    assert "#main > #roster { flex: 1 1 auto; min-height: 0; }" in page
+
+
+def test_a_tile_fills_the_cell_it_was_divided_into_instead_of_keeping_a_square_shape():
+    page = page_source()
+    assert ".tile { position: relative; overflow: hidden; }" in page
+    assert "aspect-ratio" not in page
 
 
 def test_the_roster_box_is_bounded_and_scrolls_inside_it():
