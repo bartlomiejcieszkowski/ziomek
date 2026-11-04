@@ -773,6 +773,12 @@ def test_a_tile_is_not_drawn_larger_than_a_whole_number_of_the_frames_it_could_s
     assert ".tile { max-width: var(--largest-tile); max-height: var(--largest-tile); }" in page
 
 
+def test_a_tile_that_is_capped_stays_in_the_middle_of_its_cell():
+    """A capped tile is smaller than the cell it was measured for, so it sits in the middle of the cell instead of at its corner."""
+    page = page_source()
+    assert ".tile { justify-self: center; align-self: center; }" in page
+
+
 def test_a_skin_that_was_not_read_cannot_set_a_size_for_the_tile():
     page = page_source()
     assert "if (!skin || !skin.frameWidth || !skin.frameHeight) continue;" in page
