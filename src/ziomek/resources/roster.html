@@ -31,6 +31,9 @@
       /* A tile fills its cell up to this size. It is set by the page from the frames it can
          show, so a tile is never scaled past the point where pixels stop being even. */
       .tile { max-width: var(--largest-tile); max-height: var(--largest-tile); }
+      /* A capped tile is smaller than the cell it was measured for, so it stays in the middle
+         of that cell rather than at its corner. */
+      .tile { justify-self: center; align-self: center; }
       .avatar { position: absolute; inset: 0; background: #2a2a30; border: 1px dashed #4a4a52; border-radius: 6px; background-repeat: no-repeat; image-rendering: pixelated; }
       /* Both corners sit at the same inset; a positioned row also paints above the avatar block. */
       .top { position: absolute; top: 8px; left: 8px; right: 8px; z-index: 1; display: flex; justify-content: space-between; }
