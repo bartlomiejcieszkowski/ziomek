@@ -171,10 +171,12 @@
       // everyone. A cell is not made smaller than this, so a tile stays readable.
       const MIN_CELL = 80;
 
-      // Pixels stay even only when a picture is scaled by whole numbers, so the largest tile is a
-      // whole number of frames rather than a size in pixels. The smallest frame among the skins
-      // present is used, so every tile on the page is measured the same way.
-      const LARGEST_FRAMES = 4;
+      // Pixels stay even only when a picture is scaled by whole numbers, so the size a tile can be
+      // given is a whole number of frames rather than a size in pixels. The smallest frame among the
+      // skins present is used, so every tile on the page is measured the same way.
+      function measure_room(root) {
+        return { width: root.clientWidth, height: root.clientHeight };
+      }
 
       function largest_tile(tiles) {
         let frame = 0;
@@ -187,10 +189,15 @@
         return frame;
       }
 
-      function apply_largest_tile(root, tiles) {
+      function apply_largest_tile(root, room, parts, tiles) {
         const frame = largest_tile(tiles);
         if (!frame) return;  // nothing was read for these skins, so no size can be derived
-        root.style.setProperty("--largest-tile", LARGEST_FRAMES * frame + "px");
+        const cell_width = room.width / parts.cols;
+        const cell_height = room.height / parts.rows;
+        // A whole number is the only scale that keeps pixels even, so a tile is as large as the
+        // cell allows in whole frames rather than a fixed count.
+        const frames = Math.max(1, Math.floor(Math.min(cell_width / frame, cell_height / frame)));
+        root.style.setProperty("--largest-tile", frames * frame + "px");
       }
 
       function divide_room(room, count) {
@@ -210,16 +217,12 @@
         return { rows: rows, cols: cols };
       }
 
-      function divide_the_room(root, count) {
-        const room = { width: root.clientWidth, height: root.clientHeight };
-        if (room.width <= 0 || room.height <= 0) {
-          // The stacked layout under a narrow window has no room to measure, so a cell keeps
-          // the size the stylesheet gives it.
-          return;
-        }
+      function divide_the_room(root, room, count) {
+        if (room.width <= 0 || room.height <= 0) return null;  // the stacked layout has no room to measure, so nothing here applies
         const parts = divide_room(room, count);
         root.style.gridTemplateColumns = "repeat(" + parts.cols + ", minmax(0, 1fr))";
         root.style.gridTemplateRows = "repeat(" + parts.rows + ", minmax(0, 1fr))";
+        return parts;
       }
 
       function render(tiles) {
@@ -227,8 +230,9 @@
         root.innerHTML = "";
         const count = document.getElementById("count");
         count.textContent = tiles.length + " participants";
-        apply_largest_tile(root, tiles);
-        divide_the_room(root, tiles.length);
+        const room = measure_room(root);
+        const parts = divide_the_room(root, room, tiles.length);
+        if (parts) apply_largest_tile(root, room, parts, tiles);
         for (const tile of tiles) {
           const el = document.createElement("div");
           el.className = "tile";
