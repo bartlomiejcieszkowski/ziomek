@@ -376,6 +376,48 @@ def test_an_action_line_does_not_repeat_the_name_of_the_block_that_holds_it():
     assert format_line({"name": "John", "action": "join"}) == "joined."
 
 
+def test_an_entry_that_carries_the_voice_and_face_produces_their_text():
+    from ziomek.api.roster_view import assignment_text
+
+    assert assignment_text({"voice": "cosette", "skin": "single-frame"}) == "(cosette, single-frame)"
+    assert assignment_text({"action": "join", "voice": "cosette"}) == "(cosette)"
+    assert assignment_text({"action": "join"}) == ""
+
+
+def test_a_block_keeps_the_assignment_apart_from_the_action():
+    from ziomek.api.roster_view import blocks
+
+    block = blocks([{"name": "John", "action": "join", "voice": "cosette", "skin": "single-frame"}])[0]
+    # The action stays the line, so the part naming what was drawn can be shown in its own color.
+    assert block["text"] == "joined."
+    assert block["assignment"] == "(cosette, single-frame)"
+
+
+def test_a_block_for_an_entry_that_drew_nothing_keeps_no_assignment():
+    from ziomek.api.roster_view import blocks
+
+    assert "assignment" not in blocks([{"name": "John", "action": "join"}])[0]
+
+
+def test_the_saved_file_writes_the_assignment_as_text_like_the_author_does():
+    from ziomek.api.roster_view import markdown_text
+
+    block = {"kind": "system", "name": "John", "text": "joined.", "assignment": "(cosette, single-frame)"}
+    assert "> John — joined. (cosette, single-frame)" in markdown_text([block], "2026-10-31T14:20:04Z")
+    without = {"kind": "system", "name": "John", "text": "joined."}
+    assert "> John — joined." in markdown_text([without], "2026-10-31T14:20:04Z")
+
+
+def test_the_page_shows_the_assignment_in_its_own_colour():
+    client = build_app()
+    page = client.get("/roster").text
+
+    # A colour can only be put on something kept apart from the rest of the line.
+    assert ".assignment { color: #c586c0; }" in page
+    assert 'const drawn = el_class("assignment");' in page
+    assert 'drawn.textContent = " " + block.assignment;' in page
+
+
 def test_the_page_names_the_file_with_the_short_extension():
     client = build_app()
     page = client.get("/roster").text

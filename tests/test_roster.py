@@ -67,7 +67,30 @@ def test_the_participant_keeps_its_own_events():
     roster = Roster()
     p = roster.join("John A.")
 
-    assert p.events == [{"name": "John A.", "action": "join"}]
+    assert p.events == [{"name": "John A.", "action": "join", "voice": p.voice, "skin": p.skin}]
+
+
+def test_the_join_entry_carries_the_voice_and_face_it_assigned():
+    # The record shows what was drawn for a name, so both sides can read it.
+    roster = Roster()
+    participant = roster.join("John A.")
+
+    entry = roster.events[0]
+    assert entry["action"] == "join"
+    assert entry["voice"] == participant.voice == "cosette"
+    assert entry["skin"] == participant.skin == "single-frame"
+
+
+def test_an_entry_for_a_join_keeps_nothing_that_was_not_drawn():
+    # Nothing is recorded for a name that could not be drawn from either set.
+    roster = Roster()
+    roster.voices = []
+    roster.skins = []
+    roster.default_skin = ""
+    participant = roster.join("John A.")
+
+    assert participant.voice is None and participant.skin is None
+    assert roster.events[0] == {"name": "John A.", "action": "join"}
 
 
 def test_joining_a_name_that_is_already_in_the_call_is_rejected():

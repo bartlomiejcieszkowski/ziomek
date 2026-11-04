@@ -33,6 +33,7 @@
       .name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }
       .event { color: #e0a568; }
       .group_author { color: #999; }
+      .assignment { color: #c586c0; }
       .system_text, .box p.system_text { color: #7fb069; }
       .tile { padding: 12px; margin: 8px 0; background: #1b1b22; border-radius: 6px; }
       .tile .name { font-weight: bold; margin-bottom: 4px; }
@@ -100,6 +101,12 @@
           const text = document.createElement("span");
           text.textContent = block.text;
           item.append(text);
+          if (block.assignment) {
+            // The voice and the face stand apart from the action, in their own color.
+            const drawn = el_class("assignment");
+            drawn.textContent = " " + block.assignment;
+            item.append(drawn);
+          }
           row.append(item);
           document.getElementById("transcript").append(row);
           return;
