@@ -14,6 +14,8 @@ from .base import IBackend
 logger = logging.getLogger(__name__)
 
 POLL_SECONDS = 0.01  # how often the device is asked whether it has taken the samples
+WRITE_STUCK_SECONDS = 1.0  # how long a stream may show no space to write into before it is reported
+PLAY_STUCK_SECONDS = 5.0  # how long a stream may hold samples it has taken before it is reported
 
 
 def read_samples(data: bytes) -> tuple[np.ndarray, int]:
@@ -99,29 +101,55 @@ def measure_space(stream) -> int:
     return write_available(stream)
 
 
-def pump(stream, timeline: Timeline) -> int:
-    """Hand over what the device takes until nothing is left pending, and report the space measured at the first write."""
+def pump(stream, timeline: Timeline, rate: int) -> int:
+    """Hand over what the device takes until nothing is left pending, and report the space measured at the first write.
+
+    A stream that shows no space for WRITE_STUCK_SECONDS cannot be written to, so it is reported rather
+    than waited on forever: a sound that can never be handed over has no end to wait for. The write side
+    gets the shorter limit because a stream that will not take anything shows that at once, while playing
+    what was taken takes longer and a long wait there is normal.
+    """
     space = 0
+    waited = time.monotonic()
     while timeline.pending() > 0:
         available = write_available(stream)
         if space == 0:
             space = measure_space(stream)
         take = min(available, timeline.pending())
         if take <= 0:
+            if time.monotonic() - waited >= WRITE_STUCK_SECONDS:
+                logger.error(
+                    "the stream for %s showed no space for %s seconds, so nothing was written",
+                    rate,
+                    WRITE_STUCK_SECONDS,
+                )
+                return 0
             time.sleep(POLL_SECONDS)
             continue
         stream.write(timeline.take(take))
+        # Space came back after this write, so the stream is taking samples and is not stuck.
+        waited = time.monotonic()
     return space
 
 
-def wait_for_device(stream, capacity: int) -> None:
+def wait_for_device(stream, capacity: int, rate: int) -> None:
     """Wait until the space measured at the first write is free again.
 
     Space a stream reports as free again is the space it has already played, so this is what keeps a
     stop from cutting the end of a sound. With nothing measured there is nothing to wait for, so a
-    stream that never took a sample is not held here.
+    stream that never took a sample is not held here. A stream that holds samples for PLAY_STUCK_SECONDS
+    is reported, because that end will not come.
     """
+    waited = time.monotonic()
     while write_available(stream) < capacity:
+        if time.monotonic() - waited >= PLAY_STUCK_SECONDS:
+            logger.error(
+                "the stream for %s kept %s samples for more than %s seconds, so its end is not waited for",
+                rate,
+                capacity - write_available(stream),
+                PLAY_STUCK_SECONDS,
+            )
+            return
         time.sleep(POLL_SECONDS)
 
 
@@ -166,8 +194,8 @@ class RawStreamBackend(_RawStreamBackend):
             return
         try:
             with self._lock:
-                space = pump(stream, self._timeline)
-                wait_for_device(stream, space)
+                space = pump(stream, self._timeline, rate)
+                wait_for_device(stream, space, rate)
         except Exception as exc:
             logger.error("the output stream could not write the samples: %s", exc)
         finally:
@@ -199,6 +227,8 @@ class _Writer:
             self._drained.set()
             return
         space = 0
+        waiting_to_write = time.monotonic()
+        waiting_to_play = time.monotonic()
         try:
             while True:
                 available = write_available(stream)
@@ -207,8 +237,26 @@ class _Writer:
                 take = min(available, self._timeline.pending())
                 if take > 0:
                     stream.write(self._timeline.take(take))
+                    waiting_to_write = time.monotonic()
                     continue
                 if self._timeline.pending() == 0 and write_available(stream) >= space:
+                    self._drained.set()
+                    return
+                if self._timeline.pending() > 0 and time.monotonic() - waiting_to_write >= WRITE_STUCK_SECONDS:
+                    logger.error(
+                        "the stream for %s showed no space for %s seconds, so nothing was written",
+                        rate,
+                        WRITE_STUCK_SECONDS,
+                    )
+                    self._drained.set()
+                    return
+                if time.monotonic() - waiting_to_play >= PLAY_STUCK_SECONDS:
+                    logger.error(
+                        "the stream for %s kept %s samples for more than %s seconds, so its end is not waited for",
+                        rate,
+                        space - write_available(stream),
+                        PLAY_STUCK_SECONDS,
+                    )
                     self._drained.set()
                     return
                 time.sleep(POLL_SECONDS)
