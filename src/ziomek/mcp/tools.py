@@ -173,6 +173,16 @@ TOOLS = [
     ),
 ]
 
+# Debug tools answer only while the server runs with --dev, so they are kept apart from the tools a
+# client is always shown.
+DEBUG_TOOLS = [
+    Tool(
+        name="debug_get_render_state",
+        description="The values a page reported for itself, as the last report it sent.",
+        input_schema={"type": "object", "properties": {}},
+    ),
+]
+
 
 async def _handle_write(arguments: dict) -> CallToolResult:
     """Record text for a participant without producing audio."""
@@ -528,7 +538,32 @@ async def _handle_status(arguments: dict | None = None) -> CallToolResult:
     )
 
 
+async def _handle_debug_get_render_state(arguments: dict | None = None) -> CallToolResult:
+    """Answer with the last report a page sent."""
+    from ziomek import debug_report
+    from ziomek.mcp import get_dev_mode
+
+    if not get_dev_mode():
+        return CallToolResult(
+            content=[TextContent(type="text", text="debug tools answer only when the server runs with --dev")],
+            is_error=True,
+        )
+
+    report = debug_report.last()
+    if report is None:
+        return CallToolResult(
+            content=[TextContent(type="text", text="nothing has reported, so there is nothing to answer")],
+            is_error=True,
+        )
+
+    return _text_payload(report)
+
+
 async def _on_list_tools(_ctx: ServerRequestContext, params: Any) -> ListToolsResult:
+    from ziomek.mcp import get_dev_mode
+
+    if get_dev_mode():
+        return ListToolsResult(tools=TOOLS + DEBUG_TOOLS)
     return ListToolsResult(tools=TOOLS)
 
 
@@ -550,6 +585,7 @@ async def _on_call_tool(ctx: ServerRequestContext, params: CallToolRequestParams
         "hold": _handle_hold,
         "leave": _handle_leave,
         "status": _handle_status,
+        "debug_get_render_state": _handle_debug_get_render_state,
     }
 
     handler = handlers.get(name)

@@ -21,6 +21,20 @@ _mcp_server: Server | None = None
 # Config exposure flag (set by server.py before calling start_mcp_server)
 _expose_full_config: bool = False
 
+# Dev mode flag (set by server.py): a debug tool is only reachable when the server runs with --dev.
+_dev_mode: bool = False
+
+
+def set_dev_mode(dev: bool) -> None:
+    """Set whether the server runs in dev mode, which is what makes debug tools answer."""
+    global _dev_mode
+    _dev_mode = dev
+
+
+def get_dev_mode() -> bool:
+    """Get the current dev mode."""
+    return _dev_mode
+
 
 def set_expose_full_config(expose: bool) -> None:
     """Set whether full config should be exposed in resources."""
@@ -33,7 +47,7 @@ def get_expose_full_config() -> bool:
     return _expose_full_config
 
 
-async def start_mcp_server(expose_full_config: bool = False) -> None:
+async def start_mcp_server(expose_full_config: bool = False, dev_mode: bool = False) -> None:
     """Run the MCP server over stdio transport.
 
     This is the main entry point for MCP clients connecting via stdio.
@@ -41,8 +55,9 @@ async def start_mcp_server(expose_full_config: bool = False) -> None:
     """
     global _mcp_server
 
-    # Set the config exposure flag before creating the server
+    # Set the flags before creating the server
     set_expose_full_config(expose_full_config)
+    set_dev_mode(dev_mode)
 
     _mcp_server = Server(
         name="ziomek",

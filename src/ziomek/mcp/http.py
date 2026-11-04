@@ -41,14 +41,15 @@ def get_session_manager() -> StreamableHTTPSessionManager | None:
     return _session_manager
 
 
-def _build_session_manager(expose_full_config: bool = False) -> StreamableHTTPSessionManager:
+def _build_session_manager(expose_full_config: bool = False, dev_mode: bool = False) -> StreamableHTTPSessionManager:
     """Create the MCP server and the session manager that serves it."""
     global _mcp_server, _session_manager
 
-    from ziomek.mcp import set_expose_full_config
+    from ziomek.mcp import set_dev_mode, set_expose_full_config
 
-    # Set the config exposure flag before creating the server
+    # Set the flags before creating the server
     set_expose_full_config(expose_full_config)
+    set_dev_mode(dev_mode)
 
     _mcp_server = Server(
         name="ziomek",
@@ -92,16 +93,16 @@ def _run_session_manager(app: Any, manager: StreamableHTTPSessionManager) -> Non
     app.router.lifespan_context = lifespan
 
 
-def register_mcp_http_routes(app: Any, expose_full_config: bool = False) -> None:
+def register_mcp_http_routes(app: Any, expose_full_config: bool = False, dev_mode: bool = False) -> None:
     """Register MCP HTTP routes on a FastAPI app and run the session manager."""
-    manager = _build_session_manager(expose_full_config)
+    manager = _build_session_manager(expose_full_config, dev_mode)
     app.router.routes.extend(_mcp_routes(manager))
     _run_session_manager(app, manager)
 
 
-def create_http_app(expose_full_config: bool = False) -> Any:
+def create_http_app(expose_full_config: bool = False, dev_mode: bool = False) -> Any:
     """Create a standalone app with MCP HTTP routes."""
-    manager = _build_session_manager(expose_full_config)
+    manager = _build_session_manager(expose_full_config, dev_mode)
     app = Starlette(routes=_mcp_routes(manager))
     _run_session_manager(app, manager)
     return app
@@ -134,14 +135,14 @@ async def mcp_info_page(request: Request) -> HTMLResponse:
     )
 
 
-def start_mcp_http_server(host: str = "localhost", port: int = 5005) -> None:
+def start_mcp_http_server(host: str = "localhost", port: int = 5005, dev_mode: bool = False) -> None:
     """Run the MCP server over HTTP transport.
 
     Uses uvicorn to serve the MCP HTTP routes.
     """
     import uvicorn
 
-    app = create_http_app()
+    app = create_http_app(dev_mode=dev_mode)
     logger.info(f"Starting ziomek MCP server (HTTP transport on {host}:{port})")
     uvicorn.run(app, host=host, port=port)
 

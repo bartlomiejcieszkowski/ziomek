@@ -170,6 +170,24 @@
       // longer edge is halved first, and a cell is only split when the parts cannot hold
       // everyone. A cell is not made smaller than this, so a tile stays readable.
       const MIN_CELL = 80;
+      const REPORT_PATH = "/api/debug/render";
+      let last_report = null;
+
+      // The values only exist in the browser, so the page states them to the debug path. Every part is
+      // stated even when it cannot be known, so a reader does not read a missing part as a bug.
+      function report_sizes(path, room, parts, frame, frames) {
+        const report = {
+          path: path,
+          room: room,
+          cell: parts ? { width: room.width / parts.cols, height: room.height / parts.rows } : null,
+          frames: frames,
+          tile: frame && frames ? frame * frames : null,
+        };
+        const text = JSON.stringify(report);
+        if (text === last_report) return;  // the page reports on every render, so the same values are not sent again
+        last_report = text;
+        fetch(REPORT_PATH, { method: "POST", headers: { "Content-Type": "application/json" }, body: text });
+      }
 
       // Pixels stay even only when a picture is scaled by whole numbers, so the size a tile can be
       // given is a whole number of frames rather than a size in pixels. The smallest frame among the
@@ -191,13 +209,17 @@
 
       function apply_largest_tile(root, room, parts, tiles) {
         const frame = largest_tile(tiles);
-        if (!frame) return;  // nothing was read for these skins, so no size can be derived
+        if (!frame) {  // nothing was read for these skins, so no size can be derived
+          report_sizes("no frame size was read for these skins", room, parts, null, null);
+          return;
+        }
         const cell_width = room.width / parts.cols;
         const cell_height = room.height / parts.rows;
         // A whole number is the only scale that keeps pixels even, so a tile is as large as the
         // cell allows in whole frames rather than a fixed count.
         const frames = Math.max(1, Math.floor(Math.min(cell_width / frame, cell_height / frame)));
         root.style.setProperty("--largest-tile", frames * frame + "px");
+        report_sizes("measured", room, parts, frame, frames);
       }
 
       function divide_room(room, count) {
@@ -232,7 +254,8 @@
         count.textContent = tiles.length + " participants";
         const room = measure_room(root);
         const parts = divide_the_room(root, room, tiles.length);
-        if (parts) apply_largest_tile(root, room, parts, tiles);
+        if (!parts) report_sizes("cannot be measured", room, null, null, null);
+        else apply_largest_tile(root, room, parts, tiles);
         for (const tile of tiles) {
           const el = document.createElement("div");
           el.className = "tile";
