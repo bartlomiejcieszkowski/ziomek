@@ -2,6 +2,34 @@
 
 All notable changes to this project are documented here.
 
+## [0.6.0] - 2026-11-04
+
+### Added
+
+- Drawing follows the definition. The registry builds from the definitions found in `skins_dir`, a cell is cut from its sheet and a frame that names a file is read as its own picture, so nothing is skipped by the registry; each page places what it was given inside the box it draws.
+- `object-fit` for a definition, with the values `fill`, `contain`, `cover`, `none` and `scale-down`, defaulting to `contain` as applied by the reader; a target states its own in the object form. Frames are placed from the centre and scaled with nearest neighbour so pixels do not blur.
+- `/api/avatar/image` answers one image by name with its size, for a frame that names a file.
+- Two audio backends, `raw_stream` and `raw_stream_overlap`, chosen with `audio_backend`. The second sums samples at the position they are heard and scales only a region that would pass full scale. A stream that shows no space for 1 second, or holds samples for more than 5 seconds, is reported once per sound.
+- A voice and a face are drawn in order for a name that is not in a pool entry, skipping what the call holds, and the pair is remembered for that name, so a rejoin gets the same voice and face.
+- The join entry records the voice and the face assigned to a name. The transcript panel shows them in its own color, and the saved file writes the same words as text, since a color cannot show there.
+- `src/ziomek/tts/voices.py` is one source for the voice names, read by the API and by the MCP resource; the status endpoint answered a shorter subset before.
+- An icon served at `/favicon.svg` (`src/ziomek/resources/favicon.svg`) and linked by the three pages.
+
+### Changed
+
+- `/api/avatar/sprite` answers for one skin: the grid, the sizes and the frames each expression shows come from its definition, so nothing is inferred from the ratio between height and width; `src/ziomek/avatar/sprites.py` is gone.
+- A tile carries the frame to draw (its kind, position, placement and size) instead of a row number.
+- A request returns before the device has taken the samples. Single-shot playback waits for the device instead of guessing a duration, overlapping playback is not stopped before the device has taken what it was given, and the wait is for the space measured when the first sample was written.
+- `AudioPlayer.play()` routes to mixing when another sound is on the device and the backend reports mixing; what is on the device is counted under a lock.
+- An action line states only what happened, because the name belongs to the block that holds it.
+- The corner labels of a tile are painted above its avatar and placed at the same inset as the text.
+- The page uses the image address the server answers with instead of building another prefix around it.
+
+### Fixed
+
+- Tools that take no arguments answer a call (`src/ziomek/mcp/tools.py`), since the dispatch path passes arguments to every handler.
+- The config resource no longer reports a level, which settings does not have; its test builds real settings instead of a stand-in that answers any name.
+
 ## [0.5.1] - 2026-11-03
 
 ### Added
