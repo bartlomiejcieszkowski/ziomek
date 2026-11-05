@@ -159,12 +159,14 @@ def test_the_labels_at_the_top_of_a_tile_are_painted_above_its_avatar():
     assert ".top { position: absolute;" in page and "z-index: 1;" in page
 
 
-def test_the_roster_page_shows_the_text_attached_to_each_event():
+def test_the_panel_shows_the_text_attached_to_a_line_of_the_record():
     client = build_app()
     page = client.get("/roster").text
 
-    assert "event.text" in page
-    assert "event.author" in page
+    # The tile shows what the participant is, not the lines; the panel is the record, so the text and its
+    # author belong to a line there.
+    assert "block.text" in page
+    assert "block.author" in page
 
 
 def test_transcript_entries_without_text_have_no_text_key():
@@ -474,12 +476,21 @@ def test_a_long_run_of_characters_breaks_inside_the_panel_box_instead_of_running
     assert "#transcript li, #transcript .box p { overflow-wrap: break-word; }" in page
 
 
-def test_a_long_run_of_characters_breaks_in_the_tile_text_and_event_lines_so_the_page_does_not_scroll_sideways():
+def test_a_tile_does_not_list_events_because_the_panel_already_shows_them():
     client = build_app()
     page = client.get("/roster").text
 
-    # The same run reaches the tile, so the rule covers the text and the lines under it.
-    assert ".text, ul.events li { overflow-wrap: break-word; }" in page
+    # The tile keeps what the participant is; join, hold and text lines belong to the record in the panel,
+    # so the same list is not built twice for the same call.
+    assert 'className = "events"' not in page
+
+
+def test_a_long_run_of_characters_breaks_inside_the_tile_text_so_the_page_does_not_scroll_sideways():
+    client = build_app()
+    page = client.get("/roster").text
+
+    # The same run reaches the text a tile shows, so the rule covers it.
+    assert ".text {" in page and "overflow-wrap: break-word;" in page
 
 
 def test_the_page_clears_the_panel_when_the_record_is_empty():
@@ -728,7 +739,7 @@ def test_a_cut_line_keeps_the_full_text_on_hover():
     """The ellipsis comes from the clamp, so nothing is written by JavaScript; hover still shows the whole text, and the panel has it too."""
     page = page_source()
     assert (
-        ".text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }"
+        ".text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; overflow-wrap: break-word; }"
         in page
     )
     assert "el.title = value" in page
@@ -868,7 +879,7 @@ def test_the_page_has_one_rule_for_the_text_inside_a_tile():
     """One rule, written once: the tile text is the class the page writes."""
     page = page_source()
     assert (
-        ".text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }"
+        ".text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; overflow-wrap: break-word; }"
         in page
     )
     assert page.count(".text {") == 1
@@ -1088,7 +1099,7 @@ def test_the_text_block_can_actually_clamp_three_lines():
     page = page_source()
 
     assert (
-        ".text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }"
+        ".text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; overflow-wrap: break-word; }"
         in page
     )
 
@@ -1098,7 +1109,7 @@ def test_the_clamp_is_the_only_marker_and_the_full_text_stays_on_hover():
     page = page_source()
 
     assert (
-        ".text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }"
+        ".text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; overflow-wrap: break-word; }"
         in page
     )
     assert "markTruncated" not in page
@@ -1126,7 +1137,7 @@ def test_text_in_the_name_and_expression_lines_up_in_the_middle_of_their_boxes()
     assert "text-align" not in page.split(".name {")[1].split("}")[0]
     assert "text-align" not in page.split(".expression {")[1].split("}")[0]
     assert (
-        ".text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }"
+        ".text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; overflow-wrap: break-word; }"
         in page
     )
 
