@@ -36,6 +36,7 @@ class Participant:
         roster: "Roster | None" = None,
         voice: str | None = None,
         skin: str | None = None,
+        persona: str | None = None,
     ) -> None:
         self.name = name
         # The name shown on the page is fixed at join and never taken again.
@@ -43,6 +44,8 @@ class Participant:
         self.voice = voice
         # The skin that draws this participant's face, taken from its pool entry.
         self.skin = skin
+        # Text recorded for the participant. Nothing reads it yet, so it is only held.
+        self.persona = persona
         self.texts: list[TextEntry] = []
         # What happened to this participant during the current call.
         self.events: list[dict] = []
@@ -150,10 +153,12 @@ class Roster:
         # What happened during this call, kept only while it is open.
         self.events: list[dict] = []
 
-    def join(self, name: str | None = None, voice: str | None = None) -> Participant:
+    def join(
+        self, name: str | None = None, voice: str | None = None, skin: str | None = None, persona: str | None = None
+    ) -> Participant:
         if name is not None and any(p.name == name for p in self.participants):
             raise DuplicateNameError(f"duplicate name in the call: {name}")
-        participant = Participant(name=name or "", roster=self, voice=voice)
+        participant = Participant(name=name or "", roster=self, voice=voice, skin=skin, persona=persona)
         if name is None:
             participant.name = self._pick_name()
         participant.display_name = participant.name
@@ -161,7 +166,9 @@ class Roster:
         first = self._key(participant.name)
         if voice is None:
             participant.voice = self._pick_voice(participant.name)
-        participant.skin = self._pick_skin(participant.name)
+        # What was given for a face is taken before anything is drawn for the name.
+        if skin is None:
+            participant.skin = self._pick_skin(participant.name)
         self.assigned[first] = (participant.voice, participant.skin)
         # Usage is tracked on the entry a name belongs to.
         participant.usage = self._count(first)

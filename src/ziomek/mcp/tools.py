@@ -17,6 +17,7 @@ from mcp.types import (
     Tool,
 )
 
+from ziomek.avatar.skins import get_registry
 from ziomek.roster import DuplicateNameError, Roster, get_roster
 
 from .listening import ListeningSession
@@ -31,6 +32,25 @@ _listening_session: ListeningSession | None = None
 
 def _text_payload(data: dict) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text=json.dumps(data))])
+
+
+def _error(text: str) -> CallToolResult:
+    return CallToolResult(content=[TextContent(type="text", text=json.dumps({"error": text}))], is_error=True)
+
+
+def _participant_view(participant) -> dict:
+    """The fields a participant is read by.
+
+    Both tools answer through this, so a single participant cannot be stated differently from
+    the list it belongs to.
+    """
+    return {
+        "name": participant.name,
+        "state": participant.state,
+        "voice": participant.voice,
+        "skin": participant.skin,
+        "persona": participant.persona,
+    }
 
 
 def _get_listening_session() -> ListeningSession:
@@ -151,6 +171,12 @@ TOOLS = [
             "properties": {
                 "name": {"type": "string", "description": "Name for this participant."},
                 "voice": {"type": "string", "description": "Voice to use for this participant."},
+                # Nothing reads a persona yet, so this does not say what it does with it.
+                "persona": {"type": "string", "description": "Text recorded for this participant."},
+                "skin": {
+                    "type": "string",
+                    "description": "Skin to draw this participant with. A name the server did not build is refused.",
+                },
                 "call_id": {"type": "string", "description": "Reserved, not used yet."},
             },
             "required": [],
@@ -169,6 +195,27 @@ TOOLS = [
     Tool(
         name="status",
         description="Get server status including TTS readiness, STT state, uptime, and audio backend. Returns comprehensive server health information.",
+        input_schema={"type": "object", "properties": {}},
+    ),
+    Tool(
+        name="read_participants",
+        description="Read the participants taking part in the current call, in the order they joined.",
+        input_schema={"type": "object", "properties": {}},
+    ),
+    Tool(
+        name="read_participant",
+        description="Read one participant by name, answered with the same fields as the list.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Participant to read."},
+            },
+            "required": ["name"],
+        },
+    ),
+    Tool(
+        name="read_available_skins",
+        description="Read the skin names the server built, from the package resources before the skins directory.",
         input_schema={"type": "object", "properties": {}},
     ),
 ]
@@ -435,8 +482,15 @@ async def _handle_join(arguments: dict) -> CallToolResult:
     from ziomek.api import avatar_ws
 
     roster = get_roster()
+    skin = arguments.get("skin")
+    # A face that was not built cannot be drawn, so it is refused here instead of showing as an
+    # empty box on the page.
+    if skin is not None:
+        registry = get_registry()
+        if registry is None or registry.get(skin) is None:
+            return _error(f"Unknown skin: {skin}")
     try:
-        participant = roster.join(arguments.get("name"), arguments.get("voice"))
+        participant = roster.join(arguments.get("name"), arguments.get("voice"), skin, arguments.get("persona"))
     except DuplicateNameError as exc:
         return CallToolResult(
             content=[TextContent(type="text", text=json.dumps({"error": str(exc)}))],
@@ -445,14 +499,7 @@ async def _handle_join(arguments: dict) -> CallToolResult:
     # The single view shows one participant, so the first one to join is shown.
     if avatar_ws._shown is None:
         avatar_ws.show(participant)
-    return _text_payload(
-        {
-            "name": participant.name,
-            "voice": participant.voice,
-            "call_id": arguments.get("call_id"),
-            "state": participant.state,
-        }
-    )
+    return _text_payload({**_participant_view(participant), "call_id": arguments.get("call_id")})
 
 
 async def _handle_hold(arguments: dict) -> CallToolResult:
@@ -481,6 +528,26 @@ async def _handle_leave(arguments: dict) -> CallToolResult:
         )
     participant.leave()
     return _text_payload({"name": participant.name, "state": participant.state})
+
+
+async def _handle_read_participants(arguments: dict) -> CallToolResult:
+    """A call with no one in it is a normal answer here, not an error."""
+    roster = get_roster()
+    return _text_payload([_participant_view(participant) for participant in roster.participants])
+
+
+async def _handle_read_participant(arguments: dict) -> CallToolResult:
+    participant = _find_participant(get_roster(), arguments.get("name"))
+    if participant is None:
+        return _error(f"Unknown participant: {arguments.get('name')}")
+    return _text_payload(_participant_view(participant))
+
+
+async def _handle_read_available_skins(arguments: dict) -> CallToolResult:
+    registry = get_registry()
+    if registry is None:
+        return _error("no skin registry was built")
+    return _text_payload({"skins": registry.list()})
 
 
 def _resolve_machine(name: str | None):
@@ -585,6 +652,9 @@ async def _on_call_tool(ctx: ServerRequestContext, params: CallToolRequestParams
         "hold": _handle_hold,
         "leave": _handle_leave,
         "status": _handle_status,
+        "read_participants": _handle_read_participants,
+        "read_participant": _handle_read_participant,
+        "read_available_skins": _handle_read_available_skins,
         "debug_get_render_state": _handle_debug_get_render_state,
     }
 

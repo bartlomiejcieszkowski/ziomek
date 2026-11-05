@@ -14,9 +14,12 @@ import pytest
 from mcp.server import Server
 from mcp.types import CallToolRequestParams, TextContent
 
+from tests.avatar.morda_helpers import make_bundle, make_folder, sheet_definition
 from ziomek import debug_report
+from ziomek.avatar.skins import SkinRegistry
 from ziomek.mcp import set_dev_mode
 from ziomek.mcp import tools as mcp_tools_module
+from ziomek.roster import Roster
 
 
 @pytest.fixture(autouse=True)
@@ -45,7 +48,7 @@ class TestMcpListTools:
     """Test the list_tools MCP endpoint."""
 
     def test_tools_list_has_all_tools(self):
-        """TOOLS list has all 13 tools, named say, play and write instead of speak."""
+        """TOOLS list answers the tools for reading what a call holds, not only for acting in it."""
         tool_names = [t.name for t in mcp_tools_module.TOOLS]
         assert "say" in tool_names
         assert "play" in tool_names
@@ -61,7 +64,10 @@ class TestMcpListTools:
         assert "hold" in tool_names
         assert "leave" in tool_names
         assert "status" in tool_names
-        assert len(tool_names) == 13
+        assert "read_participants" in tool_names
+        assert "read_participant" in tool_names
+        assert "read_available_skins" in tool_names
+        assert len(tool_names) == 16
 
     def test_tools_have_correct_schema(self):
         """Each tool has name, description, and inputSchema."""
@@ -227,3 +233,147 @@ class TestMcpPlayDoesNotTouchTheRoster:
             assert result.is_error is True
             data = json.loads(result.content[0].text)
             assert "error" in data
+
+
+def _answer(tool: str, arguments: dict, roster=None, registry=None):
+    """Answer a tool as the server would, with the call and the registry set for one test."""
+    with (
+        patch.object(mcp_tools_module, "get_roster", return_value=roster),
+        patch.object(mcp_tools_module, "get_registry", return_value=registry),
+    ):
+        return asyncio.run(mcp_tools_module._on_call_tool(None, CallToolRequestParams(name=tool, arguments=arguments)))
+
+
+def _text(result) -> str:
+    return result.content[0].text
+
+
+class TestReadingParticipants:
+    """A client that joined cannot see the call, so reading it answers who is in it.
+
+    A tool for the list and a tool for one name are separate because an empty call is a normal
+    answer for the list while a name that is not in it is an error for a single read.
+    """
+
+    @pytest.fixture(autouse=True)
+    def no_view_shows_one(self):
+        """The view that shows one participant is module state, so a test must not inherit it."""
+        from ziomek.api import avatar_ws
+
+        avatar_ws._shown = None
+        yield
+        avatar_ws._shown = None
+
+    def call(self, tool: str, arguments: dict, roster: Roster):
+        return _answer(tool, arguments, roster=roster)
+
+    def test_the_list_states_what_each_participant_is(self):
+        roster = Roster()
+        self.call("join", {"name": "first", "voice": "cosette"}, roster)
+        self.call("join", {"name": "second", "voice": "alba"}, roster)
+
+        result = self.call("read_participants", {}, roster)
+        assert result.is_error is False
+        assert json.loads(result.content[0].text) == [
+            {
+                "name": "first",
+                "state": "active",
+                "voice": "cosette",
+                "skin": roster.participants[0].skin,
+                "persona": None,
+            },
+            {
+                "name": "second",
+                "state": "active",
+                "voice": "alba",
+                "skin": roster.participants[1].skin,
+                "persona": None,
+            },
+        ]
+
+    def test_a_call_with_no_one_in_it_answers_an_empty_list(self):
+        result = self.call("read_participants", {}, Roster())
+        assert result.is_error is False
+        assert json.loads(result.content[0].text) == []
+
+    def test_read_participant_answers_the_same_fields_as_the_list(self):
+        roster = Roster()
+        self.call("join", {"name": "first", "voice": "cosette", "persona": "calm"}, roster)
+
+        single = json.loads(self.call("read_participant", {"name": "first"}, roster).content[0].text)
+        listed = json.loads(self.call("read_participants", {}, roster).content[0].text)
+        assert single == listed[0]
+        assert single["persona"] == "calm"
+
+    def test_a_name_that_is_not_in_the_call_answers_that_error(self):
+        result = self.call("read_participant", {"name": "not-in-the-call"}, Roster())
+        assert result.is_error is True
+        assert "Unknown participant" in result.content[0].text
+
+    def test_join_states_the_face_it_drew(self):
+        roster = Roster()
+        result = self.call("join", {"name": "first", "voice": "cosette"}, roster)
+        assert json.loads(result.content[0].text)["skin"] == roster.participants[0].skin
+
+    def test_join_records_the_persona_it_was_given(self):
+        roster = Roster()
+        result = self.call("join", {"name": "first", "voice": "cosette", "persona": "calm"}, roster)
+        assert json.loads(result.content[0].text)["persona"] == "calm"
+        assert roster.participants[0].persona == "calm"
+
+    def test_a_participant_that_was_given_no_persona_answers_none(self):
+        result = self.call("join", {"name": "first", "voice": "cosette"}, Roster())
+        assert json.loads(result.content[0].text)["persona"] is None
+
+    def test_the_persona_argument_is_described_as_recorded(self):
+        """Nothing reads a persona yet, so the tool must not say that it steers anything."""
+        description = next(t for t in mcp_tools_module.TOOLS if t.name == "join").input_schema["properties"]["persona"][
+            "description"
+        ]
+        assert "recorded" in description
+        assert "behav" not in description
+
+
+class TestJoiningWithAFace:
+    """A name is refused when no such face was built, because a face that cannot be drawn
+    would show as an empty box instead of being stated at the moment of joining.
+    """
+
+    def test_an_unknown_face_is_refused_and_no_one_is_joined(self, tmp_path):
+        roster = Roster(skins=["cosette"])
+        registry = SkinRegistry(skins_dir=tmp_path / "nothing", default_dir=tmp_path / "nothing")
+        with (
+            patch.object(mcp_tools_module, "get_roster", return_value=roster),
+            patch.object(mcp_tools_module, "get_registry", return_value=registry),
+        ):
+            result = _answer("join", {"name": "first", "skin": "not-a-skin"}, roster, registry)
+        assert result.is_error is True
+        assert "Unknown skin" in _text(result)
+        assert roster.participants == []
+
+    def test_a_face_given_at_join_is_the_one_that_participant_keeps(self, tmp_path):
+        registry = SkinRegistry(
+            skins_dir=make_folder(tmp_path / "cosette", sheet_definition()), default_dir=tmp_path / "empty"
+        )
+        roster = Roster()
+        first = json.loads(_text(_answer("join", {"name": "first", "skin": "cosette"}, roster, registry)))
+        second = json.loads(_text(_answer("join", {"name": "second"}, roster, registry)))
+        assert first["skin"] == "cosette"
+        assert second["skin"] == "single-frame"
+
+    def test_the_list_of_faces_answers_what_the_registry_built(self, tmp_path):
+        bundle = make_bundle(
+            tmp_path / "bundle",
+            {
+                "morda.json": sheet_definition(),
+                "blue.morda.json": sheet_definition(name="blue", expressions={"neutral": "rest"}),
+            },
+        )
+        registry = SkinRegistry(skins_dir=bundle, default_dir=tmp_path / "empty")
+        result = _answer("read_available_skins", {}, None, registry)
+        assert json.loads(_text(result))["skins"] == ["cosette", "blue"]
+
+    def test_nothing_is_answered_before_a_registry_was_built(self):
+        result = _answer("read_available_skins", {}, None, None)
+        assert result.is_error is True
+        assert "no skin registry was built" in _text(result)
