@@ -41,25 +41,30 @@
       .tile { justify-self: center; align-self: center; }
       .avatar { position: absolute; inset: 0; background: #2a2a30; border: 1px dashed #4a4a52; border-radius: 6px; background-repeat: no-repeat; image-rendering: pixelated; }
       /* Both corners sit at the same inset; a positioned row also paints above the avatar block. */
-      /* Flex items stretch by default, so the smaller pill sits at the top of the row instead of
-         in its middle. Centering the cross axis keeps both pills level with each other. */
-      .top { position: absolute; top: 8px; left: 8px; right: 8px; z-index: 1; display: flex; justify-content: space-between; align-items: center; }
+      /* A box sized to its content has nothing to center against, so centering belongs to the row.
+         Flex items stretch by default, so the smaller pill sits at the top of the row instead of
+         in its middle; centering the cross axis keeps both pills level with each other. */
+      .top { position: absolute; top: 8px; left: 8px; right: 8px; z-index: 1; display: flex; justify-content: space-between; align-items: center; text-align: center; }
       .bottom { position: absolute; left: 8px; right: 8px; bottom: 8px; }
       @media (max-width: 900px) {
         #layout { display: block; }
         #roster, #panel { flex: none; }
       }
       .box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; border-radius: 6px; padding: 12px; }
-      .name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; text-align: center; }
+      .name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }
       .event { color: #e0a568; }
       .group_author { color: #999; }
       .assignment { color: #c586c0; }
       .system_text, .box p.system_text { color: #7fb069; }
       .tile { padding: 12px; margin: 8px 0; background: #1b1b22; border-radius: 6px; }
       .tile .name { font-weight: bold; margin-bottom: 4px; }
+      /* Only a row that spans the tile can hold text in its middle, so the marker for a participant
+         who is on hold gets one. Nothing is built for the others, so the row is not in the page for them. */
+      .middle { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; text-align: center; }
+      .middle .on_hold { background: rgba(12,12,18,0.7); border-radius: 6px; padding: 3px 6px; }
       .system_text, .on_hold { white-space: pre-wrap; font-size: 13px; }
       .text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }
-      .expression { color: #d2a9ff; font-family: monospace; font-size: 11px; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; text-align: center; }
+      .expression { color: #d2a9ff; font-family: monospace; font-size: 11px; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }
       ul.events { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: #999; }
     </style>
   </head>
@@ -360,8 +365,12 @@
           const bottom = el_class("bottom");
           if (textOn()) renderText(bottom, "text", tile.status_text);
           renderText(bottom, "system_text", tile.system_text);
+          if (tile.state === "held") {
+            const middle = el_class("middle");
+            renderText(middle, "on_hold", "on hold\n" + held(tile));
+            el.appendChild(middle);
+          }
           el.appendChild(bottom);
-          renderText(el, "on_hold", tile.state === "held" ? "On hold " + held(tile) : "");
           const list = document.createElement("ul");
           list.className = "events";
           for (const event of tile.events || []) {

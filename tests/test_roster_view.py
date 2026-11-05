@@ -640,10 +640,7 @@ def test_the_page_has_the_colors_and_the_box_shape():
         ".box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; border-radius: 6px; padding: 12px; }"
         in page
     )
-    assert (
-        ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; text-align: center; }"
-        in page
-    )
+    assert ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }" in page
     assert ".event { color: #e0a568; }" in page
     assert ".system_text { color: #7fb069; }" in page
     assert 'el_class("name")' in page
@@ -763,7 +760,7 @@ def test_a_cell_is_not_divided_further_when_it_would_be_too_small_to_read():
     assert "if (Math.min(cell_width, cell_height) / 2 < MIN_CELL) break;" in page
 
 
-def test_a_track_is_measured_from_the_space_left_after_padding_and_gaps():
+def test_a_track_is_not_larger_than_the_space_left_after_padding_and_gaps():
     """A gap belongs to no block and padding is outside the area the grid is given, so dividing the whole measured box hands a track more than it gets. The numbers are read from the page, since CSS is what sets them, so nothing here restates them."""
     page = page_source()
     assert "const styles = getComputedStyle(root);" in page
@@ -948,8 +945,7 @@ def test_the_page_writes_a_system_line_with_the_name_and_the_green_color():
     page = page_source()
     assert (
         'el_class("name")' in page
-        and ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; text-align: center; }"
-        in page
+        and ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }" in page
     )
     assert 'item.className = block.author === "system" ? "system_text" : "event";' in page
 
@@ -1006,6 +1002,21 @@ def test_the_page_builds_the_name_on_the_left_and_the_expression_on_the_right():
     assert 'el_class("top")' in page and 'el_class("bottom")' in page
 
 
+def test_nothing_is_written_for_a_participant_who_is_not_on_hold():
+    # The row that carries the marker is built inside the check for that state, so a page for
+    # participants who are not on hold carries no element for them, not an empty one.
+    page = page_source()
+    assert 'if (tile.state === "held") {\n            const middle = el_class("middle");' in page
+    assert "renderText(middle," in page
+    assert 'renderText(el, "on_hold"' not in page
+
+
+def test_the_time_a_participant_has_been_on_hold_is_stated_on_its_own_line():
+    """The state and how long it has lasted are two things a reader takes in separately, so they are not written as one sentence."""
+    page = page_source()
+    assert 'renderText(middle, "on_hold", "on hold\\n" + held(tile));' in page
+
+
 def test_the_text_stays_at_the_bottom_of_the_block():
     page = page_source()
     assert ".bottom { position: absolute; left: 8px; right: 8px; bottom: 8px; }" in page
@@ -1022,13 +1033,10 @@ def test_the_expression_uses_a_monotype_font_and_is_smaller_than_name():
     # It is set in a monotype font and kept smaller than the name.
     page = page_source()
     assert (
-        ".expression { color: #d2a9ff; font-family: monospace; font-size: 11px; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; text-align: center; }"
+        ".expression { color: #d2a9ff; font-family: monospace; font-size: 11px; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }"
         in page
     )
-    assert (
-        ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; text-align: center; }"
-        in page
-    )
+    assert ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }" in page
 
 
 def test_the_page_places_a_frame_inside_the_box_of_the_tile_it_draws():
@@ -1101,14 +1109,22 @@ def test_the_three_layers_are_the_three_separate_panels():
     # Group 2 from the mock: each layer keeps its own panel, so the name, the expression and the text each get their own rounded background.
     page = page_source()
 
+    assert ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }" in page
     assert (
-        ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; text-align: center; }"
+        ".expression { color: #d2a9ff; font-family: monospace; font-size: 11px; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }"
         in page
     )
+
+
+def test_text_in_the_name_and_expression_lines_up_in_the_middle_of_their_boxes():
+    """A box exactly as wide as its text has nothing to center against, so centering is written once on the row that holds the boxes rather than on each box."""
+    page = page_source()
     assert (
-        ".expression { color: #d2a9ff; font-family: monospace; font-size: 11px; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; text-align: center; }"
+        ".top { position: absolute; top: 8px; left: 8px; right: 8px; z-index: 1; display: flex; justify-content: space-between; align-items: center; text-align: center; }"
         in page
     )
+    assert "text-align" not in page.split(".name {")[1].split("}")[0]
+    assert "text-align" not in page.split(".expression {")[1].split("}")[0]
     assert (
         ".text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }"
         in page
