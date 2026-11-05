@@ -4,7 +4,7 @@ import io
 import json
 import tarfile
 
-from tests.avatar.morda_helpers import make_folder, png, sheet_definition
+from tests.avatar.morda_helpers import make_bundle, make_folder, png, sheet_definition
 from ziomek.avatar.discovery import find_definitions
 
 
@@ -83,3 +83,39 @@ def test_an_archive_in_the_directory_is_read_without_extracting(tmp_path):
 
     found = find_definitions(tmp_path / "skins", default_dir=tmp_path / "nothing")
     assert [definition.name for definition in found] == ["cosette"]
+
+
+def test_a_bundle_that_holds_only_names_for_avatars_counts_as_a_skin(tmp_path):
+    bundle = make_bundle(tmp_path / "single-frame", {"blue.morda.json": sheet_definition(name="single-frame-blue")})
+
+    assert [definition.name for definition in find_definitions(tmp_path, default_dir=tmp_path / "nothing")] == [
+        "single-frame-blue"
+    ]
+
+
+def test_an_archive_that_holds_no_definition_is_not_a_skin(tmp_path):
+    skins = tmp_path / "skins"
+    skins.mkdir()
+    archive = skins / "pictures.morda"
+    with tarfile.open(archive, "w") as out:
+        data = png(100, 100)
+        info = tarfile.TarInfo("cry.png")
+        info.size = len(data)
+        out.addfile(info, io.BytesIO(data))
+
+    assert find_definitions(skins, default_dir=tmp_path / "nothing") == []
+
+
+def test_the_order_inside_a_bundle_decides_who_keeps_a_name(tmp_path, caplog):
+    bundle = make_bundle(
+        tmp_path / "single-frame",
+        {
+            "aaa.morda.json": sheet_definition(name="cosette"),
+            "morda.json": sheet_definition(name="cosette"),
+        },
+    )
+
+    found = find_definitions(tmp_path, default_dir=tmp_path / "nothing")
+    assert [definition.name for definition in found] == ["cosette", "cosette_2"]
+    messages = [record.message for record in caplog.records if record.levelname == "ERROR"]
+    assert any("the name cosette is claimed by" in message for message in messages)

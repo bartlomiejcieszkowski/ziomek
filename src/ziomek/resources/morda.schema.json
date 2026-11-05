@@ -241,12 +241,12 @@
       },
       "then": {
         "properties": {
-          "frames": {
+          "expressions": {
             "required": ["neutral"]
           }
         }
       },
-      "description": "A definition that declares no fallback has to declare an entry for neutral, so there is always something it can show for a name it does not cover."
+      "description": "A definition that declares no fallback has to declare an expression named neutral, so there is always something it can show for a name it does not cover."
     },
     {
       "if": {
