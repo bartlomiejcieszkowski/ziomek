@@ -91,9 +91,19 @@ def test_each_block_is_stated_with_the_size_its_own_tile_was_given():
     assert "blocks: describe_blocks()," in part
     assert (
         "{ row: block.row, col: block.col, rows: block.rowSpan, cols: block.colSpan, "
-        "tile: tile_size(frame, block.colSpan * (room.width / parts.cols), block.rowSpan * (room.height / parts.rows)) }"
+        "tile: tile_size(frame, block.colSpan * (available.width / parts.cols), block.rowSpan * (available.height / parts.rows)) }"
         in page_source()
     )
+
+
+def test_the_report_states_what_was_taken_from_the_room():
+    """A reader cannot reproduce a number that was divided from a box it cannot see, so the part states the measured box and what the page takes for itself."""
+    part = debug_page_source().partition("/* the debug part */")[2]
+    assert "measured: room.measured," in part
+    assert "taken: taken," in part
+    assert "const taken = room.taken ? { padding: room.taken.padding" in part
+    # A gap between tracks is what is taken, so a single row or column takes nothing.
+    assert "room.taken.gap.x * (parts.cols - 1)" in part and "room.taken.gap.y * (parts.rows - 1)" in part
 
 
 def test_a_page_that_drew_the_whole_grid_as_one_block_states_no_blocks():
