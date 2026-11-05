@@ -41,14 +41,16 @@
       .tile { justify-self: center; align-self: center; }
       .avatar { position: absolute; inset: 0; background: #2a2a30; border: 1px dashed #4a4a52; border-radius: 6px; background-repeat: no-repeat; image-rendering: pixelated; }
       /* Both corners sit at the same inset; a positioned row also paints above the avatar block. */
-      .top { position: absolute; top: 8px; left: 8px; right: 8px; z-index: 1; display: flex; justify-content: space-between; }
+      /* Flex items stretch by default, so the smaller pill sits at the top of the row instead of
+         in its middle. Centering the cross axis keeps both pills level with each other. */
+      .top { position: absolute; top: 8px; left: 8px; right: 8px; z-index: 1; display: flex; justify-content: space-between; align-items: center; }
       .bottom { position: absolute; left: 8px; right: 8px; bottom: 8px; }
       @media (max-width: 900px) {
         #layout { display: block; }
         #roster, #panel { flex: none; }
       }
       .box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; border-radius: 6px; padding: 12px; }
-      .name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }
+      .name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; text-align: center; }
       .event { color: #e0a568; }
       .group_author { color: #999; }
       .assignment { color: #c586c0; }
@@ -57,7 +59,7 @@
       .tile .name { font-weight: bold; margin-bottom: 4px; }
       .system_text, .on_hold { white-space: pre-wrap; font-size: 13px; }
       .text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }
-      .expression { color: #d2a9ff; font-family: monospace; font-size: 11px; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }
+      .expression { color: #d2a9ff; font-family: monospace; font-size: 11px; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; text-align: center; }
       ul.events { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: #999; }
     </style>
   </head>
