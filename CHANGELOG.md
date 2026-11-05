@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## [0.7.1] - 2026-11-05
+
+### Added
+
+- The avatars defined by their own files are part of the repository, so a package built from a clean checkout ships them: `blue.morda.json`, `green.morda.json`, `orange.morda.json`, `purple.morda.json`, `red.morda.json` and `teal.morda.json` in `src/ziomek/resources/single-frame/`. Before this only `morda.json` and `sheet.png` were tracked there, so a wheel built elsewhere carried the original skin and not the bundle.
+
 ## [0.7.0] - 2026-11-05
 
 ### Added
