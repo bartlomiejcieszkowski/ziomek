@@ -1,0 +1,18 @@
+{
+  "name": "single-frame-red",
+  "type": "sheet",
+  "sheet": { "file": "sheet.png" },
+  "frame": { "width": 100, "height": 100 },
+  "grid": { "rows": 6, "columns": 1 },
+  "frames": {
+    "red": { "cell": { "row": 0, "column": 0 } },
+    "blue": { "cell": { "row": 1, "column": 0 } },
+    "green": { "cell": { "row": 2, "column": 0 } },
+    "purple": { "cell": { "row": 3, "column": 0 } },
+    "orange": { "cell": { "row": 4, "column": 0 } },
+    "teal": { "cell": { "row": 5, "column": 0 } }
+  },
+  "expressions": {
+    "neutral": "red"
+  }
+}
