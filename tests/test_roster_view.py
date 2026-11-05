@@ -640,7 +640,10 @@ def test_the_page_has_the_colors_and_the_box_shape():
         ".box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; border-radius: 6px; padding: 12px; }"
         in page
     )
-    assert ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }" in page
+    assert (
+        ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; text-align: center; }"
+        in page
+    )
     assert ".event { color: #e0a568; }" in page
     assert ".system_text { color: #7fb069; }" in page
     assert 'el_class("name")' in page
@@ -928,7 +931,8 @@ def test_the_page_writes_a_system_line_with_the_name_and_the_green_color():
     page = page_source()
     assert (
         'el_class("name")' in page
-        and ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }" in page
+        and ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; text-align: center; }"
+        in page
     )
     assert 'item.className = block.author === "system" ? "system_text" : "event";' in page
 
@@ -1001,10 +1005,13 @@ def test_the_expression_uses_a_monotype_font_and_is_smaller_than_name():
     # It is set in a monotype font and kept smaller than the name.
     page = page_source()
     assert (
-        ".expression { color: #d2a9ff; font-family: monospace; font-size: 11px; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }"
+        ".expression { color: #d2a9ff; font-family: monospace; font-size: 11px; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; text-align: center; }"
         in page
     )
-    assert ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }" in page
+    assert (
+        ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; text-align: center; }"
+        in page
+    )
 
 
 def test_the_page_places_a_frame_inside_the_box_of_the_tile_it_draws():
@@ -1077,9 +1084,12 @@ def test_the_three_layers_are_the_three_separate_panels():
     # Group 2 from the mock: each layer keeps its own panel, so the name, the expression and the text each get their own rounded background.
     page = page_source()
 
-    assert ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }" in page
     assert (
-        ".expression { color: #d2a9ff; font-family: monospace; font-size: 11px; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }"
+        ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; text-align: center; }"
+        in page
+    )
+    assert (
+        ".expression { color: #d2a9ff; font-family: monospace; font-size: 11px; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; text-align: center; }"
         in page
     )
     assert (
