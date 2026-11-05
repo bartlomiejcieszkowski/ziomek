@@ -640,6 +640,93 @@
 
       
 
+      // What the operator asked to see here: the room is divided in whole frame counts instead of equal
+      // tracks, so a block is exactly a number of frames and the picture drawn in it fills the block.
+      // Space that no frame fits into stays outside the grid rather than as bars inside a tile. This part
+      // only runs with --dev, so the shared page is unchanged.
+      function whole_frame_grid(room, frame) {
+        // A gap sits between two tracks, so a track costs the frame plus the gap that follows it.
+        const tracks = function (space, gap) { return Math.floor((space + gap) / (frame + gap)); };
+        return { rows: tracks(room.height, room.taken.gap.y), cols: tracks(room.width, room.taken.gap.x) };
+      }
+
+      // The same rule as the page: split the biggest block, along its longer edge, in whole tracks. Half
+      // of an odd span is not a block, so a block that cannot be split stays as it is.
+      function blocks_in_frames(grid, count) {
+        const blocks = [{ row: 0, col: 0, rowSpan: grid.rows, colSpan: grid.cols }];
+        while (blocks.length < count) {
+          let biggest = null;
+          for (const block of blocks.slice().sort(function (a, b) { return a.row - b.row || a.col - b.col; })) {
+            if (block.rowSpan < 2 && block.colSpan < 2) continue;
+            if (!biggest || block.rowSpan * block.colSpan > biggest.rowSpan * biggest.colSpan) biggest = block;
+          }
+          if (!biggest) break;
+          if (biggest.rowSpan >= biggest.colSpan) {
+            const half = Math.floor(biggest.rowSpan / 2);
+            blocks.push({ row: biggest.row + half, col: biggest.col, rowSpan: biggest.rowSpan - half, colSpan: biggest.colSpan });
+            biggest.rowSpan = half;
+          } else {
+            const half = Math.floor(biggest.colSpan / 2);
+            blocks.push({ row: biggest.row, col: biggest.col + half, rowSpan: biggest.rowSpan, colSpan: biggest.colSpan - half });
+            biggest.colSpan = half;
+          }
+        }
+        return blocks.sort(function (a, b) { return a.row - b.row || a.col - b.col; });
+      }
+
+      apply_largest_tile = function (root, room, parts, tiles) {
+        const frame = largest_tile(tiles);
+        if (!frame) return;  // nothing was read for these skins, so no size can be derived
+        const grid = whole_frame_grid(room, frame);
+        if (!grid.rows || !grid.cols) return;  // no frame fits, so there is nothing to place
+        root.style.gridTemplateColumns = "repeat(" + grid.cols + ", " + frame + "px)";
+        root.style.gridTemplateRows = "repeat(" + grid.rows + ", " + frame + "px)";
+        stated_blocks = blocks_in_frames(grid, tiles.length).map(function (block) {
+          return { row: block.row, col: block.col, rows: block.rowSpan, cols: block.colSpan, tile: { width: block.colSpan * frame, height: block.rowSpan * frame } };
+        });
+        state_sizes?.("measured", room, grid, frame, 1);
+      };
+
+      // One scale for both axes, and only the cell is drawn, so a block bigger than the cell stays its own
+      // background on both axes. A definition that states no fit already answers one scale for both axes; what
+      // made the page uneven was that the shared page paints the whole sheet, so space the cell does not cover
+      // is filled by its neighbours instead of staying dark. The other consistent choice scales each axis by
+      // its own whole count, which fills a block but changes the shape when the two counts differ; that is
+      // what a definition asking for fill does, and it is not used here.
+      const show_cell = function (block, skin, frame, scaleWidth, scaleHeight, boxWidth, boxHeight) {
+        // Only the cell is drawn here, so the rest of the block stays as its own background.
+        block.style.inset = "auto";
+        block.style.left = (boxWidth - frame.width * scaleWidth) / 2 + "px";
+        block.style.top = (boxHeight - frame.height * scaleHeight) / 2 + "px";
+        block.style.width = frame.width * scaleWidth + "px";
+        block.style.height = frame.height * scaleHeight + "px";
+        const sheet = frame.kind === "cell" ? skin : null;
+        block.style.backgroundSize =
+          (sheet ? sheet.width * scaleWidth : frame.width * scaleWidth) + "px " + (sheet ? sheet.height * scaleHeight : frame.height * scaleHeight) + "px";
+        block.style.backgroundPosition =
+          (frame.column ? -frame.column * frame.width * scaleWidth : 0) + "px " + (frame.row ? -frame.row * frame.height * scaleHeight : 0) + "px";
+      };
+
+      draw_avatar = function (tile, block) {
+        const avatar = tile.avatar;
+        if (!avatar) return;
+        const skin = skins[avatar.skin];
+        if (!skin) return;
+        const frame = avatar.frame;
+        const image = image_for(avatar.skin, frame, () => draw_avatar(tile, block));
+        if (!image) return;
+        const boxWidth = block.getBoundingClientRect().width;
+        const boxHeight = block.getBoundingClientRect().height;
+        if (!boxWidth || !boxHeight || !frame.width || !frame.height) return;
+        // A whole number on each axis is what keeps pixels even; a block that is not a whole number of
+        // frames per axis cannot be filled without changing the shape, so it keeps one scale for both axes
+        // and shows the cell at its middle.
+        const scale = Math.min(Math.floor(boxWidth / frame.width), Math.floor(boxHeight / frame.height));
+        if (scale < 1) return;
+        block.style.backgroundImage = "url(" + image + ")";
+        show_cell(block, skin, frame, scale, scale, boxWidth, boxHeight);
+      };
+
       setShown(panelOpen());
       refresh();
       setInterval(refresh, 1000);
