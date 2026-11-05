@@ -2,25 +2,27 @@
 
 from pathlib import Path
 
-from ziomek.avatar.morda import Cell, read_definition
+from ziomek.avatar.morda import Cell
 from ziomek.avatar.skins import Skin, SkinRegistry, build_registry, get_registry
 from ziomek.config import Settings
 
-from .morda_helpers import make_folder, sheet_definition
+from .morda_helpers import first_answer, make_folder, sheet_definition
 
 
 def test_a_skin_draws_the_cells_its_definition_declares(tmp_path):
-    definition = read_definition(make_folder(tmp_path / "cosette", sheet_definition()))
+    definition = first_answer(make_folder(tmp_path / "cosette", sheet_definition()))
     skin = Skin(definition=definition)
     assert skin.cell_for("happy") == Cell(row=0, column=0)  # happy names the frame called rest
-    assert skin.expression_names() == ["sad", "happy"]  # the order the definition declares them in
+    assert skin.expression_names() == ["neutral", "sad", "happy"]  # the order the definition declares them in
 
 
 def test_a_frame_that_names_a_file_is_drawn_as_its_own_picture(tmp_path):
-    definition = read_definition(
+    definition = first_answer(
         make_folder(
             tmp_path / "cosette",
-            sheet_definition(expressions={"sad": {"frame_order": ["cry"], "interval_ms": 400}, "happy": "rest"}),
+            sheet_definition(
+                expressions={"neutral": "cry", "sad": {"frame_order": ["cry"], "interval_ms": 400}, "happy": "rest"}
+            ),
         )
     )
     skin = Skin(definition=definition)
@@ -28,13 +30,13 @@ def test_a_frame_that_names_a_file_is_drawn_as_its_own_picture(tmp_path):
     frame = skin.frame_descriptor(skin.entry_for("sad"))
     assert frame["kind"] == "file" and frame["file"] == "parts/cry.png"
     assert (frame["width"], frame["height"]) == (100, 100)
-    # An expression the definition does not cover still reaches the frame it falls back to.
-    assert skin.entry_for("not-a-name").name == "neutral"
+    # An expression the definition does not cover reaches the first entry of its neutral expression.
+    assert skin.entry_for("not-a-name").file == "parts/cry.png"
     assert skin.frame_count("sad") == 1
 
 
 def test_the_order_and_the_timing_are_read_as_they_are_declared(tmp_path):
-    definition = read_definition(
+    definition = first_answer(
         make_folder(
             tmp_path / "cosette",
             sheet_definition(
@@ -43,7 +45,10 @@ def test_the_order_and_the_timing_are_read_as_they_are_declared(tmp_path):
                     "rest": {"cell": {"row": 0, "column": 0}},
                     "neutral": {"cell": {"row": 1, "column": 0}},
                 },
-                expressions={"sad": {"frame_order": ["cry", "rest"], "interval_ms": 400, "loop": False}},
+                expressions={
+                    "neutral": "rest",
+                    "sad": {"frame_order": ["cry", "rest"], "interval_ms": 400, "loop": False},
+                },
             ),
         )
     )
@@ -66,7 +71,7 @@ def test_a_skin_that_names_only_files_is_registered_and_drawn_as_its_own_picture
     # A valid definition names at least one frame, so there is nothing here for the registry to skip.
     definition = sheet_definition(
         frames={"cry": {"file": "parts/cry.png"}, "neutral": {"file": "parts/neutral.png"}},
-        expressions={"sad": "cry"},
+        expressions={"neutral": "cry", "sad": "cry"},
     )
     make_folder(
         tmp_path / "cosette",
@@ -89,7 +94,7 @@ def test_the_registry_is_built_once_when_the_app_is_created():
 def test_the_setting_written_for_the_definition_is_used_for_every_frame(tmp_path):
     definition = dict(sheet_definition())
     definition["object-fit"] = "cover"
-    skin = Skin(definition=read_definition(make_folder(tmp_path / "cosette", definition)))
+    skin = Skin(definition=first_answer(make_folder(tmp_path / "cosette", definition)))
     assert skin.fit_for(skin.definition.targets["rest"]) == "cover"
 
 
@@ -101,7 +106,7 @@ def test_a_frame_that_states_its_own_setting_is_not_read_with_the_default(tmp_pa
         "cry": {"file": "parts/cry.png"},
         "neutral": {"cell": {"row": 1, "column": 0}},
     }
-    skin = Skin(definition=read_definition(make_folder(tmp_path / "cosette", definition)))
+    skin = Skin(definition=first_answer(make_folder(tmp_path / "cosette", definition)))
     assert skin.fit_for(skin.definition.targets["rest"]) == "fill"  # what it stated for itself
     assert skin.fit_for(skin.definition.targets["cry"]) == "cover"  # nothing stated, so the definition answers
     assert skin.frame_descriptor(skin.definition.targets["rest"])["fit"] == "fill"

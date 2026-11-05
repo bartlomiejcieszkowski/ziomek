@@ -1,4 +1,4 @@
-"""Read a skin definition from a skin folder or a .morda archive."""
+"""Read the skin definitions a skin folder or a .morda archive holds."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from ziomek.avatar.png import read_png_dimensions
 
 SCHEMA_PATH = Path(__file__).parent.parent / "resources" / "morda.schema.json"
 DEFINITION_FILE = "morda.json"
+DEFINITION_SUFFIX = ".morda.json"
 FILE_MARKER = "file:"
 
 FIT_FIELD = "object-fit"
@@ -85,38 +86,58 @@ class Definition:
     source: Path | None = None
 
 
-def read_definition(source: Path) -> Definition:
-    """Read a definition from a skin folder or an archive, then report what is wrong.
+def definition_names(names: object) -> list[str]:
+    """The names inside a source that are definitions, in the order a source answers them.
+
+    The definition at the top is answered first, then the names given for an avatar. A name
+    that reaches outside the top of the source is not a definition, since what sits inside is
+    a name and not a directory.
+    """
+    listed = [str(name) for name in names]
+    top = [name for name in listed if name == DEFINITION_FILE]
+    avatars = sorted(name for name in listed if name.endswith(DEFINITION_SUFFIX) and "/" not in name)
+    return top + avatars
+
+
+def read_definitions(source: Path) -> list[Definition | DefinitionError]:
+    """Read every definition a source holds, one answer for each.
 
     Both forms are read as the same thing: names to files. Nothing is extracted, since a
     reference is read by name. Symlinks are not followed, and an entry name must stay
-    inside the folder or the archive.
+    inside the folder or the archive. A definition that does not read is answered as its own
+    problem, since one unreadable definition does not stop the others in the same source. An
+    answer names the definition it came from, so definitions in one bundle can be told apart.
     """
-    errors: list[str] = []
-    entries = read_entries(source, errors)
-    if errors:
-        raise DefinitionError(errors)
+    problems: list[str] = []
+    entries = read_entries(source, problems)
+    if problems:
+        return [DefinitionError(problems)]
 
-    text = entries.get(DEFINITION_FILE)
-    if text is None:
-        raise DefinitionError([f"no {DEFINITION_FILE} in {source}"])
+    names = definition_names(entries)
+    if not names:
+        return [DefinitionError([f"no definition file in {source}"])]
+
+    return [_read(source, name, entries) for name in names]
+
+
+def _read(source: Path, definition_name: str, entries: dict[str, bytes]) -> Definition | DefinitionError:
+    errors: list[str] = []
 
     try:
-        raw = json.loads(text.decode("utf-8"))
+        raw = json.loads(entries[definition_name].decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise DefinitionError([f"{DEFINITION_FILE} is not readable: {exc}"]) from exc
+        return DefinitionError([f"{definition_name} is not readable: {exc}"])
 
-    for error in _schema_errors(raw):
-        errors.append(error)
+    errors.extend(_schema_errors(raw, definition_name))
 
-    names = sorted(_file_names(raw))
-    for name in names:
-        if not _entry_name_is_allowed(name):
-            errors.append(f"{name} is not an entry name, it is a path that reaches outside")
+    files = sorted(_file_names(raw))
+    for file_name in files:
+        if not _entry_name_is_allowed(file_name):
+            errors.append(f"{definition_name}: {file_name} is not an entry name, it is a path that reaches outside")
 
-    for name in names:
-        if name not in entries:
-            errors.append(f"{name} is referenced but not present")
+    for file_name in files:
+        if file_name not in entries:
+            errors.append(f"{definition_name}: {file_name} is referenced but not present")
 
     frame = raw.get("frame")
     grid = raw.get("grid")
@@ -127,10 +148,10 @@ def read_definition(source: Path) -> Definition:
         if buffer is not None:
             dimensions = read_png_dimensions(buffer)
             if dimensions is None:
-                errors.append(f"{sheet_name} does not report its size")
+                errors.append(f"{definition_name}: {sheet_name} does not report its size")
             elif dimensions != (frame["width"] * grid["columns"], frame["height"] * grid["rows"]):
                 errors.append(
-                    f"{sheet_name} reports {dimensions[0]}x{dimensions[1]}, which is not "
+                    f"{definition_name}: {sheet_name} reports {dimensions[0]}x{dimensions[1]}, which is not "
                     f"{frame['width']}x{frame['height']} for {grid['rows']} rows and {grid['columns']} columns"
                 )
 
@@ -138,14 +159,14 @@ def read_definition(source: Path) -> Definition:
         items = [value] if isinstance(value, str) else value.get("frame_order", [])
         for item in items:
             if isinstance(item, str) and not item.startswith(FILE_MARKER) and item not in raw.get("frames", {}):
-                errors.append(f"{item} is referenced but not declared")
+                errors.append(f"{definition_name}: {item} is referenced but not declared")
 
     fallback = raw.get("fallback")
     if isinstance(fallback, str) and not fallback.startswith(FILE_MARKER) and fallback not in raw.get("frames", {}):
-        errors.append(f"{fallback} is referenced but not declared")
+        errors.append(f"{definition_name}: {fallback} is referenced but not declared")
 
     if errors:
-        raise DefinitionError(errors)
+        return DefinitionError(errors)
 
     return Definition(
         name=raw["name"],
@@ -188,12 +209,16 @@ def read_entries(source: Path, errors: list[str] | None = None) -> dict[str, byt
     return {}
 
 
-def _schema_errors(raw: object) -> list[str]:
+def _schema_errors(raw: object, definition_name: str) -> list[str]:
     validator = jsonschema.Draft202012Validator(_load_schema())
-    return [
-        f"{_json_path(error.path) or DEFINITION_FILE}: {error.message}"
-        for error in sorted(validator.iter_errors(raw), key=lambda e: list(e.path))
-    ]
+    found = []
+    for error in sorted(validator.iter_errors(raw), key=lambda e: list(e.path)):
+        path = _json_path(error.path)
+        if path:
+            found.append(f"{definition_name}: {path}: {error.message}")
+        else:
+            found.append(f"{definition_name}: {error.message}")
+    return found
 
 
 def _load_schema() -> dict:
@@ -276,12 +301,16 @@ def _order(value: object) -> FrameOrder:
 def fallback_target(definition: Definition) -> Target | None:
     """What a definition shows for a name it does not cover.
 
-    The declared fallback first, then the entry for neutral. A definition with neither is
-    reported as an error, so there is no other name to reach.
+    The declared fallback first, then the first entry of the expression named neutral. A
+    definition with neither is reported as an error, so there is no other name to reach.
     """
     if definition.fallback is not None:
         return definition.targets.get(definition.fallback.name)
-    return definition.targets.get("neutral")
+
+    order = definition.expressions.get("neutral")
+    if order is None or not order.entries:
+        return None
+    return resolve_reference(definition, order.entries[0])
 
 
 def resolve_reference(definition: Definition, reference: Reference) -> Target | None:
