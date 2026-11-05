@@ -1,6 +1,5 @@
 {
   "$schema": "https://json-schema.org/draft/2020-20/schema",
-  "$id": "https://ziomek.dev/schemas/morda.json",
   "title": "Avatar definition",
   "description": "The definition file inside a .morda archive. Targets are written once, under a name, in frames. An expression references those names, so nothing is drawn from a target written inside an expression. A string is read as a name, unless it starts with a marker prefix such as file:, which says what kind of value it is. Names cannot contain a colon, so a marker can never be mistaken for a name. A string with a colon is read as a marker, and a prefix the format does not know is reported as an error. Every file referenced must be present under the name it gives, and a reference to a name the definition does not declare is reported as an error. An expression that shows one frame is written as the name alone; that is the short form of a frame_order with one entry.",
   "type": "object",
