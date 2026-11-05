@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented here.
 
+## [0.7.0] - 2026-11-05
+
+### Added
+
+- Cells are sized from the room as measured rather than from a fixed minimum. The grid is divided by splitting the biggest block along its longer edge until there are as many blocks as there are names to draw, so the number of cells matches the number of participants instead of overshooting to the next whole grid. Grid tracks stay whole numbers of pixels and a block spans a whole number of tracks, which is how a split becomes a span, and blocks of the same size are taken in position order. A tile is capped at the largest size a whole number of frames fits into, because pixels stay even only under whole-number scaling, and the smallest frame among the skins present is used so every tile on the page is measured the same way. A capped tile stays in the middle of its cell, and a tile keeps its own size when no frame size was read for its skin.
+- A page can state what it measured. It asks through a function it does not define, and `src/ziomek/resources/roster_debug.html`, served instead of `roster.html` only when the server runs with `--dev`, is the part that carries the values to `POST /api/debug/render`. The report states the room, the base cell, the frame size and the whole frames it fitted, and each block with the place it took in the grid and the size its own tile was given; a page that drew one block states no blocks, since that block is the whole grid the cell part already describes. A report that changed nothing is not sent again.
+- `debug_get_render_state`, the first tool carrying a `debug_` prefix, answers the last report kept in memory. It is not listed outside dev mode, since a tool that cannot answer should not appear in a client's list, and a call made anyway is refused. Nothing is persisted.
+- `src/ziomek/dev_mode.py` keeps the mode as one value, read both by the paths that answer only in dev mode and by the choice of which page is served, so a page that states values is only given where something can read them back.
+- A bundle can hold several definitions, each named for one avatar as `<name>.morda.json`, and all of them are read from one folder or one `.morda` archive. They are answered in the order they are read: the file at the top first, then the names for avatars in name order, which is what decides who keeps a name they both claim. A definition that does not read is answered as its error without stopping the other definitions in the same bundle, and each error names the definition it came from. `scripts/morda.py` still writes one definition per archive, so a bundle holding several is outside its scope.
+- The panel follows to the end only when the viewer was already there, since the position is read before a line is added. A position within four pixels of the bottom counts as being at the end.
+
+### Changed
+
+- The requirement that a definition has something to show for a name it does not cover points at an expression named `neutral` instead of a frame called `neutral`, because expressions reference a frame by name and a frame is not required to carry that name. A definition that states no fallback has to state that expression, and the fallback resolves through the first entry the expression states.
+
+### Fixed
+
+- A long run of characters with no space in it breaks inside the boxes instead of pushing past them, which is what made the page scroll sideways.
+- `src/ziomek/resources/morda.schema.json` no longer carries an identifier pointing at a domain we do not hold. The schema is read as data and nothing reads that identifier, so this changes no behavior.
+
 ## [0.6.0] - 2026-11-04
 
 ### Added
