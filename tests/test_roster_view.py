@@ -763,6 +763,21 @@ def test_a_cell_is_not_divided_further_when_it_would_be_too_small_to_read():
     assert "if (Math.min(cell_width, cell_height) / 2 < MIN_CELL) break;" in page
 
 
+def test_a_track_is_measured_from_the_space_left_after_padding_and_gaps():
+    """A gap belongs to no block and padding is outside the area the grid is given, so dividing the whole measured box hands a track more than it gets. The numbers are read from the page, since CSS is what sets them, so nothing here restates them."""
+    page = page_source()
+    assert "const styles = getComputedStyle(root);" in page
+    assert "read_number(styles.columnGap)" in page
+    assert "read_number(styles.rowGap)" in page
+    assert "function available_room(room, parts)" in page
+    assert "room.width - room.taken.gap.x * (parts.cols - 1)" in page
+    assert "room.height - room.taken.gap.y * (parts.rows - 1)" in page
+    # A single row or a single column has no gap between tracks, so nothing is taken for it.
+    assert "(parts.cols - 1)" in page and "(parts.rows - 1)" in page
+    arithmetic = page.split("function available_room")[1].split("}")[0]
+    assert "8px" not in arithmetic
+
+
 def test_the_division_is_written_for_both_edges_of_the_grid():
     page = page_source()
     assert 'root.style.gridTemplateColumns = "repeat(" + parts.cols + ", minmax(0, 1fr))";' in page
@@ -777,8 +792,10 @@ def test_a_tile_is_scaled_by_the_whole_number_of_frames_that_fits_the_cell():
     assert "const side = Math.min(skin.frameWidth, skin.frameHeight);" in page
     assert "if (!frame) {  // nothing was read for these skins, so no size can be derived" in page
     assert "function apply_largest_tile(root, room, parts, tiles)" in page
-    assert "const cell_width = room.width / parts.cols;" in page
-    assert "const cell_height = room.height / parts.rows;" in page
+    assert "function available_room(room, parts)" in page
+    assert "const available = available_room(room, parts);" in page
+    assert "const cell_width = available.width / parts.cols;" in page
+    assert "const cell_height = available.height / parts.rows;" in page
     assert "const frames = Math.max(1, Math.floor(Math.min(cell_width / frame, cell_height / frame)));" in page
     assert 'root.style.setProperty("--largest-tile", frames * frame + "px")' in page
     assert ".tile { max-width: var(--largest-tile); max-height: var(--largest-tile); }" in page
@@ -1166,7 +1183,7 @@ def test_a_page_that_made_blocks_states_the_size_its_own_tile_can_be_given():
     assert "function measure_blocks(frame, room, parts)" in page
     assert (
         "{ row: block.row, col: block.col, rows: block.rowSpan, cols: block.colSpan, "
-        "tile: tile_size(frame, block.colSpan * (room.width / parts.cols), block.rowSpan * (room.height / parts.rows)) }"
+        "tile: tile_size(frame, block.colSpan * (available.width / parts.cols), block.rowSpan * (available.height / parts.rows)) }"
         in page
     )
     assert "made_blocks = split_the_blocks(room, parts, tiles.length);" in page

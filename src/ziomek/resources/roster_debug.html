@@ -190,17 +190,38 @@
       // two different numbers.
       function measure_blocks(frame, room, parts) {
         return made_blocks.map(function (block) {
-          return { row: block.row, col: block.col, rows: block.rowSpan, cols: block.colSpan, tile: tile_size(frame, block.colSpan * (room.width / parts.cols), block.rowSpan * (room.height / parts.rows)) };
+          const available = available_room(room, parts);
+          return { row: block.row, col: block.col, rows: block.rowSpan, cols: block.colSpan, tile: tile_size(frame, block.colSpan * (available.width / parts.cols), block.rowSpan * (available.height / parts.rows)) };
         });
+      }
+
+      // A gap belongs to no block and padding is outside the area the grid is given, so a track can only be
+      // measured from the space left after both. These numbers are read from the page rather than written
+      // here, since CSS is what sets them, and they are kept so the values a page states can be reproduced.
+      function measure_room(root) {
+        const styles = getComputedStyle(root);
+        const read_number = function (value) { return parseFloat(value) || 0; };
+        const taken = {
+          padding: { x: read_number(styles.paddingLeft) + read_number(styles.paddingRight), y: read_number(styles.paddingTop) + read_number(styles.paddingBottom) },
+          gap: { x: read_number(styles.columnGap), y: read_number(styles.rowGap) },
+        };
+        return {
+          measured: { width: root.clientWidth, height: root.clientHeight },
+          taken: taken,
+          width: root.clientWidth - taken.padding.x,
+          height: root.clientHeight - taken.padding.y,
+        };
+      }
+
+      // A track gets its share of the area left after the gaps between the tracks, so a single row or a
+      // single column takes nothing: a gap only exists between two tracks.
+      function available_room(room, parts) {
+        return { width: room.width - room.taken.gap.x * (parts.cols - 1), height: room.height - room.taken.gap.y * (parts.rows - 1) };
       }
 
       // Pixels stay even only when a picture is scaled by whole numbers, so the size a tile can be
       // given is a whole number of frames rather than a size in pixels. The smallest frame among the
       // skins present is used, so every tile on the page is measured the same way.
-      function measure_room(root) {
-        return { width: root.clientWidth, height: root.clientHeight };
-      }
-
       function largest_tile(tiles) {
         let frame = 0;
         for (const tile of tiles) {
@@ -219,8 +240,9 @@
           state_sizes?.("no frame size was read for these skins", room, parts, null, null);
           return;
         }
-        const cell_width = room.width / parts.cols;
-        const cell_height = room.height / parts.rows;
+        const available = available_room(room, parts);
+        const cell_width = available.width / parts.cols;
+        const cell_height = available.height / parts.rows;
         // A whole number is the only scale that keeps pixels even, so a tile is as large as the
         // cell allows in whole frames rather than a fixed count.
         const frames = Math.max(1, Math.floor(Math.min(cell_width / frame, cell_height / frame)));
@@ -246,8 +268,9 @@
       }
 
       function split_the_blocks(room, parts, count) {
-        const track_width = room.width / parts.cols;
-        const track_height = room.height / parts.rows;
+        const available = available_room(room, parts);
+        const track_width = available.width / parts.cols;
+        const track_height = available.height / parts.rows;
         const blocks = [{ row: 0, col: 0, rowSpan: parts.rows, colSpan: parts.cols }];
         while (blocks.length < count) {
           const biggest = pick_the_biggest(blocks, track_width, track_height);
@@ -280,8 +303,9 @@
         let rows = 1;
         let cols = 1;
         while (rows * cols < count) {
-          const cell_width = room.width / cols;
-          const cell_height = room.height / rows;
+          const available = available_room(room, { rows: rows, cols: cols });
+          const cell_width = available.width / cols;
+          const cell_height = available.height / rows;
           if (Math.min(cell_width, cell_height) / 2 < MIN_CELL) break;
           // Halve the longer edge, since that is the one with room left to split.
           if (cell_width >= cell_height) {
@@ -598,10 +622,13 @@
       // This is the part that carries what a page measured to the debug path, and it is read only in dev mode,
       // where the path that answers is open. A page without it asks for values and nothing states them.
       state_sizes = function (path, room, parts, frame, frames) {
+        const taken = room.taken ? { padding: room.taken.padding, gap: parts ? { x: room.taken.gap.x * (parts.cols - 1), y: room.taken.gap.y * (parts.rows - 1) } : null } : null;
         const report = {
           path: path,
+          measured: room.measured,
+          taken: taken,
           room: room,
-          cell: parts ? { width: room.width / parts.cols, height: room.height / parts.rows } : null,
+          cell: parts ? { width: (room.width - room.taken.gap.x * (parts.cols - 1)) / parts.cols, height: (room.height - room.taken.gap.y * (parts.rows - 1)) / parts.rows } : null,
           frames: frames,
           tile: frame && frames ? frame * frames : null,
           blocks: describe_blocks(),
