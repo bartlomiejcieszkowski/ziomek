@@ -143,6 +143,53 @@ def test_the_roster_page_answers_with_the_debug_page_in_dev_mode(client_with_dev
     assert 'fetch(REPORT_PATH, { method: "POST"' in resp.text
 
 
+def test_the_room_is_divided_in_whole_frame_counts_not_equal_tracks():
+    """A block of whole frames is a whole number of frames, so the grid is built from counts, not from
+    dividing the room into equal shares that then get rounded."""
+    part = debug_page_source().split("/* the debug part */")[1]
+    assert "function whole_frame_grid(room, frame)" in part
+    # A gap sits between two tracks, so a track costs the frame plus the gap that follows it.
+    assert "Math.floor((space + gap) / (frame + gap))" in part
+    assert 'root.style.gridTemplateColumns = "repeat(" + grid.cols + ", " + frame + "px)";' in part
+    assert 'root.style.gridTemplateRows = "repeat(" + grid.rows + ", " + frame + "px)";' in part
+
+
+def test_a_block_is_a_whole_number_of_tracks_on_each_axis():
+    """Half of an odd span is not a whole number of frames, so a block that cannot be split in whole tracks
+    stays as it is instead of being cut."""
+    part = debug_page_source().split("/* the debug part */")[1]
+    assert "function blocks_in_frames(grid, count)" in part
+    assert "if (block.rowSpan < 2 && block.colSpan < 2) continue;" in part
+    assert "if (!biggest) break;" in part
+
+
+def test_the_scale_is_one_whole_number_for_both_axes_so_the_shape_does_not_change():
+    """A scale that is a whole number on both axes keeps pixels even. A block bigger than one frame cannot
+    be filled without changing the shape, so one scale is taken for both axes."""
+    part = debug_page_source().split("/* the debug part */")[1]
+    assert "const scale = Math.min(Math.floor(boxWidth / frame.width), Math.floor(boxHeight / frame.height));" in part
+    assert "show_cell(block, skin, frame, scale, scale, boxWidth, boxHeight);" in part
+
+
+def test_only_the_cells_own_picture_is_drawn_so_the_rest_of_the_block_stays_its_own_background():
+    """The whole sheet is not painted here: drawing only the cell keeps the space it does not cover as the
+    blocks own background, so a block that is wider or higher than the cell shows the same on both axes."""
+    part = debug_page_source().split("/* the debug part */")[1]
+    assert "const show_cell = function (block, skin, frame, scaleWidth, scaleHeight, boxWidth, boxHeight) {" in part
+    assert 'block.style.width = frame.width * scaleWidth + "px";' in part
+    assert 'block.style.height = frame.height * scaleHeight + "px";' in part
+    # The cell is placed at the middle of the block, not at its edge.
+    assert 'block.style.left = (boxWidth - frame.width * scaleWidth) / 2 + "px";' in part
+    assert 'block.style.top = (boxHeight - frame.height * scaleHeight) / 2 + "px";' in part
+
+
+def test_the_blocks_this_page_draws_are_reported_as_whole_numbers_of_frames():
+    """The values stated are the blocks this page draws, so what is reported is whole counts of frames."""
+    part = debug_page_source().split("/* the debug part */")[1]
+    assert "stated_blocks = blocks_in_frames(grid, tiles.length).map(function (block) {" in part
+    assert "tile: { width: block.colSpan * frame, height: block.rowSpan * frame }" in part
+
+
 def test_a_page_that_states_values_has_no_reader_when_the_server_runs_without_dev_mode(client_without_dev):
     """A page that posts to a path the server did not open would state values nothing can read, so both answer from one flag."""
     assert client_without_dev.post("/api/debug/render", json={"path": "measured"}).status_code == 404
