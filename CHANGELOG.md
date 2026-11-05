@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## [0.7.2] - 2026-11-05
+
+### Fixed
+
+- A closing brace that ended the loop drawing tiles early is gone from `src/ziomek/resources/roster.html` and from `src/ziomek/resources/roster_debug.html`; it came from separating the page from the part that states values. The rest of the loop body fell outside the loop, so the parser stopped at the brace that closes the function and the page script ran nothing at all: no participant count, no tiles, and no handler on the buttons.
+
 ## [0.7.1] - 2026-11-05
 
 ### Added

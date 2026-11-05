@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "ziomek",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Ziomek voice assistant — TTS, STT with keyword gating, gamepad support, dashboard overlay, and MCP server",
   "author": {
     "name": "Bartlomiej Cieszkowski",
