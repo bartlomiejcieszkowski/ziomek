@@ -18,11 +18,6 @@ def both_pages():
     return debug_page_source() + page_source()
 
 
-def both_pages():
-    """The definitions are in the shared part, so a test that checks them reads both pages."""
-    return debug_page_source() + page_source()
-
-
 def debug_page_source():
     """The page served in dev mode, as stored."""
     return (Path(__file__).parent.parent / "src" / "ziomek" / "resources" / "roster_debug.html").read_text(
