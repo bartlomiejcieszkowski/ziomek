@@ -67,7 +67,7 @@ class TestMcpListTools:
         assert "read_participants" in tool_names
         assert "read_participant" in tool_names
         assert "read_available_skins" in tool_names
-        assert len(tool_names) == 16
+        assert len(tool_names) == 17
 
     def test_tools_have_correct_schema(self):
         """Each tool has name, description, and inputSchema."""
@@ -309,6 +309,20 @@ class TestReadingParticipants:
         result = self.call("read_participant", {"name": "not-in-the-call"}, Roster())
         assert result.is_error is True
         assert "Unknown participant" in result.content[0].text
+
+    def test_a_held_participant_can_be_put_back_counting_again(self):
+        roster = Roster()
+        self.call("join", {"name": "first", "voice": "cosette"}, roster)
+        self.call("hold", {"name": "first"}, roster)
+
+        result = self.call("resume", {"name": "first"}, roster)
+
+        assert result.is_error is False
+        assert json.loads(result.content[0].text) == {
+            "name": "first",
+            "state": "active",
+            "quiet_for": roster.quiet_for,
+        }
 
     def test_join_states_the_face_it_drew(self):
         roster = Roster()

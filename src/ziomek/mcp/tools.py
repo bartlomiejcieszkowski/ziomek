@@ -188,6 +188,11 @@ TOOLS = [
         input_schema={"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
     ),
     Tool(
+        name="resume",
+        description="Count inactivity again for a participant that is held.",
+        input_schema={"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    ),
+    Tool(
         name="leave",
         description="Leave the current call and release the name and voice.",
         input_schema={"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
@@ -516,6 +521,20 @@ async def _handle_hold(arguments: dict) -> CallToolResult:
     return _text_payload({"name": participant.name, "state": participant.state, "quiet_for": roster.quiet_for})
 
 
+async def _handle_resume(arguments: dict) -> CallToolResult:
+    roster = get_roster()
+    participant = _find_participant(roster, arguments.get("name"))
+    if participant is None:
+        return CallToolResult(
+            content=[
+                TextContent(type="text", text=json.dumps({"error": f"Unknown participant: {arguments.get('name')}"}))
+            ],
+            is_error=True,
+        )
+    participant.resume()
+    return _text_payload({"name": participant.name, "state": participant.state, "quiet_for": roster.quiet_for})
+
+
 async def _handle_leave(arguments: dict) -> CallToolResult:
     roster = get_roster()
     participant = _find_participant(roster, arguments.get("name"))
@@ -650,6 +669,7 @@ async def _on_call_tool(ctx: ServerRequestContext, params: CallToolRequestParams
         "get_expression": _handle_get_expression,
         "join": _handle_join,
         "hold": _handle_hold,
+        "resume": _handle_resume,
         "leave": _handle_leave,
         "status": _handle_status,
         "read_participants": _handle_read_participants,
