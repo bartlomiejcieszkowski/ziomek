@@ -523,6 +523,40 @@ def test_a_viewer_reading_above_the_end_is_not_pulled_down_by_a_new_line():
     assert page.count("panel.scrollTop =") == 1
 
 
+def test_a_line_that_joins_the_block_already_shown_is_still_shown():
+    client = build_app()
+    page = client.get("/roster").text
+
+    # A run of text from one participant grows inside the block that is already on screen, so counting
+    # blocks is not enough: the page has to know what it drew inside that block.
+    assert "let shown_block = null;" in page and "let shown_lines = 0;" in page
+    assert "shown_block = box;" in page and "shown_lines = block.lines.length;" in page
+    assert "last.lines.length > shown_lines" in page
+
+
+def test_a_line_that_joins_a_block_is_added_to_that_block_and_not_as_a_new_item():
+    client = build_app()
+    page = client.get("/roster").text
+
+    # The line belongs to the box the run is shown in, so it is added there instead of starting
+    # another item of the record.
+    guard = page.index('if (shown_block && last && last.kind === "group" && last.lines.length > shown_lines)')
+    after = page[guard:]
+    assert "shown_block.append(p);" in after
+    assert 'document.getElementById("transcript").append(row)' not in after
+
+
+def test_a_new_call_forgets_the_block_the_panel_had_been_adding_lines_to():
+    client = build_app()
+    page = client.get("/roster").text
+
+    # A record that shrank starts from nothing, so the box kept for the call that ended cannot be
+    # written into by the new one.
+    cleared = page.index('document.getElementById("transcript").innerHTML = "";')
+    branch = page[cleared : page.index("for (const block of lastBlocks.slice(rendered))")]
+    assert "shown_block = null;" in branch and "shown_lines = 0;" in branch
+
+
 def test_the_page_asks_for_the_file_content_and_keeps_the_download_in_the_browser():
     client = build_app()
     page = client.get("/roster").text
