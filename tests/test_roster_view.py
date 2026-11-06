@@ -787,12 +787,9 @@ def test_a_cell_that_cannot_be_measured_keeps_the_size_the_stylesheet_gives_it()
 
 
 def test_the_grid_is_counted_from_the_space_available_and_not_from_a_fixed_minimum():
-    """The grid is counted from the space the page has, which is the room with its padding and its gaps taken out, and not from a size written into the page."""
+    """The grid is counted from the space the page has, which is the room with its padding taken out, and not from a size written into the page."""
     page = page_source()
     assert "function whole_frame_grid(room, frame)" in page
-    assert "function available_room(room, parts)" in page
-    assert "room.width - room.taken.gap.x * (parts.cols - 1)" in page
-    assert "room.height - room.taken.gap.y * (parts.rows - 1)" in page
     assert "getComputedStyle(root)" in page
     assert "read_number(styles.columnGap)" in page
     assert "read_number(styles.rowGap)" in page
@@ -807,18 +804,16 @@ def test_a_block_that_cannot_be_split_in_whole_tracks_stays_as_it_is():
 
 
 def test_a_track_is_not_larger_than_the_space_left_after_padding_and_gaps():
-    """A gap belongs to no block and padding is outside the area the grid is given, so dividing the whole measured box hands a track more than it gets. The numbers are read from the page, since CSS is what sets them, so nothing here restates them."""
+    """A gap belongs to no block and padding is outside the area the grid is given, so a track is measured from what is left after both. The numbers are read from the page, since CSS is what sets them, so nothing here restates them."""
     page = page_source()
     assert "const styles = getComputedStyle(root);" in page
     assert "read_number(styles.columnGap)" in page
     assert "read_number(styles.rowGap)" in page
-    assert "function available_room(room, parts)" in page
-    assert "room.width - room.taken.gap.x * (parts.cols - 1)" in page
-    assert "room.height - room.taken.gap.y * (parts.rows - 1)" in page
+    assert "read_number(styles.paddingLeft)" in page
     # A single row or a single column has no gap between tracks, so nothing is taken for it.
-    assert "(parts.cols - 1)" in page and "(parts.rows - 1)" in page
-    arithmetic = page.split("function available_room")[1].split("}")[0]
-    assert "8px" not in arithmetic
+    assert "Math.floor((space + gap) / (frame + gap))" in page
+    measuring = page.split("function measure_room")[1].split("\n}")[0]
+    assert "8px" not in measuring
 
 
 def test_the_division_is_written_for_both_edges_of_the_grid():

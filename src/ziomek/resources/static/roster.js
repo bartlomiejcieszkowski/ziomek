@@ -98,7 +98,6 @@ function renderBlock(block) {
 // everyone. A cell is not made smaller than this, so a tile stays readable.
 
 
-let made_blocks = [];  // the blocks this render made, in position order
 let stated_blocks = [];  // each block with the size its own tile was given
 
 // A page cannot state what it measured on its own: the values only exist in the browser. It asks for
@@ -106,9 +105,8 @@ let stated_blocks = [];  // each block with the size its own tile was given
 // debug path. Without that part nothing is stated.
 let state_sizes = null;
 
-// A gap belongs to no block and padding is outside the area the grid is given, so a track can only be
-// measured from the space left after both. These numbers are read from the page rather than written
-// here, since CSS is what sets them, and they are kept so the values a page states can be reproduced.
+// A track is measured from the space left after padding and gaps, and these numbers are read from
+// the page rather than written here, since CSS is what sets them.
 function measure_room(root) {
   const styles = getComputedStyle(root);
   const read_number = function (value) { return parseFloat(value) || 0; };
@@ -127,10 +125,6 @@ function measure_room(root) {
 // A track costs the frame plus the gap that follows it, so a single row or a single column takes
 // nothing: a gap only exists between two tracks. Padding sits outside the area the grid is given, so
 // the counts are taken from what is left after both.
-function available_room(room, parts) {
-  return { width: room.width - room.taken.gap.x * (parts.cols - 1), height: room.height - room.taken.gap.y * (parts.rows - 1) };
-}
-
 // Pixels stay even only when a picture is scaled by whole numbers, so a block is a whole number of
 // frames on each axis rather than a share of the box. The smallest frame among the skins present is
 // used, so every tile on the page is measured the same way.
@@ -453,10 +447,6 @@ document.getElementById("toggle").addEventListener("click", () => {
 document.getElementById("formats").addEventListener("click", () => {
   document.getElementById("menu").classList.toggle("open");
 });
-
-function stampOf(at) {
-  return [at.getFullYear(), pad(at.getMonth() + 1), pad(at.getDate())].join("-") + "T" + pad(at.getHours()) + pad(at.getMinutes()) + pad(at.getSeconds()) + "Z";
-}
 
 async function save(format, at) {
   const ext = EXT[format] || format;
