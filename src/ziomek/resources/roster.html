@@ -88,6 +88,10 @@
       let lastPayload = {};
       let lastBlocks = [];
       let rendered = 0;
+      // A block can grow after it has been drawn, so what the page drew inside the last block is
+      // kept as well; a run of text from one participant joins the block already on screen.
+      let shown_block = null;
+      let shown_lines = 0;
 
       const EXT = { markdown: "md", json: "json" };
 
@@ -143,6 +147,9 @@
           }
           row.append(item);
           document.getElementById("transcript").append(row);
+          // A line written by the system is not part of a run, so the block before it is closed.
+          shown_block = null;
+          shown_lines = 0;
           follow_to_the_end(follow);
           return;
         }
@@ -166,6 +173,8 @@
           p.textContent = line;
           box.appendChild(p);
         }
+        shown_block = box;
+        shown_lines = block.lines.length;
         row.append(box);
         document.getElementById("transcript").append(row);
         follow_to_the_end(follow);
@@ -573,11 +582,28 @@
         if (lastBlocks.length < rendered) {
           // The record shrank, which means a new call: the panel starts from nothing.
           document.getElementById("transcript").innerHTML = "";
+          shown_block = null;
+          shown_lines = 0;
           rendered = 0;
         }
         for (const block of lastBlocks.slice(rendered)) {
           renderBlock(block);
         }
+
+        // The last block can have grown since it was drawn, so the lines that joined it are added to
+        // the box that is already on screen rather than starting a new item.
+        const last = lastBlocks[rendered - 1];
+        if (shown_block && last && last.kind === "group" && last.lines.length > shown_lines) {
+          const follow = was_at_the_end();
+          for (const line of last.lines.slice(shown_lines)) {
+            const p = document.createElement("p");
+            p.textContent = line;
+            shown_block.append(p);
+          }
+          shown_lines = last.lines.length;
+          follow_to_the_end(follow);  // the position was read before the line was added
+        }
+
         rendered = lastBlocks.length;
       }
 
