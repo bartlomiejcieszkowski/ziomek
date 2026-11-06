@@ -391,3 +391,51 @@ class TestJoiningWithAFace:
         result = _answer("read_available_skins", {}, None, None)
         assert result.is_error is True
         assert "no skin registry was built" in _text(result)
+
+
+class TestAnExpressionIsAppliedToTheNameItWasAskedAbout:
+    """A name stated by a call has to be the name it acts on.
+
+    A name that is not in the call is refused, because an answer that names nothing is not an
+    answer about the thing the caller asked for. A call that states no name keeps using the global
+    avatar, since it claims no one.
+    """
+
+    def test_an_expression_cannot_be_set_for_a_name_that_is_not_in_the_call(self):
+        machine = MagicMock()
+        machine.setExpression.return_value = True
+
+        with patch("ziomek.server._state_machine", machine):
+            result = _answer("set_expression", {"name": "not-in-the-call", "expression": "happy"}, Roster())
+
+        assert result.is_error is True
+        assert "Unknown participant: not-in-the-call" in _text(result)
+        machine.setExpression.assert_not_called()
+
+    def test_an_expression_cannot_be_read_for_a_name_that_is_not_in_the_call(self):
+        machine = MagicMock()
+
+        with patch("ziomek.server._state_machine", machine):
+            result = _answer("get_expression", {"name": "not-in-the-call"}, Roster())
+
+        assert result.is_error is True
+        assert "Unknown participant: not-in-the-call" in _text(result)
+        machine.tick.assert_not_called()
+
+    def test_a_wrong_name_is_refused_even_when_no_machine_was_made(self):
+        """The name the caller stated is their mistake, so it is answered before anything else."""
+        result = _answer("set_expression", {"name": "not-in-the-call", "expression": "happy"}, Roster())
+
+        assert result.is_error is True
+        assert "Unknown participant" in _text(result)
+
+    def test_a_call_that_names_no_one_still_uses_the_global_avatar(self):
+        machine = MagicMock()
+        machine.setExpression.return_value = True
+
+        with patch("ziomek.server._state_machine", machine):
+            result = _answer("set_expression", {"expression": "happy"}, Roster())
+
+        assert result.is_error is False
+        assert json.loads(_text(result))["name"] is None
+        machine.setExpression.assert_called_once_with("happy", None)

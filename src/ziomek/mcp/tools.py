@@ -428,8 +428,12 @@ async def _handle_stop_listening(arguments: dict | None = None) -> CallToolResul
 
 
 async def _handle_set_expression(arguments: dict) -> CallToolResult:
-    machine, participant = _resolve_machine(arguments.get("name"))
+    name = arguments.get("name")
+    participant = _find_participant(get_roster(), name) if name else None
+    if name and participant is None:
+        return _unknown_name(name)
 
+    machine = _pick_machine(participant)
     if machine is None:
         return CallToolResult(
             content=[TextContent(type="text", text=json.dumps({"error": "State machine not initialized"}))],
@@ -456,8 +460,12 @@ async def _handle_set_expression(arguments: dict) -> CallToolResult:
 
 
 async def _handle_get_expression(arguments: dict | None = None) -> CallToolResult:
-    machine, participant = _resolve_machine((arguments or {}).get("name"))
+    name = (arguments or {}).get("name")
+    participant = _find_participant(get_roster(), name) if name else None
+    if name and participant is None:
+        return _unknown_name(name)
 
+    machine = _pick_machine(participant)
     if machine is None:
         return CallToolResult(
             content=[TextContent(type="text", text=json.dumps({"error": "State machine not initialized"}))],
@@ -569,14 +577,20 @@ async def _handle_read_available_skins(arguments: dict) -> CallToolResult:
     return _text_payload({"skins": registry.list()})
 
 
-def _resolve_machine(name: str | None):
-    """The machine for the named participant, falling back to the global avatar."""
+def _pick_machine(participant):
+    """The machine the named participant wears, otherwise the global avatar."""
     from ziomek.server import _state_machine
 
-    participant = _find_participant(get_roster(), name) if name else None
     if participant is not None and getattr(participant, "state_machine", None) is not None:
-        return participant.state_machine, participant
-    return _state_machine, participant
+        return participant.state_machine
+    return _state_machine
+
+
+def _unknown_name(name: str) -> CallToolResult:
+    return CallToolResult(
+        content=[TextContent(type="text", text=json.dumps({"error": f"Unknown participant: {name}"}))],
+        is_error=True,
+    )
 
 
 def _find_participant(roster: Roster, name: str):
