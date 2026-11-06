@@ -750,25 +750,29 @@ def test_a_cell_that_cannot_be_measured_keeps_the_size_the_stylesheet_gives_it()
     """The stacked layout under a narrow window has no room to measure, so the stylesheet default still applies."""
     page = page_source()
     assert "grid-template-columns: repeat(auto-fill, minmax(180px, 1fr))" in page
-    assert (
-        "if (room.width <= 0 || room.height <= 0) return null;  // the stacked layout has no room to measure, so nothing here applies"
-        in page
-    )
+    assert 'state_sizes?.("cannot be measured", room, null, null, null);' in page
+    # a room with no size to measure gives no blocks, so a tile is left with the size the stylesheet gives it
+    assert "if (room.width <= 0 || room.height <= 0) {" in page
 
 
-def test_the_cells_are_divided_from_the_space_available_and_not_from_a_fixed_minimum():
-    """The longer edge is halved first, and a cell is only split when the parts cannot hold everyone."""
+def test_the_grid_is_counted_from_the_space_available_and_not_from_a_fixed_minimum():
+    """The grid is counted from the space the page has, which is the room with its padding and its gaps taken out, and not from a size written into the page."""
     page = page_source()
-    assert "function divide_room(room, count)" in page
-    assert "while (rows * cols < count)" in page
-    assert "if (cell_width >= cell_height)" in page
-    assert "cols *= 2;" in page
-    assert "rows *= 2;" in page
+    assert "function whole_frame_grid(room, frame)" in page
+    assert "function available_room(room, parts)" in page
+    assert "room.width - room.taken.gap.x * (parts.cols - 1)" in page
+    assert "room.height - room.taken.gap.y * (parts.rows - 1)" in page
+    assert "getComputedStyle(root)" in page
+    assert "read_number(styles.columnGap)" in page
+    assert "read_number(styles.rowGap)" in page
+    assert "MIN_CELL" not in page
 
 
-def test_a_cell_is_not_divided_further_when_it_would_be_too_small_to_read():
+def test_a_block_that_cannot_be_split_in_whole_tracks_stays_as_it_is():
+    """A block one track wide cannot be halved without breaking the frame count it was built from, so the page stops dividing it instead of making a half track."""
     page = page_source()
-    assert "if (Math.min(cell_width, cell_height) / 2 < MIN_CELL) break;" in page
+    assert "if (block.rowSpan < 2 && block.colSpan < 2) continue;" in page
+    assert "if (!biggest) break;" in page
 
 
 def test_a_track_is_not_larger_than_the_space_left_after_padding_and_gaps():
@@ -787,26 +791,19 @@ def test_a_track_is_not_larger_than_the_space_left_after_padding_and_gaps():
 
 
 def test_the_division_is_written_for_both_edges_of_the_grid():
+    """A room is divided on both edges, so a picture can be placed in a cell of a grid that is written only for one edge."""
     page = page_source()
-    assert 'root.style.gridTemplateColumns = "repeat(" + parts.cols + ", minmax(0, 1fr))";' in page
-    assert 'root.style.gridTemplateRows = "repeat(" + parts.rows + ", minmax(0, 1fr))";' in page
+    assert 'root.style.gridTemplateColumns = "repeat(" + grid.cols + ", " + frame + "px)"' in page
+    assert 'root.style.gridTemplateRows = "repeat(" + grid.rows + ", " + frame + "px)"' in page
 
 
-def test_a_tile_is_scaled_by_the_whole_number_of_frames_that_fits_the_cell():
-    """Pixels stay even only when a picture is scaled by whole numbers, so the size a tile can be given is a whole number of frames that fits the cell rather than a fixed count. The smallest frame among the skins present is used, so every tile on the page is measured the same way."""
+def test_a_block_is_given_the_size_of_the_whole_frames_it_spans():
+    """A block is a whole number of frames on each axis, so the size it is given is that count times the frame, and the same numbers are used for the tile and for what the page states."""
     page = page_source()
-    assert "function largest_tile(tiles)" in page
-    assert "if (!skin || !skin.frameWidth || !skin.frameHeight) continue;" in page
-    assert "const side = Math.min(skin.frameWidth, skin.frameHeight);" in page
-    assert "if (!frame) {  // nothing was read for these skins, so no size can be derived" in page
-    assert "function apply_largest_tile(root, room, parts, tiles)" in page
-    assert "function available_room(room, parts)" in page
-    assert "const available = available_room(room, parts);" in page
-    assert "const cell_width = available.width / parts.cols;" in page
-    assert "const cell_height = available.height / parts.rows;" in page
-    assert "const frames = Math.max(1, Math.floor(Math.min(cell_width / frame, cell_height / frame)));" in page
-    assert 'root.style.setProperty("--largest-tile", frames * frame + "px")' in page
-    assert ".tile { max-width: var(--largest-tile); max-height: var(--largest-tile); }" in page
+    assert "function blocks_in_frames(grid, count, frame)" in page
+    assert "function apply_largest_tile(root, room, parts)" in page
+    assert "stated_blocks = blocks_in_frames(grid, parts.length, frame);" in page
+    assert "tile: { width: block.colSpan * frame, height: block.rowSpan * frame }" in page
 
 
 def test_a_tile_that_is_capped_stays_in_the_middle_of_its_cell():
@@ -815,10 +812,13 @@ def test_a_tile_that_is_capped_stays_in_the_middle_of_its_cell():
     assert ".tile { justify-self: center; align-self: center; }" in page
 
 
-def test_a_tile_takes_the_size_the_page_measured_rather_than_only_an_upper_limit():
-    """An upper limit is not a size: a box with only a maximum falls back to its content, so a tile that could fill its cell showed as a small box. The tile takes the size the page measured, and the picture still fills it. The padding sits outside that measurement, so the picture area is the whole-frame size and not a larger box."""
+def test_a_page_no_longer_needs_an_upper_limit_for_a_tile():
+    """The size of a block is known when the grid is counted in whole frames, so a tile takes that size instead of an upper limit that a box falls back from."""
     page = page_source()
-    assert ".tile { width: var(--largest-tile); height: var(--largest-tile); }" in page
+    assert 'el.style.width = place.tile.width + "px";' in page
+    assert 'el.style.height = place.tile.height + "px";' in page
+    # the picture is placed inside the size the block was given, so nothing caps it
+    assert "--largest-tile" not in page
 
 
 def test_a_skin_that_was_not_read_cannot_set_a_size_for_the_tile():
@@ -829,13 +829,10 @@ def test_a_skin_that_was_not_read_cannot_set_a_size_for_the_tile():
 
 
 def test_the_division_is_made_before_the_tiles_are_written():
-    """A tile is placed in the cell that exists at the time it is added, and a size can only be derived from a cell that was already divided. The order is read from the render path, so a definition earlier in the file does not stand for a call."""
+    """A tile is placed in the block it was given, so the grid has to be named before the tiles are written."""
     page = page_source()
     body = page.split("function render(tiles)")[1]
-    assert body.index("divide_the_room(root, room, tiles.length)") < body.index(
-        "apply_largest_tile(root, room, parts, tiles)"
-    )
-    assert body.index("apply_largest_tile(root, room, parts, tiles)") < body.index('el.className = "tile"')
+    assert body.index("apply_largest_tile(root, room, tiles)") < body.index("for (const tile of tiles)")
 
 
 def test_the_tiles_use_the_height_available_to_the_grid_as_well_as_its_width():
@@ -1051,14 +1048,10 @@ def test_the_expression_uses_a_monotype_font_and_is_smaller_than_name():
 
 
 def test_the_page_places_a_frame_inside_the_box_of_the_tile_it_draws():
-    # The size of the box is not part of a definition, so the page measures the block it was given.
+    """A frame is drawn at its own size inside the box it was given, so the picture is placed from the middle of that box."""
     page = page_source()
-    assert "image-rendering: pixelated" in page and "background-repeat: no-repeat" in page
-    assert "block.style.backgroundSize" in page and "block.style.backgroundPosition" in page
-    assert "function fit_scale(" in page
-    # What is shown when a frame is larger than the box is decided by its centre, since the format has no position field.
-    assert "(boxWidth - drawnWidth) / 2" in page and "(boxHeight - drawnHeight) / 2" in page
-    assert ".avatar img" not in page
+    assert "(boxWidth - frame.width * scaleWidth) / 2" in page
+    assert "(boxHeight - frame.height * scaleHeight) / 2" in page
 
 
 def test_the_page_uses_the_image_address_the_server_answered_with():
@@ -1179,18 +1172,20 @@ def test_the_stacked_fallback_below_narrow_width_is_left_as_it_was():
 
 
 def test_the_page_asks_for_the_values_to_be_stated_after_dividing():
-    """The page cannot state values on its own, so it asks for them through the part that a server in dev mode adds."""
+    """A page that cannot state values on its own still names what it measured, so the part added in dev mode can carry it."""
     page = page_source()
-    assert "let state_sizes = null;" in page
-    assert 'state_sizes?.("measured", room, parts, frame, frames);' in page
-
+    assert 'state_sizes?.("measured", room, grid, frame, 1);' in page
+    assert 'state_sizes?.("cannot be measured", room, null, null, null);' in page
+    assert 'state_sizes?.("no frame size was read for these skins", room, null, null, null);' in page
+    guard = page.split("function apply_largest_tile(")[1].split("if (!frame) {")[1].split("}")[0]
+    assert "return;" in guard
     body = page.split("function apply_largest_tile(")[1]
-    assert body.index('root.style.setProperty("--largest-tile", frames * frame + "px");') < body.index(
+    assert body.index("stated_blocks = blocks_in_frames(grid, parts.length, frame);") < body.index(
         'state_sizes?.("measured"'
     )
 
 
-def test_a_page_that_cannot_measure_reports_that_it_used_the_size_it_was_given():
+def test_a_page_with_no_room_to_measure_says_that_it_can_make_no_blocks():
     """The stacked layout has no room to measure, which is a result worth stating."""
     page = page_source()
     assert 'state_sizes?.("cannot be measured", room, null, null, null);' in page
@@ -1200,27 +1195,25 @@ def test_a_page_that_cannot_read_a_frame_size_says_that_nothing_was_read_for_tho
     """A skin with no header to read gives no size, which is a result worth stating."""
     page = page_source()
     guard = page.split("function apply_largest_tile(")[1].split("if (!frame) {")[1].split("}")[0]
-    assert 'state_sizes?.("no frame size was read for these skins", room, parts, null, null);' in guard
+    assert 'state_sizes?.("no frame size was read for these skins", room, null, null, null);' in guard
     assert "return;" in guard
 
 
 def test_a_page_that_made_blocks_states_the_size_its_own_tile_can_be_given():
-    """A page that drew blocks of different sizes cannot describe them with one value, so each block is measured from the tracks it spans."""
+    """A page that drew blocks of different sizes cannot describe them with one value, so every block is stated with the whole frames it spans."""
     page = page_source()
-    assert "function measure_blocks(frame, room, parts)" in page
-    assert (
-        "{ row: block.row, col: block.col, rows: block.rowSpan, cols: block.colSpan, "
-        "tile: tile_size(frame, block.colSpan * (available.width / parts.cols), block.rowSpan * (available.height / parts.rows)) }"
-        in page
-    )
-    assert "made_blocks = split_the_blocks(room, parts, tiles.length);" in page
+    assert "function blocks_in_frames(grid, count, frame)" in page
+    assert "stated_blocks = blocks_in_frames(grid, parts.length, frame);" in page
+    assert "tile: { width: block.colSpan * frame, height: block.rowSpan * frame }" in page
 
 
 def test_the_size_of_a_block_is_measured_before_it_is_asked_for():
-    """A state that came before the measurement would state a size the page never used."""
+    """A state that came before the blocks were named would state a size the page never used."""
     page = page_source()
     body = page.split("function apply_largest_tile(")[1]
-    assert body.index("stated_blocks = measure_blocks(frame, room, parts);") < body.index('state_sizes?.("measured"')
+    assert body.index("stated_blocks = blocks_in_frames(grid, parts.length, frame);") < body.index(
+        'state_sizes?.("measured"'
+    )
 
 
 def test_a_tile_takes_the_size_the_page_stated_for_its_block():
