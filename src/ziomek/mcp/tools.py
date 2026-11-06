@@ -519,12 +519,7 @@ async def _handle_hold(arguments: dict) -> CallToolResult:
     roster = get_roster()
     participant = _find_participant(roster, arguments.get("name"))
     if participant is None:
-        return CallToolResult(
-            content=[
-                TextContent(type="text", text=json.dumps({"error": f"Unknown participant: {arguments.get('name')}"}))
-            ],
-            is_error=True,
-        )
+        return _unknown_name(arguments.get("name"))
     participant.hold()
     return _text_payload({"name": participant.name, "state": participant.state, "quiet_for": roster.quiet_for})
 
@@ -533,12 +528,7 @@ async def _handle_resume(arguments: dict) -> CallToolResult:
     roster = get_roster()
     participant = _find_participant(roster, arguments.get("name"))
     if participant is None:
-        return CallToolResult(
-            content=[
-                TextContent(type="text", text=json.dumps({"error": f"Unknown participant: {arguments.get('name')}"}))
-            ],
-            is_error=True,
-        )
+        return _unknown_name(arguments.get("name"))
     participant.resume()
     return _text_payload({"name": participant.name, "state": participant.state, "quiet_for": roster.quiet_for})
 
@@ -547,12 +537,7 @@ async def _handle_leave(arguments: dict) -> CallToolResult:
     roster = get_roster()
     participant = _find_participant(roster, arguments.get("name"))
     if participant is None:
-        return CallToolResult(
-            content=[
-                TextContent(type="text", text=json.dumps({"error": f"Unknown participant: {arguments.get('name')}"}))
-            ],
-            is_error=True,
-        )
+        return _unknown_name(arguments.get("name"))
     participant.leave()
     return _text_payload({"name": participant.name, "state": participant.state})
 
@@ -566,7 +551,7 @@ async def _handle_read_participants(arguments: dict) -> CallToolResult:
 async def _handle_read_participant(arguments: dict) -> CallToolResult:
     participant = _find_participant(get_roster(), arguments.get("name"))
     if participant is None:
-        return _error(f"Unknown participant: {arguments.get('name')}")
+        return _unknown_name(arguments.get("name"))
     return _text_payload(_participant_view(participant))
 
 
@@ -587,10 +572,8 @@ def _pick_machine(participant):
 
 
 def _unknown_name(name: str) -> CallToolResult:
-    return CallToolResult(
-        content=[TextContent(type="text", text=json.dumps({"error": f"Unknown participant: {name}"}))],
-        is_error=True,
-    )
+    """A name that is not in the call, stated the same way by every tool that takes one."""
+    return _error(f"Unknown participant: {name}")
 
 
 def _find_participant(roster: Roster, name: str):
