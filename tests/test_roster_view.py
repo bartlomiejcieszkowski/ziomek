@@ -6,10 +6,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-
-def page_source():
-    """The file as stored, not the served page, for rules that only show up in markup."""
-    return (Path(__file__).parent.parent / "src" / "ziomek" / "resources" / "roster.html").read_text(encoding="utf-8")
+from tests.roster_page_helpers import page_shell, page_source, served_page, static_source
 
 
 def module_source():
@@ -64,7 +61,7 @@ def test_the_roster_view_lists_the_participants_of_the_call():
 
 def test_the_roster_page_renders_a_tile_for_each_participant():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     # Tiles are built per participant, and the text areas are filled from the tile data.
     assert 'className = "tile"' in page
@@ -76,10 +73,10 @@ def test_the_roster_page_is_served_by_the_server():
     client = TestClient(app)
 
     assert client.get("/api/roster").status_code == 200
-    assert 'className = "tile"' in client.get("/roster").text
+    assert 'className = "tile"' in served_page(client)
     # A browser asks for an icon on its own when it renders a page, so a page names the path the
     # app answers for instead of the one nothing serves.
-    assert '<link rel="icon" href="/favicon.svg"' in client.get("/roster").text
+    assert '<link rel="icon" href="/favicon.svg"' in served_page(client)
 
 
 def test_the_shown_participant_is_rendered_with_its_own_machine(monkeypatch):
@@ -146,14 +143,14 @@ def test_a_tile_carries_the_expression_of_that_participant():
 
 def test_the_roster_page_shows_the_expression_of_each_participant():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     assert 'renderText(top, "expression", tile.expression)' in page
 
 
 def test_the_labels_at_the_top_of_a_tile_are_painted_above_its_avatar():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     # An absolutely positioned box paints above content in normal flow, so the labels carry their own level.
     assert ".top { position: absolute;" in page and "z-index: 1;" in page
@@ -161,7 +158,7 @@ def test_the_labels_at_the_top_of_a_tile_are_painted_above_its_avatar():
 
 def test_the_panel_shows_the_text_attached_to_a_line_of_the_record():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     # The tile shows what the participant is, not the lines; the panel is the record, so the text and its
     # author belong to a line there.
@@ -217,7 +214,7 @@ def test_the_served_page_carries_the_configured_default():
     source = page_source()
     assert "__TRANSCRIPT_DEFAULT__" in source
 
-    assert 'const initial = "open";' in client.get("/roster").text
+    assert 'start("open")' in served_page(client)
 
 
 def test_a_value_that_is_not_open_or_closed_falls_back_to_closed():
@@ -226,12 +223,12 @@ def test_a_value_that_is_not_open_or_closed_falls_back_to_closed():
     )
     client = TestClient(app)
 
-    assert 'const initial = "closed";' in client.get("/roster").text
+    assert 'start("closed")' in served_page(client)
 
 
 def test_the_page_reads_the_panel_state_from_storage_before_the_config_default():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     assert "localStorage" in page
     assert 'readStored("ziomek_panel")' in page
@@ -239,7 +236,7 @@ def test_the_page_reads_the_panel_state_from_storage_before_the_config_default()
 
 def test_the_page_uses_the_config_default_only_when_nothing_is_stored():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     assert "function readStored(name)" in page
     assert "return null" in page  # nothing stored -> the config default decides the opening
@@ -247,7 +244,7 @@ def test_the_page_uses_the_config_default_only_when_nothing_is_stored():
 
 def test_the_page_has_the_panel_and_its_toggle():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     assert 'id="panel"' in page
     assert 'id="toggle"' in page
@@ -276,7 +273,7 @@ def test_the_panel_and_the_saved_file_write_the_same_lines():
     from ziomek.api.roster_view import blocks, format_line, markdown_text
 
     client = build_app()
-    assert "for (const line of block.lines)" in client.get("/roster").text
+    assert "for (const line of block.lines)" in served_page(client)
     entry = {"name": "John", "action": "text", "text": "compiling", "author": "agent"}
     group = {"kind": "group", "name": entry["name"], "author": entry["author"], "lines": [format_line(entry)]}
     blocks_result = blocks([entry])
@@ -306,7 +303,7 @@ def test_a_group_without_a_name_keeps_the_author_and_the_text():
 
 def test_the_page_writes_lines_with_text_content():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     # Review focus line 2: a line that HTML would interpret must appear literally.
     assert "p.textContent = line" in page
@@ -314,7 +311,7 @@ def test_the_page_writes_lines_with_text_content():
 
 def test_the_page_has_save_with_the_two_formats():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     assert 'id="save"' in page
     assert 'data-format="markdown"' in page
@@ -323,7 +320,7 @@ def test_the_page_has_save_with_the_two_formats():
 
 def test_the_saved_file_is_named_with_the_project_and_the_download_time():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     # ziomek_{YYYY-MM-DD}_{HHMM}_transcript.{md|json}, built from the browser clock
     assert 'return "ziomek_" + nameStamp(at) + "_transcript." + ext' in page
@@ -337,7 +334,7 @@ def test_the_file_keeps_its_header_when_there_is_nothing_to_save():
     assert client.get("/api/roster/transcript/markdown?at=2026-10-31T14:20:04Z").text.startswith(
         "# transcript — 2026-10-31T14:20:04Z"
     )
-    page = client.get("/roster").text
+    page = served_page(client)
     assert "new Blob(" in page
 
 
@@ -353,7 +350,7 @@ def test_an_entry_with_nothing_to_show_produces_no_line():
 
 def test_the_toggle_stays_reachable_when_the_panel_is_hidden():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     # Review focus: a control inside the hidden pane cannot be used to open it again.
     assert "#layout.hide #transcript { display: none; }" in page
@@ -412,7 +409,7 @@ def test_the_saved_file_writes_the_assignment_as_text_like_the_author_does():
 
 def test_the_page_shows_the_assignment_in_its_own_colour():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     # A colour can only be put on something kept apart from the rest of the line.
     assert ".assignment { color: #c586c0; }" in page
@@ -422,14 +419,14 @@ def test_the_page_shows_the_assignment_in_its_own_colour():
 
 def test_the_page_names_the_file_with_the_short_extension():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     assert 'markdown: "md"' in page
 
 
 def test_the_save_and_the_formats_have_actions():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     assert 'document.getElementById("formats")' in page
     assert 'document.getElementById("save")' in page
@@ -437,7 +434,7 @@ def test_the_save_and_the_formats_have_actions():
 
 def test_the_page_stores_each_toggle_under_its_own_name():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     # Review focus line 1: the stored value is "1" or "0", one name per toggle.
     assert 'readStored("ziomek_panel")' in page
@@ -449,7 +446,7 @@ def test_the_page_stores_each_toggle_under_its_own_name():
 
 def test_the_page_has_one_state_for_the_panel():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     # The class that hides the pane is the only source of truth, and the label follows it.
     assert 'classList.add("open")' not in page
@@ -458,7 +455,7 @@ def test_the_page_has_one_state_for_the_panel():
 
 def test_the_panel_lines_keep_their_newlines_and_are_not_rebuilt_each_tick():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     # The rule must reach the elements the panel actually builds.
     assert (
@@ -470,7 +467,7 @@ def test_the_panel_lines_keep_their_newlines_and_are_not_rebuilt_each_tick():
 
 def test_a_long_run_of_characters_breaks_inside_the_panel_box_instead_of_running_past_it():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     # Wrapping at spaces is not enough: a run with no space in it keeps going past the box.
     assert "#transcript li, #transcript .box p { overflow-wrap: break-word; }" in page
@@ -478,7 +475,7 @@ def test_a_long_run_of_characters_breaks_inside_the_panel_box_instead_of_running
 
 def test_a_tile_does_not_list_events_because_the_panel_already_shows_them():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     # The tile keeps what the participant is; join, hold and text lines belong to the record in the panel,
     # so the same list is not built twice for the same call.
@@ -487,7 +484,7 @@ def test_a_tile_does_not_list_events_because_the_panel_already_shows_them():
 
 def test_a_long_run_of_characters_breaks_inside_the_tile_text_so_the_page_does_not_scroll_sideways():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     # The same run reaches the text a tile shows, so the rule covers it.
     assert ".text {" in page and "overflow-wrap: break-word;" in page
@@ -495,7 +492,7 @@ def test_a_long_run_of_characters_breaks_inside_the_tile_text_so_the_page_does_n
 
 def test_the_page_clears_the_panel_when_the_record_is_empty():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     # A record that shrank means a new call: the old lines must not stay.
     assert 'document.getElementById("transcript").innerHTML = ""' in page
@@ -504,7 +501,7 @@ def test_the_page_clears_the_panel_when_the_record_is_empty():
 
 def test_the_panel_follows_a_new_line_only_when_the_viewer_is_at_the_end():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     # Being at the end is measured against the box, and a position this close counts as being there.
     assert "const END_TOLERANCE = 4;" in page
@@ -514,7 +511,7 @@ def test_the_panel_follows_a_new_line_only_when_the_viewer_is_at_the_end():
 
 def test_a_viewer_reading_above_the_end_is_not_pulled_down_by_a_new_line():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     # The position is read before the line is added, and the move only follows from that reading.
     added_before = page.index('document.getElementById("transcript").append(row)')
@@ -525,7 +522,7 @@ def test_a_viewer_reading_above_the_end_is_not_pulled_down_by_a_new_line():
 
 def test_a_line_that_joins_the_block_already_shown_is_still_shown():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     # A run of text from one participant grows inside the block that is already on screen, so counting
     # blocks is not enough: the page has to know what it drew inside that block.
@@ -536,7 +533,7 @@ def test_a_line_that_joins_the_block_already_shown_is_still_shown():
 
 def test_a_line_that_joins_a_block_is_added_to_that_block_and_not_as_a_new_item():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     # The line belongs to the box the run is shown in, so it is added there instead of starting
     # another item of the record.
@@ -548,7 +545,7 @@ def test_a_line_that_joins_a_block_is_added_to_that_block_and_not_as_a_new_item(
 
 def test_a_new_call_forgets_the_block_the_panel_had_been_adding_lines_to():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     # A record that shrank starts from nothing, so the box kept for the call that ended cannot be
     # written into by the new one.
@@ -559,7 +556,7 @@ def test_a_new_call_forgets_the_block_the_panel_had_been_adding_lines_to():
 
 def test_the_page_asks_for_the_file_content_and_keeps_the_download_in_the_browser():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     # The file text comes from the server; the download stays a browser action.
     assert 'fetch("/api/roster/transcript/markdown?at="' in page
@@ -569,14 +566,14 @@ def test_the_page_asks_for_the_file_content_and_keeps_the_download_in_the_browse
 
 def test_the_page_survives_a_failed_poll():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     assert "try {" in page  # a failed fetch must not leave lines that no longer match the record
 
 
 def test_the_page_gives_back_the_object_url_and_the_download_link():
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     assert "URL.revokeObjectURL" in page
     assert "document.body.appendChild(link)" in page
@@ -585,7 +582,7 @@ def test_the_page_gives_back_the_object_url_and_the_download_link():
 def test_the_reader_is_one_rule_for_both_names():
     """Storage keeps the value as it is, so there is no decoding step to fail."""
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     assert "function readStored(name)" in page
     assert "return null" in page
@@ -673,7 +670,7 @@ def test_the_file_uses_the_clock_passed_by_the_page(monkeypatch):
         return "2026-10-31T14:20:04Z"
 
     monkeypatch.setattr(roster_view, "clock", clock)
-    page = client.get("/roster").text
+    page = served_page(client)
     assert "at = new Date()" in page
     assert "buildFilename(ext, at)" in page
     assert 'request.query_params.get("at")' in module_source()
@@ -920,7 +917,7 @@ def test_the_page_has_one_rule_for_the_text_inside_a_tile():
 def test_the_reader_takes_the_name_it_is_asked_for():
     """One rule for both toggles, so nothing is keyed to one name."""
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     assert "function readStored(name)" in page
     assert "function setStored(name, value)" in page
@@ -929,7 +926,7 @@ def test_the_reader_takes_the_name_it_is_asked_for():
 def test_the_formats_button_shows_the_arrow_before_the_list_of_formats():
     """The label is the marker for the list, not a name for the control."""
     client = build_app()
-    page = client.get("/roster").text
+    page = served_page(client)
 
     assert 'id="formats">▼' in page
     assert 'id="menu"' in page  # the list is what the marker opens
@@ -1048,7 +1045,7 @@ def test_nothing_is_written_for_a_participant_who_is_not_on_hold():
     # The row that carries the marker is built inside the check for that state, so a page for
     # participants who are not on hold carries no element for them, not an empty one.
     page = page_source()
-    assert 'if (tile.state === "held") {\n            const middle = el_class("middle");' in page
+    assert 'if (tile.state === "held") {\n      const middle = el_class("middle");' in page
     assert "renderText(middle," in page
     assert 'renderText(el, "on_hold"' not in page
 
@@ -1099,7 +1096,7 @@ def test_the_page_gets_one_mapping_per_skin_and_reads_a_file_as_its_own_picture(
     # One place answers for a skin, so the page asks once per name and keeps what it got.
     page = page_source()
     assert 'fetch("/api/avatar/sprite?skin="' in page
-    assert "fetch(url)\n          .then((response) => (response.ok ? response.json() : null))" in page
+    assert "fetch(url)\n    .then((response) => (response.ok ? response.json() : null))" in page
     assert "if (!name || skins[name]) continue" in page
     assert "await load_skins(tiles)" in page
     # A frame that names a file cannot be cut from a sheet, so it is read one at a time and cached by its name.
@@ -1266,3 +1263,59 @@ def test_a_participant_that_has_no_block_is_not_drawn():
     page = page_source()
     body = page.split("function render(tiles)")[1]
     assert "if (!place) continue;  // the room cannot be divided further, so this participant has no block" in body
+
+
+def static_source(name):
+    """One of the files a page asks for, as stored."""
+    return (Path(__file__).parent.parent / "src" / "ziomek" / "resources" / "static" / name).read_text(encoding="utf-8")
+
+
+# The parts of a page are files it asks for, not text it carries: one definition of the styles and
+# the logic, so a page that shows the same thing is not a copy of it.
+def test_the_page_holds_only_its_markup_and_the_links_to_its_parts():
+    shell = page_shell()
+
+    assert '<link rel="stylesheet" href="/static/roster.css">' in shell
+    assert '<script src="/static/roster.js"></script>' in shell
+    assert "<style>" not in shell
+    assert "function render(tiles)" not in shell
+
+
+def test_the_page_is_the_one_that_starts_the_view():
+    """A part only defines what a page does, so the page is the one that starts the view after it can answer its data."""
+    assert 'start("__TRANSCRIPT_DEFAULT__")' in page_shell()
+    assert "function start(page_default)" in static_source("roster.js")
+    assert "start(" not in static_source("roster.js").split("function start(page_default)")[1]
+
+
+def test_the_styles_are_answered_for_the_path_the_page_links_to():
+    client = build_app()
+
+    response = client.get("/static/roster.css")
+
+    assert response.status_code == 200
+    assert "text/css" in response.headers.get("content-type", "")
+    assert ".middle { position: absolute; inset: 0;" in response.text
+
+
+def test_the_script_is_answered_for_the_path_the_page_links_to():
+    client = build_app()
+
+    response = client.get("/static/roster.js")
+
+    assert response.status_code == 200
+    assert "application/javascript" in response.headers.get("content-type", "")
+    assert "function render(tiles)" in response.text
+
+
+def test_a_file_in_that_folder_that_is_not_there_is_not_answered():
+    client = build_app()
+
+    assert client.get("/static/roster.png").status_code == 404
+
+
+def test_a_file_outside_that_folder_is_not_answered_by_it():
+    """The folder holds what a page asks for; a definition that only the server reads is not part of a page."""
+    client = build_app()
+
+    assert client.get("/static/morda.json").status_code == 404

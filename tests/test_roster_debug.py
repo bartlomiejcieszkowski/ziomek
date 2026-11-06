@@ -1,28 +1,22 @@
 """The page served in dev mode states what it measured; the page without it does not."""
 
-from pathlib import Path
-
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.roster_page_helpers import (
+    debug_page_source,
+    loaded_parts,
+    page_shell,
+    page_source,
+    served_page,
+    static_source,
+)
 from ziomek import dev_mode, server
 
 
-def page_source():
-    """The page without the debug part, as stored."""
-    return (Path(__file__).parent.parent / "src" / "ziomek" / "resources" / "roster.html").read_text(encoding="utf-8")
-
-
 def both_pages():
-    """The definitions are in the shared part, so a test that checks them reads both pages."""
-    return debug_page_source() + page_source()
-
-
-def debug_page_source():
-    """The page served in dev mode, as stored."""
-    return (Path(__file__).parent.parent / "src" / "ziomek" / "resources" / "roster_debug.html").read_text(
-        encoding="utf-8"
-    )
+    """The definitions are in the shared part, so a test that checks them reads the page and the part added to it."""
+    return page_source() + static_source("roster_debug.js")
 
 
 @pytest.fixture(autouse=True)
@@ -58,17 +52,22 @@ def test_the_page_that_draws_tiles_has_no_way_to_state_values_on_its_own():
 
 def test_the_debug_page_is_the_page_with_only_its_own_part_added():
     """The debug page must draw tiles the same way as the page, so it is the page plus a part that only states values."""
-    page = page_source()
-    head, part = debug_page_source().split("/* the debug part */")
-    assert head == page.split("setShown(panelOpen());")[0]
+    own_link = '<script src="/static/roster_debug.js"></script>'
+    lines = [line.strip() for line in page_shell("roster_debug.html").splitlines()]
+    assert lines.count(own_link) == 1
+    assert [line for line in lines if line != own_link] == [line.strip() for line in page_shell().splitlines()]
+    assert loaded_parts("roster_debug.html") == loaded_parts() + ["roster_debug.js"]
+    part = static_source("roster_debug.js")
     assert "fetch(REPORT_PATH" in part and ".tile {" not in part
-    assert "setShown(panelOpen());" in debug_page_source()
+    # A part added to a page only states values; the page is the one that starts the view.
+    assert "start(" not in part
 
 
 def test_the_part_added_in_dev_mode_states_values_before_the_page_starts():
-    """A part added after the page runs would miss the values of the first render."""
-    debug = debug_page_source()
-    assert debug.index("/* the debug part */") < debug.index("setShown(panelOpen());")
+    """A part read after the view starts would miss the values of the first render, so the page loads it before it starts."""
+    shell = page_shell("roster_debug.html")
+    assert shell.index('<script src="/static/roster_debug.js"></script>') < shell.index("start(")
+    assert "state_sizes = function" in static_source("roster_debug.js")
 
 
 def test_the_page_asks_for_the_values_to_be_stated_after_dividing():
@@ -143,16 +142,15 @@ def test_a_participant_with_no_block_is_not_drawn():
 
 def test_the_roster_page_answers_with_the_page_without_the_debug_part(client_without_dev):
     """Without dev mode nothing can be told back, so a page that states values has no reader."""
-    resp = client_without_dev.get("/roster")
-    assert resp.status_code == 200
-    assert "REPORT_PATH" not in resp.text
+    assert client_without_dev.get("/roster").status_code == 200
+    assert "REPORT_PATH" not in served_page(client_without_dev)
 
 
 def test_the_roster_page_answers_with_the_debug_page_in_dev_mode(client_with_dev):
     """The debug paths are open only in dev mode, so the page that states values is served only there."""
-    resp = client_with_dev.get("/roster")
-    assert resp.status_code == 200
-    assert 'fetch(REPORT_PATH, { method: "POST"' in resp.text
+    assert client_with_dev.get("/roster").status_code == 200
+    # The page itself holds markup and links; what states values is the part it then asks for.
+    assert 'fetch(REPORT_PATH, { method: "POST"' in served_page(client_with_dev, "roster_debug.html")
 
 
 def test_the_room_is_divided_in_whole_frame_counts_not_equal_tracks():
@@ -204,10 +202,10 @@ def test_the_blocks_this_page_draws_are_reported_as_whole_numbers_of_frames():
 def test_a_page_that_states_values_has_no_reader_when_the_server_runs_without_dev_mode(client_without_dev):
     """A page that posts to a path the server did not open would state values nothing can read, so both answer from one flag."""
     assert client_without_dev.post("/api/debug/render", json={"path": "measured"}).status_code == 404
-    assert "state_sizes = function" not in client_without_dev.get("/roster").text
+    assert "state_sizes = function" not in served_page(client_without_dev)
 
 
 def test_the_page_that_states_values_and_the_path_that_answers_it_open_together(client_with_dev):
     """The page that states values and the path that reads them are opened by the same flag."""
     assert client_with_dev.post("/api/debug/render", json={"path": "measured"}).status_code == 200
-    assert 'fetch(REPORT_PATH, { method: "POST"' in client_with_dev.get("/roster").text
+    assert 'fetch(REPORT_PATH, { method: "POST"' in served_page(client_with_dev, "roster_debug.html")

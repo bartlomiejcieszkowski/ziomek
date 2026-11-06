@@ -1,0 +1,54 @@
+body { font-family: sans-serif; background: #111; color: #eee; }
+#layout { display: flex; gap: 12px; min-height: 100vh; }
+#main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+#roster { max-height: 100vh; overflow: auto; }
+#roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; padding: 8px; }
+/* Rows can only fill the page when the grid is given the height it is asked for. */
+#main > #roster { flex: 1 1 auto; min-height: 0; }
+#count { font-size: 13px; color: #999; padding: 8px; }
+#panel { flex: 0 0 320px; max-height: 100vh; overflow: auto; border-left: 1px solid #444; padding-left: 12px; }
+#layout.hide #roster { flex: 1 1 auto }
+#layout.hide #transcript { display: none; }
+#layout.hide #panel { flex: 0 0 auto; }
+#transcript { list-style: none; padding: 0; }
+#transcript li, #transcript .box p { white-space: pre-wrap; }
+/* Wrapping at spaces is not enough: a run with no space in it keeps going past the box,
+   which is what makes the page scroll sideways. The tile text and the lines under it are
+   reached by the same kind of run. */
+#transcript li, #transcript .box p { overflow-wrap: break-word; }
+#menu { display: none; }
+#menu.open { display: block; }
+button { background: #2a2a30; color: #ddd; border: 1px solid #4a4a52; border-radius: 6px; padding: 6px 10px; font: inherit; cursor: pointer; }
+.tile { position: relative; overflow: hidden; }
+/* A tile fills its cell up to this size. It is set by the page from the frames it can
+   show, so a tile is never scaled past the point where pixels stop being even. */
+
+/* A capped tile is smaller than the cell it was measured for, so it stays in the middle
+   of that cell rather than at its corner. */
+.tile { justify-self: center; align-self: center; }
+.avatar { position: absolute; inset: 0; background: #2a2a30; border: 1px dashed #4a4a52; border-radius: 6px; background-repeat: no-repeat; image-rendering: pixelated; }
+/* Both corners sit at the same inset; a positioned row also paints above the avatar block. */
+/* A box sized to its content has nothing to center against, so centering belongs to the row.
+   Flex items stretch by default, so the smaller pill sits at the top of the row instead of
+   in its middle; centering the cross axis keeps both pills level with each other. */
+.top { position: absolute; top: 8px; left: 8px; right: 8px; z-index: 1; display: flex; justify-content: space-between; align-items: center; text-align: center; }
+.bottom { position: absolute; left: 8px; right: 8px; bottom: 8px; }
+@media (max-width: 900px) {
+  #layout { display: block; }
+  #roster, #panel { flex: none; }
+}
+.box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; border-radius: 6px; padding: 12px; }
+.name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }
+.event { color: #e0a568; }
+.group_author { color: #999; }
+.assignment { color: #c586c0; }
+.system_text, .box p.system_text { color: #7fb069; }
+.tile { padding: 12px; margin: 8px 0; background: #1b1b22; border-radius: 6px; }
+.tile .name { font-weight: bold; margin-bottom: 4px; }
+/* Only a row that spans the tile can hold text in its middle, so the marker for a participant
+   who is on hold gets one. Nothing is built for the others, so the row is not in the page for them. */
+.middle { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; text-align: center; }
+.middle .on_hold { background: rgba(12,12,18,0.7); border-radius: 6px; padding: 3px 6px; }
+.system_text, .on_hold { white-space: pre-wrap; font-size: 13px; }
+.text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; overflow-wrap: break-word; }
+.expression { color: #d2a9ff; font-family: monospace; font-size: 11px; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }
