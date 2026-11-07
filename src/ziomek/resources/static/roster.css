@@ -48,7 +48,7 @@ button { background: #2a2a30; color: #ddd; border: 1px solid #4a4a52; border-rad
 /* Only a row that spans the tile can hold text in its middle, so the marker for a participant
    who is on hold gets one. Nothing is built for the others, so the row is not in the page for them. */
 .middle { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; text-align: center; }
-.middle .on_hold { background: rgba(12,12,18,0.7); border-radius: 6px; padding: 3px 6px; }
+.middle .on_hold { background: rgba(12,12,18,0.7); border-radius: 6px; padding: 3px 6px; color: #999; }
 .system_text, .on_hold { white-space: pre-wrap; font-size: 13px; }
 .text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; overflow-wrap: break-word; }
 .expression { color: #d2a9ff; font-family: monospace; font-size: 11px; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }
