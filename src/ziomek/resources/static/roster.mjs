@@ -1,6 +1,7 @@
 import { blocks_in_frames, pick_the_biggest, split_the_blocks, whole_frame_grid } from "./roster_grid.mjs";
 import { read_number } from "./numbers.mjs";
 import { room_for, state_sizes } from "./state_sizes.mjs";
+import { fit_scale } from "./fit.mjs";
 let lastPayload = {};
 let lastBlocks = [];
 let rendered = 0;
@@ -243,23 +244,6 @@ const show_cell = function (block, skin, frame, scaleWidth, scaleHeight, boxWidt
     (frame.column ? -frame.column * frame.width * scaleWidth : 0) + "px " + (frame.row ? -frame.row * frame.height * scaleHeight : 0) + "px";
 }
 
-// The scale that places one frame inside the box, which is what a fit says in numbers.
-function fit_scale(fit, frameWidth, frameHeight, boxWidth, boxHeight) {
-  const byWidth = boxWidth / frameWidth;
-  const byHeight = boxHeight / frameHeight;
-  if (fit === "fill") return [byWidth, byHeight];
-  if (fit === "cover") {
-    const scale = Math.max(byWidth, byHeight);
-    return [scale, scale];
-  }
-  if (fit === "none") return [1, 1];
-  if (fit === "scale-down") {
-    const scale = Math.min(1, Math.min(byWidth, byHeight));
-    return [scale, scale];
-  }
-  const scale = Math.min(byWidth, byHeight);
-  return [scale, scale];
-}
 
 // A tile shows one frame of its own skin, which is the frame the mapping resolved for it.
 function draw_avatar(tile, block) {

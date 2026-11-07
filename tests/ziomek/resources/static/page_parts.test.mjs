@@ -36,6 +36,14 @@ test("the part added in dev mode states values and posts them, defining no shape
   }
 });
 
+test("the pages ask for the rule that decides the size of a skin instead of writing their own", () => {
+  assert.ok(part("roster.mjs").includes('from "./fit.mjs"'));
+  assert.ok(!part("roster.mjs").includes("function fit_scale("), "the page part writes the rule again");
+  const drawing_page = page("renderer.html");
+  assert.ok(drawing_page.includes('import { fit_scale } from "/static/fit.mjs"'), "the drawing page does not ask for the rule");
+  assert.ok(!drawing_page.includes("function fitScale("), "the drawing page writes the rule again");
+});
+
 test("the debug page loads its own part before the page is started", () => {
   const html = page("roster_debug.html");
   assert.ok(html.includes('<script type="module">import { state_sizes } from "/static/roster_debug.mjs";'));
