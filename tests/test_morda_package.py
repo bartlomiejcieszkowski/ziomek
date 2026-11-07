@@ -67,6 +67,30 @@ def test_the_script_reads_a_root_file_when_names_carry_paths(tmp_path: Path):
     assert definition == b"{}"
 
 
+def test_the_script_warns_when_a_folder_holds_no_definition(tmp_path, capsys):
+    """A folder with only pictures is not a skin, so the script says what it could not find."""
+    source = tmp_path / "cosette"
+    source.mkdir()
+    (source / "happy.png").write_bytes(b"png")
+
+    sys.argv = ["morda.py", str(source), str(tmp_path / "cosette.morda")]
+    morda.main()
+
+    assert "no definition in the folder" in capsys.readouterr().err
+
+
+def test_the_script_does_not_warn_when_a_definition_is_named_for_an_avatar(tmp_path, capsys):
+    """A folder that holds definitions for avatars is a skin, so the script does not say a definition is missing."""
+    source = tmp_path / "cosette"
+    source.mkdir()
+    (source / "blue.morda.json").write_text("{}", encoding="utf-8")
+
+    sys.argv = ["morda.py", str(source), str(tmp_path / "cosette.morda")]
+    morda.main()
+
+    assert "warning" not in capsys.readouterr().err
+
+
 def test_the_script_stays_within_repo_rules():
     """No abbreviations, no short names, no single-letter names, no underscore word separators."""
     source = (ROOT / "scripts" / "morda.py").read_text(encoding="utf-8")

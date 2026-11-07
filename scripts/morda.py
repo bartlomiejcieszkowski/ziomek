@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from tarfile import TarFile
 
+from ziomek.avatar.morda import definition_names
+
 
 def collect_files(source: Path) -> list[Path]:
     """Every file under the skin folder, named by its path inside the archive."""
@@ -45,8 +47,8 @@ def main():
     if not entries:
         print("nothing to package", file=sys.stderr)
         sys.exit(1)
-    if not (source / "morda.json").is_file():
-        print("warning: no morda.json, the archive is not a valid skin", file=sys.stderr)
+    if not definition_names(entry.relative_to(source).as_posix() for entry in entries):
+        print(f"warning: no definition in the folder {source}, so the archive is not a skin", file=sys.stderr)
 
     written = package(source, target)
     print(f"wrote {target} with {written} entries")
