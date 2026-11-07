@@ -35,6 +35,9 @@ jobs:
         run: npm run compile
         working-directory: vscode_extension
 
+      - name: Run the tests for the rules the pages count with
+        run: npm test
+
       - name: Run tests
         run: npm test
         working-directory: vscode_extension
