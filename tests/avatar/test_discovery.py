@@ -4,7 +4,8 @@ import io
 import json
 import tarfile
 
-from tests.avatar.morda_helpers import make_bundle, make_folder, png, sheet_definition
+from tests.avatar.morda_helpers import make_archive, make_bundle, make_folder, png, sheet_definition
+from ziomek.avatar import discovery
 from ziomek.avatar.discovery import find_definitions
 
 
@@ -119,3 +120,40 @@ def test_the_order_inside_a_bundle_decides_who_keeps_a_name(tmp_path, caplog):
     assert [definition.name for definition in found] == ["cosette", "cosette_2"]
     messages = [record.message for record in caplog.records if record.levelname == "ERROR"]
     assert any("the name cosette is claimed by" in message for message in messages)
+
+
+def test_a_name_taken_by_another_definition_is_reported_with_the_file_that_carries_it(tmp_path, caplog):
+    """Several definitions in one bundle can claim the same name, so what is reported has to say which file carries which claim."""
+    folder = make_bundle(
+        tmp_path / "single-frame",
+        {"aaa.morda.json": sheet_definition(name="cosette"), "morda.json": sheet_definition(name="cosette")},
+    )
+
+    find_definitions(tmp_path, default_dir=tmp_path / "nothing")
+    messages = [record.message for record in caplog.records if record.levelname == "ERROR"]
+    claim = [message for message in messages if "the name cosette is claimed by" in message]
+    assert claim
+    assert all(str(folder / "morda.json") in message and str(folder / "aaa.morda.json") in message for message in claim)
+
+
+def test_a_source_is_decided_from_the_same_reading_that_answers_its_definitions(tmp_path, monkeypatch):
+    """Deciding whether something is a skin and answering what it holds are one reading, so an archive is not opened twice for the same run."""
+    bundle = make_bundle(
+        tmp_path / "build",
+        {"morda.json": sheet_definition(name="cosette"), "aaa.morda.json": sheet_definition(name="cosette-blue")},
+    )
+    (tmp_path / "skins").mkdir()
+    make_archive(bundle, tmp_path / "skins" / "single-frame.morda")
+
+    reads = []
+    read_once = discovery.read_entries
+
+    def counting_read(source, errors=None):
+        reads.append(source)
+        return read_once(source, errors)
+
+    monkeypatch.setattr(discovery, "read_entries", counting_read)
+    found = find_definitions(tmp_path / "skins", default_dir=tmp_path / "nothing")
+
+    assert [definition.name for definition in found] == ["cosette", "cosette-blue"]
+    assert len(reads) == 1, f"the source was read {len(reads)} times"
