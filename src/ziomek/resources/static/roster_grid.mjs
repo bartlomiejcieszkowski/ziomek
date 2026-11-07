@@ -14,7 +14,8 @@ export function whole_frame_grid(room, frame) {
   return { rows: count_tracks(left.height, room.taken.gap.y, frame), cols: count_tracks(left.width, room.taken.gap.x, frame) };
 }
 
-// The first block that can be cut in half by a line between two tracks, taken in position order.
+// The biggest block that can be cut in half by a line between two tracks.
+// Position order decides between blocks holding the same number of tracks.
 export function pick_the_biggest(blocks) {
   let chosen = null;
   for (const block of blocks) {

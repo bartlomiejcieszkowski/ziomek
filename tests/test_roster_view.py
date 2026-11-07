@@ -1013,6 +1013,13 @@ def test_the_time_a_participant_has_been_on_hold_is_stated_on_its_own_line():
     assert 'renderText(middle, "on_hold", "on hold\\n" + held(tile));' in page
 
 
+def test_the_held_marker_is_shown_in_the_quiet_color():
+    """A held participant has no expression of their own, so what says they are held is not read as one."""
+    page = page_source()
+    assert ".middle .on_hold { background: rgba(12,12,18,0.7); border-radius: 6px; padding: 3px 6px; color: #999; }" in page
+    assert ".system_text { color: #7fb069; }" in page
+
+
 def test_the_text_stays_at_the_bottom_of_the_block():
     page = page_source()
     assert ".bottom { position: absolute; left: 8px; right: 8px; bottom: 8px; }" in page
