@@ -1,0 +1,8 @@
+{
+  "name": "ziomek",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node scripts/run_js_tests.js"
+  }
+}
