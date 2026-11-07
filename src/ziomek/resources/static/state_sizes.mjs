@@ -33,8 +33,6 @@ export function build_report(room, path, grid, frame, frames, blocks) {
     measured: room.measured,
     taken: taken,
     room: room,
-    // a grid counted in whole frames has no share of the room left over for a cell, so the value it states is the frame itself
-    cell: grid ? { width: frame, height: frame } : null,
     frames: frames,
     tile: frame ? { width: frame, height: frame } : null,
     blocks: describe_blocks(blocks),

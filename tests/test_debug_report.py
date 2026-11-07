@@ -12,8 +12,8 @@ def no_report_yet():
 
 
 def test_the_last_report_is_the_one_answered():
-    debug_report.store({"room": {"width": 1000, "height": 800}, "cell": None, "frames": 10})
-    debug_report.store({"room": {"width": 640, "height": 480}, "cell": {"width": 320, "height": 240}, "frames": 3})
+    debug_report.store({"room": {"width": 1000, "height": 800}, "frames": 10})
+    debug_report.store({"room": {"width": 640, "height": 480}, "frames": 3})
 
     report = debug_report.last()
     assert report["room"] == {"width": 640, "height": 480}
@@ -31,7 +31,7 @@ def test_a_part_that_is_not_there_is_kept_as_empty_rather_than_left_out():
     debug_report.store({"room": {"width": 640, "height": 480}})
 
     report = debug_report.last()
-    assert sorted(report) == ["blocks", "cell", "frames", "path", "room", "tile"]
+    assert sorted(report) == ["blocks", "frames", "path", "room", "tile"]
 
 
 def test_the_blocks_a_page_stated_are_kept_with_the_report():
@@ -51,4 +51,3 @@ def test_a_page_that_could_not_measure_says_which_path_it_took():
 
     report = debug_report.last()
     assert report["path"] == "unmeasurable"
-    assert report["cell"] is None
