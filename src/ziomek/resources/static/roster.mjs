@@ -1,4 +1,4 @@
-import { blocks_in_frames, pick_the_biggest, split_the_blocks, whole_frame_grid } from "./roster_grid.mjs";
+import { blocks_in_frames, whole_frame_grid } from "./roster_grid.mjs";
 import { read_number } from "./numbers.mjs";
 import { room_for, state_sizes } from "./state_sizes.mjs";
 import { fit_scale } from "./fit.mjs";
@@ -421,7 +421,7 @@ async function refresh() {
     const stream = await fetch("/api/roster/transcript");
     lastPayload = await stream.json();
     lastBlocks = lastPayload.blocks;
-  } catch (error) {
+  } catch {
     return;  // a failed poll keeps the record as it was, so nothing is shown from it
   }
 
