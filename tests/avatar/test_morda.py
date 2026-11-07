@@ -324,3 +324,23 @@ def test_a_problem_in_one_definition_names_the_definition_it_came_from(tmp_path)
     errors = [answer.errors for answer in read_definitions(bundle) if isinstance(answer, DefinitionError)]
     assert any(error.startswith("morda.json") for problem in errors for error in problem)
     assert any(error.startswith("blue.morda.json") for problem in errors for error in problem)
+
+
+def test_a_definition_is_reported_as_a_problem_when_the_rules_for_the_format_cannot_be_read(tmp_path, monkeypatch):
+    """The rules are what a reader needs to check a definition, so a schema that is not there is reported as a problem for that definition rather than stopping the reader."""
+    monkeypatch.setattr("ziomek.avatar.morda.SCHEMA_PATH", tmp_path / "no_rules.json")
+    folder = make_folder(tmp_path / "skin", sheet_definition())
+
+    problems = first_problem(folder).errors
+    assert any("the rules for the format cannot be read" in problem for problem in problems)
+
+
+def test_a_definition_is_reported_as_a_problem_when_the_rules_are_not_written_as_json(tmp_path, monkeypatch):
+    """A schema that is not read as JSON is the same kind of problem as a schema that is not there."""
+    rules = tmp_path / "rules.json"
+    rules.write_text("{ this is not json", encoding="utf-8")
+    monkeypatch.setattr("ziomek.avatar.morda.SCHEMA_PATH", rules)
+    folder = make_folder(tmp_path / "skin", sheet_definition())
+
+    problems = first_problem(folder).errors
+    assert any("the rules for the format cannot be read" in problem for problem in problems)
