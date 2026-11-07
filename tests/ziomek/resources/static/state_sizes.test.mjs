@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { blocks_in_frames } from "../../../../src/ziomek/resources/static/roster_grid.mjs";
+import { blocks_in_frames, whole_frame_grid } from "../../../../src/ziomek/resources/static/roster_grid.mjs";
 import { build_report, describe_blocks, state_sizes } from "../../../../src/ziomek/resources/static/state_sizes.mjs";
 
 const room = (width, height, padding, gap) => ({ measured: { width, height }, taken: { padding: { x: padding, y: padding }, gap: { x: gap, y: gap } } });
@@ -41,4 +41,11 @@ test("each block stated carries the size its own tile was given", () => {
     assert.equal(block.tile.width, block.cols * 100);
     assert.equal(block.tile.height, block.rows * 100);
   }
+});
+
+test("a report states nothing it cannot measure", () => {
+  // A grid counted in whole frames has no share of the room left over for a cell.
+  const r = room(2260, 1311, 30, 8);
+  const report = build_report(r, "measured", whole_frame_grid(r, 100), 100, 1, []);
+  assert.ok(!("cell" in report), "a field a reader cannot reproduce from the room");
 });
