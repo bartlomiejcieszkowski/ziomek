@@ -1,3 +1,6 @@
+import { blocks_in_frames, pick_the_biggest, split_the_blocks, whole_frame_grid } from "./roster_grid.mjs";
+import { read_number } from "./numbers.mjs";
+import { room_for, state_sizes } from "./state_sizes.mjs";
 let lastPayload = {};
 let lastBlocks = [];
 let rendered = 0;
@@ -103,24 +106,10 @@ let stated_blocks = [];  // each block with the size its own tile was given
 // A page cannot state what it measured on its own: the values only exist in the browser. It asks for
 // them through this, and a part that a server started with --dev adds is what carries them to the
 // debug path. Without that part nothing is stated.
-let state_sizes = null;
 
 // A track is measured from the space left after padding and gaps, and these numbers are read from
 // the page rather than written here, since CSS is what sets them.
-function measure_room(root) {
-  const styles = getComputedStyle(root);
-  const read_number = function (value) { return parseFloat(value) || 0; };
-  const taken = {
-    padding: { x: read_number(styles.paddingLeft) + read_number(styles.paddingRight), y: read_number(styles.paddingTop) + read_number(styles.paddingBottom) },
-    gap: { x: read_number(styles.columnGap), y: read_number(styles.rowGap) },
-  };
-  return {
-    measured: { width: root.clientWidth, height: root.clientHeight },
-    taken: taken,
-    width: root.clientWidth - taken.padding.x,
-    height: root.clientHeight - taken.padding.y,
-  };
-}
+
 
 // A track costs the frame plus the gap that follows it, so a single row or a single column takes
 // nothing: a gap only exists between two tracks. Padding sits outside the area the grid is given, so
@@ -141,66 +130,36 @@ function largest_tile(tiles) {
 
 // Space that no frame fits into stays outside the grid instead of becoming bars inside a tile, so the
 // grid is counted in whole frames rather than by dividing the box into equal tracks.
-function whole_frame_grid(room, frame) {
-  const tracks = function (space, gap) { return Math.floor((space + gap) / (frame + gap)); };
-  return { rows: tracks(room.height, room.taken.gap.y), cols: tracks(room.width, room.taken.gap.x) };
-}
+
 
 // A block is a whole number of tracks. Splitting the biggest block, along its longer edge, is what brings
 // the number of blocks up to the number of participants; half of an odd span is not a block, so a block
 // that cannot be split stays as it is.
-function pick_the_biggest(blocks) {
-  let biggest = null;
-  for (const block of blocks.slice().sort(function (a, b) { return a.row - b.row || a.col - b.col; })) {
-    if (block.rowSpan < 2 && block.colSpan < 2) continue;  // a single track cannot be split in half
-    if (!biggest || block.rowSpan * block.colSpan > biggest.rowSpan * biggest.colSpan) biggest = block;
-  }
-  return biggest;
-}
 
-function split_the_blocks(grid, count) {
-  const blocks = [{ row: 0, col: 0, rowSpan: grid.rows, colSpan: grid.cols }];
-  while (blocks.length < count) {
-    const biggest = pick_the_biggest(blocks);
-    if (!biggest) break;  // a span one track wide cannot be halved without breaking a frame count
-    if (biggest.rowSpan >= biggest.colSpan) {
-      const half = Math.floor(biggest.rowSpan / 2);
-      blocks.push({ row: biggest.row + half, col: biggest.col, rowSpan: biggest.rowSpan - half, colSpan: biggest.colSpan });
-      biggest.rowSpan = half;
-    } else {
-      const half = Math.floor(biggest.colSpan / 2);
-      blocks.push({ row: biggest.row, col: biggest.col + half, rowSpan: biggest.rowSpan, colSpan: biggest.colSpan - half });
-      biggest.colSpan = half;
-    }
-  }
-  return blocks.sort(function (a, b) { return a.row - b.row || a.col - b.col; });
-}
+
+
 
 // A block is a whole number of frames on each axis, so the size it is given is that count times the frame.
 // The same values are used for the tile and for what the page states, so a reader is not shown two numbers.
-function blocks_in_frames(grid, count, frame) {
-  return split_the_blocks(grid, count).map(function (block) {
-    return { row: block.row, col: block.col, rows: block.rowSpan, cols: block.colSpan, tile: { width: block.colSpan * frame, height: block.rowSpan * frame } };
-  });
-}
+
 
 function apply_largest_tile(root, room, parts) {
   const frame = largest_tile(parts);
   if (!frame) {  // nothing was read for these skins, so no size can be derived
     stated_blocks = [];
-    state_sizes?.("no frame size was read for these skins", room, null, null, null);
+    state_sizes.report?.("no frame size was read for these skins", room, null, null, null, []);
     return;
   }
   const grid = whole_frame_grid(room, frame);
   if (!grid.rows || !grid.cols) {
     stated_blocks = [];
-    state_sizes?.("no whole frame fits in this room", room, null, frame, null);
+    state_sizes.report?.("no whole frame fits in this room", room, null, frame, null, []);
     return;
   }
   root.style.gridTemplateColumns = "repeat(" + grid.cols + ", " + frame + "px)";
   root.style.gridTemplateRows = "repeat(" + grid.rows + ", " + frame + "px)";
   stated_blocks = blocks_in_frames(grid, parts.length, frame);
-  state_sizes?.("measured", room, grid, frame, 1);
+  state_sizes.report?.("measured", room, grid, frame, 1, stated_blocks);
 }
 
 function render(tiles) {
@@ -208,10 +167,10 @@ function render(tiles) {
   root.innerHTML = "";
   const count = document.getElementById("count");
   count.textContent = tiles.length + " participants";
-  const room = measure_room(root);
+  const room = room_for(read_number, root);
   if (room.width <= 0 || room.height <= 0) {  // the stacked layout has no room to measure, so nothing here applies
     stated_blocks = [];
-    state_sizes?.("cannot be measured", room, null, null, null);
+    state_sizes.report?.("cannot be measured", room, null, null, null, []);
     return;
   }
   apply_largest_tile(root, room, tiles);
@@ -511,7 +470,7 @@ async function refresh() {
 }
 
 // The page decides when the view starts and what it shows first.
-async function start(page_default) {
+export async function start(page_default) {
   setShown(panelOpen(page_default));
   await refresh();
   setInterval(refresh, 1000);

@@ -121,6 +121,10 @@ async def get_roster_page() -> HTMLResponse:
     return HTMLResponse(html)
 
 
+# A browser runs a module only when the answer says JavaScript, and the type guessed from a module part is text/plain.
+PART_TYPE = {".css": "text/css", ".mjs": "application/javascript"}
+
+
 @router.get("/static/{name}", summary="Page part", description="Serve a file that a page links to.")
 async def get_page_part(name: str) -> Response:
     """Answer one part of a page.
@@ -132,7 +136,7 @@ async def get_page_part(name: str) -> Response:
         return JSONResponse(status_code=404, content={"error": "not a part of a page"})
     if not part.is_file():
         return JSONResponse(status_code=404, content={"error": "the part is not present"})
-    return FileResponse(part)
+    return FileResponse(part, media_type=PART_TYPE.get(part.suffix))
 
 
 _PAST = {"join": "joined", "hold": "is on hold", "left": "left", "leave": "left"}
