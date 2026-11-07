@@ -84,6 +84,7 @@ class Definition:
     fallback: Reference | None
     fit: str = DEFAULT_FIT
     source: Path | None = None
+    definition_file: str = ""
 
 
 def definition_names(names: object) -> list[str]:
@@ -99,7 +100,9 @@ def definition_names(names: object) -> list[str]:
     return top + avatars
 
 
-def read_definitions(source: Path) -> list[Definition | DefinitionError]:
+def read_definitions(
+    source: Path, entries: dict[str, bytes] | None = None, problems: list[str] | None = None
+) -> list[Definition | DefinitionError]:
     """Read every definition a source holds, one answer for each.
 
     Both forms are read as the same thing: names to files. Nothing is extracted, since a
@@ -107,11 +110,14 @@ def read_definitions(source: Path) -> list[Definition | DefinitionError]:
     inside the folder or the archive. A definition that does not read is answered as its own
     problem, since one unreadable definition does not stop the others in the same source. An
     answer names the definition it came from, so definitions in one bundle can be told apart.
+    A source that was already read is answered from that reading, so an archive is not opened
+    twice for the same run.
     """
-    problems: list[str] = []
-    entries = read_entries(source, problems)
-    if problems:
-        return [DefinitionError(problems)]
+    found = list(problems or [])
+    if entries is None:
+        entries = read_entries(source, found)
+    if found:
+        return [DefinitionError(found)]
 
     names = definition_names(entries)
     if not names:
@@ -181,6 +187,7 @@ def _read(source: Path, definition_name: str, entries: dict[str, bytes]) -> Defi
         fallback=_reference(raw.get("fallback")) if raw.get("fallback") else None,
         fit=_fit(raw) or DEFAULT_FIT,
         source=source,
+        definition_file=definition_name,
     )
 
 
