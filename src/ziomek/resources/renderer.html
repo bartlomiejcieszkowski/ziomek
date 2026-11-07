@@ -53,7 +53,8 @@
     <div id="status">Loading...</div>
   </div>
 
-  <script>
+  <script type="module">
+    import { fit_scale } from "/static/fit.mjs";
     const canvas = document.getElementById('avatar');
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;  // pixels do not blur, which is how the format reads scaling
@@ -78,23 +79,6 @@
     let animTimer = null;
     const DEFAULT_INTERVAL = 200; // ms per frame for a skin that declares none
 
-    /** The scale that places one frame inside the box, which is what a fit says in numbers */
-    function fitScale(fit, frameWidth, frameHeight, boxWidth, boxHeight) {
-      const byWidth = boxWidth / frameWidth;
-      const byHeight = boxHeight / frameHeight;
-      if (fit === 'fill') return [byWidth, byHeight];
-      if (fit === 'cover') {
-        const scale = Math.max(byWidth, byHeight);
-        return [scale, scale];
-      }
-      if (fit === 'none') return [1, 1];
-      if (fit === 'scale-down') {
-        const scale = Math.min(1, Math.min(byWidth, byHeight));
-        return [scale, scale];
-      }
-      const scale = Math.min(byWidth, byHeight);
-      return [scale, scale];
-    }
 
     /** Keep one picture under its name and draw again once it is readable */
     function keepImage(key, dataUrl, onRead) {
@@ -170,7 +154,7 @@
       if (!picture) return;  // drawn again once the picture can be read
 
       // The box is this page, since the size of the box is not part of a definition.
-      const [scaleWidth, scaleHeight] = fitScale(frame.fit, frame.width, frame.height, canvas.width, canvas.height);
+      const [scaleWidth, scaleHeight] = fit_scale(frame.fit, frame.width, frame.height, canvas.width, canvas.height);
       const drawnWidth = frame.width * scaleWidth;
       const drawnHeight = frame.height * scaleHeight;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
