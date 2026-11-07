@@ -46,7 +46,11 @@ def test_the_page_that_draws_tiles_states_nothing_while_no_reading_is_set():
 
 def test_the_debug_page_is_the_page_with_only_its_own_part_added():
     """The page shown in dev mode is the same page with one link added for the part that states values, and that part asks for the rules from the page's own part."""
-    own = [line for line in page_shell("roster_debug.html").split("\n") if line not in page_shell("roster.html").split("\n")]
+    own = [
+        line
+        for line in page_shell("roster_debug.html").split("\n")
+        if line not in page_shell("roster.html").split("\n")
+    ]
     assert len(own) == 1
     assert 'import { state_sizes } from "/static/roster_debug.mjs";' in own[0]
     assert 'from "./state_sizes.mjs"' in static_source("roster_debug.mjs")
@@ -82,13 +86,18 @@ def test_the_drawing_part_asks_for_the_shape_of_a_report_before_it_counts_anythi
     guard = drawing.split("if (!frame) {")[1].split("}")[0]
     assert "return;" in guard
     body = drawing[drawing.index("function apply_largest_tile") : drawing.index("function render(tiles)")]
-    assert body.index("stated_blocks = blocks_in_frames(grid, parts.length, frame);") < body.index('state_sizes.report?.("measured"')
+    assert body.index("stated_blocks = blocks_in_frames(grid, parts.length, frame);") < body.index(
+        'state_sizes.report?.("measured"'
+    )
 
 
 def test_a_participant_with_no_block_is_not_drawn():
     """The room can only be divided so far. Past that a participant has no block, and nothing is drawn for them rather than a placeholder."""
     for page in ("roster.html", "roster_debug.html"):
-        assert "if (!place) continue;  // the room cannot be divided further, so this participant has no block" in parts_of_page(page)["roster.mjs"]
+        assert (
+            "if (!place) continue;  // the room cannot be divided further, so this participant has no block"
+            in parts_of_page(page)["roster.mjs"]
+        )
 
 
 def test_the_roster_page_answers_with_the_page_without_the_debug_part(client_without_dev):

@@ -1016,7 +1016,10 @@ def test_the_time_a_participant_has_been_on_hold_is_stated_on_its_own_line():
 def test_the_held_marker_is_shown_in_the_quiet_color():
     """A held participant has no expression of their own, so what says they are held is not read as one."""
     page = page_source()
-    assert ".middle .on_hold { background: rgba(12,12,18,0.7); border-radius: 6px; padding: 3px 6px; color: #999; }" in page
+    assert (
+        ".middle .on_hold { background: rgba(12,12,18,0.7); border-radius: 6px; padding: 3px 6px; color: #999; }"
+        in page
+    )
     assert ".system_text { color: #7fb069; }" in page
 
 
@@ -1175,4 +1178,6 @@ def test_the_values_a_page_states_name_the_blocks_it_counted_not_the_shares_it_d
     guard = drawing.split("if (!frame) {")[1].split("}")[0]
     assert "return;" in guard
     body = drawing[drawing.index("function apply_largest_tile") : drawing.index("function render(tiles)")]
-    assert body.index("stated_blocks = blocks_in_frames(grid, parts.length, frame);") < body.index('state_sizes.report?.("measured"')
+    assert body.index("stated_blocks = blocks_in_frames(grid, parts.length, frame);") < body.index(
+        'state_sizes.report?.("measured"'
+    )
