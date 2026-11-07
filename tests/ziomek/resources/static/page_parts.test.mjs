@@ -36,6 +36,18 @@ test("the part added in dev mode states values and posts them, defining no shape
   }
 });
 
+test("a part asks for what it uses, and not for what it does not", () => {
+  const code = part("roster.mjs");
+  const imports = code.split("\n").filter((line) => line.startsWith("import {"));
+  assert.ok(imports.length > 0, "the part asks for nothing");
+  const body = code.split("\n").filter((line) => !line.startsWith("import {")).join("\n");
+  for (const line of imports) {
+    for (const name of line.slice(line.indexOf("{") + 1, line.indexOf("}")).split(",").map((entry) => entry.trim())) {
+      assert.ok(body.includes(name), name + " is asked for but not used");
+    }
+  }
+});
+
 test("the pages ask for the rule that decides the size of a skin instead of writing their own", () => {
   assert.ok(part("roster.mjs").includes('from "./fit.mjs"'));
   assert.ok(!part("roster.mjs").includes("function fit_scale("), "the page part writes the rule again");
