@@ -210,7 +210,11 @@ def read_entries(source: Path, errors: list[str] | None = None) -> dict[str, byt
 
 
 def _schema_errors(raw: object, definition_name: str) -> list[str]:
-    validator = jsonschema.Draft202012Validator(_load_schema())
+    schema = _load_schema()
+    if schema is None:
+        return [f"{definition_name}: the rules for the format cannot be read"]
+
+    validator = jsonschema.Draft202012Validator(schema)
     found = []
     for error in sorted(validator.iter_errors(raw), key=lambda e: list(e.path)):
         path = _json_path(error.path)
@@ -221,9 +225,17 @@ def _schema_errors(raw: object, definition_name: str) -> list[str]:
     return found
 
 
-def _load_schema() -> dict:
-    with open(SCHEMA_PATH, encoding="utf-8") as handle:
-        return json.load(handle)
+def _load_schema() -> dict | None:
+    """The rules for the format, or nothing when they cannot be read.
+
+    Rules that are not there, or that do not read as JSON, are a problem for the definition that
+    needed them rather than for the whole source, so one definition does not stop the others.
+    """
+    try:
+        with open(SCHEMA_PATH, encoding="utf-8") as handle:
+            return json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return None
 
 
 def _json_path(path: object) -> str:
