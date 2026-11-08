@@ -1,6 +1,5 @@
 """The roster page shows a tile for each participant in the call."""
 
-import re
 from pathlib import Path
 
 import pytest
@@ -702,8 +701,6 @@ def test_a_nameless_entry_has_no_leading_space_in_its_line():
 
 
 def test_the_two_clocks_use_the_same_shape():
-    import re
-
     from ziomek.api import roster_view
 
     # The header and the name use one shape, so the file says what the page passed.
