@@ -7,7 +7,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from tests.roster_page_helpers import page_shell, page_source, served_page, static_source
+from tests.roster_page_helpers import page_source, part_of_page, served_page
 
 
 def module_source():
@@ -61,8 +61,7 @@ def test_the_roster_view_lists_the_participants_of_the_call():
 
 
 def test_the_roster_page_renders_a_tile_for_each_participant():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     # Tiles are built per participant, and the text areas are filled from the tile data.
     assert 'className = "tile"' in page
@@ -143,23 +142,20 @@ def test_a_tile_carries_the_expression_of_that_participant():
 
 
 def test_the_roster_page_shows_the_expression_of_each_participant():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     assert 'renderText(top, "expression", tile.expression)' in page
 
 
 def test_the_labels_at_the_top_of_a_tile_are_painted_above_its_avatar():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.css")
 
     # An absolutely positioned box paints above content in normal flow, so the labels carry their own level.
     assert ".top { position: absolute;" in page and "z-index: 1;" in page
 
 
 def test_the_panel_shows_the_text_attached_to_a_line_of_the_record():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     # The tile shows what the participant is, not the lines; the panel is the record, so the text and its
     # author belong to a line there.
@@ -228,8 +224,7 @@ def test_a_value_that_is_not_open_or_closed_falls_back_to_closed():
 
 
 def test_the_page_reads_the_panel_state_from_storage_before_the_config_default():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     assert "localStorage" in page
     assert 'readStored("ziomek_panel")' in page
@@ -273,8 +268,7 @@ def test_the_panel_and_the_saved_file_write_the_same_lines():
     # One rule builds the lines: the panel shows them, the file writes the same ones.
     from ziomek.api.roster_view import blocks, format_line, markdown_text
 
-    client = build_app()
-    assert "for (const line of block.lines)" in served_page(client)
+    assert "for (const line of block.lines)" in part_of_page("roster.html", "roster.mjs")
     entry = {"name": "John", "action": "text", "text": "compiling", "author": "agent"}
     group = {"kind": "group", "name": entry["name"], "author": entry["author"], "lines": [format_line(entry)]}
     blocks_result = blocks([entry])
@@ -303,8 +297,7 @@ def test_a_group_without_a_name_keeps_the_author_and_the_text():
 
 
 def test_the_page_writes_lines_with_text_content():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     # Review focus line 2: a line that HTML would interpret must appear literally.
     assert "p.textContent = line" in page
@@ -320,8 +313,7 @@ def test_the_page_has_save_with_the_two_formats():
 
 
 def test_the_saved_file_is_named_with_the_project_and_the_download_time():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     # ziomek_{YYYY-MM-DD}_{HHMM}_transcript.{md|json}, built from the browser clock
     assert 'return "ziomek_" + nameStamp(at) + "_transcript." + ext' in page
@@ -335,7 +327,7 @@ def test_the_file_keeps_its_header_when_there_is_nothing_to_save():
     assert client.get("/api/roster/transcript/markdown?at=2026-10-31T14:20:04Z").text.startswith(
         "# transcript — 2026-10-31T14:20:04Z"
     )
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
     assert "new Blob(" in page
 
 
@@ -350,8 +342,7 @@ def test_an_entry_with_nothing_to_show_produces_no_line():
 
 
 def test_the_toggle_stays_reachable_when_the_panel_is_hidden():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.css")
 
     # Review focus: a control inside the hidden pane cannot be used to open it again.
     assert "#layout.hide #transcript { display: none; }" in page
@@ -419,23 +410,20 @@ def test_the_page_shows_the_assignment_in_its_own_colour():
 
 
 def test_the_page_names_the_file_with_the_short_extension():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     assert 'markdown: "md"' in page
 
 
 def test_the_save_and_the_formats_have_actions():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     assert 'document.getElementById("formats")' in page
     assert 'document.getElementById("save")' in page
 
 
 def test_the_page_stores_each_toggle_under_its_own_name():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     # Review focus line 1: the stored value is "1" or "0", one name per toggle.
     assert 'readStored("ziomek_panel")' in page
@@ -446,37 +434,38 @@ def test_the_page_stores_each_toggle_under_its_own_name():
 
 
 def test_the_page_has_one_state_for_the_panel():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     # The class that hides the pane is the only source of truth, and the label follows it.
     assert 'classList.add("open")' not in page
     assert 'label.textContent = shown ? "hide" : "show"' in page
 
 
-def test_the_panel_lines_keep_their_newlines_and_are_not_rebuilt_each_tick():
-    client = build_app()
-    page = served_page(client)
+def test_the_panel_lines_keep_their_newlines():
+    """The rule must reach the elements the panel actually builds."""
+    stylesheet = part_of_page("roster.html", "roster.css")
 
-    # The rule must reach the elements the panel actually builds.
-    assert (
-        "#transcript { list-style: none; padding: 0; }"
-        and "#transcript li, #transcript .box p { white-space: pre-wrap; }" in page
-    )
-    assert "rendered" in page  # the page keeps what it has already shown instead of clearing the list
+    assert "#transcript { list-style: none; padding: 0; }" in stylesheet
+    assert "#transcript li, #transcript .box p { white-space: pre-wrap; }" in stylesheet
+
+
+def test_the_panel_is_not_rebuilt_on_every_poll():
+    """The page keeps what it has already shown instead of clearing the list each tick."""
+    script = part_of_page("roster.html", "roster.mjs")
+
+    assert "let rendered = 0;" in script
+    assert "for (const block of lastBlocks.slice(rendered))" in script
 
 
 def test_a_long_run_of_characters_breaks_inside_the_panel_box_instead_of_running_past_it():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.css")
 
     # Wrapping at spaces is not enough: a run with no space in it keeps going past the box.
     assert "#transcript li, #transcript .box p { overflow-wrap: break-word; }" in page
 
 
 def test_a_tile_does_not_list_events_because_the_panel_already_shows_them():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     # The tile keeps what the participant is; join, hold and text lines belong to the record in the panel,
     # so the same list is not built twice for the same call.
@@ -484,16 +473,14 @@ def test_a_tile_does_not_list_events_because_the_panel_already_shows_them():
 
 
 def test_a_long_run_of_characters_breaks_inside_the_tile_text_so_the_page_does_not_scroll_sideways():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.css")
 
     # The same run reaches the text a tile shows, so the rule covers it.
     assert ".text {" in page and "overflow-wrap: break-word;" in page
 
 
 def test_the_page_clears_the_panel_when_the_record_is_empty():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     # A record that shrank means a new call: the old lines must not stay.
     assert 'document.getElementById("transcript").innerHTML = ""' in page
@@ -501,8 +488,7 @@ def test_the_page_clears_the_panel_when_the_record_is_empty():
 
 
 def test_the_panel_follows_a_new_line_only_when_the_viewer_is_at_the_end():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     # Being at the end is measured against the box, and a position this close counts as being there.
     assert "const END_TOLERANCE = 4;" in page
@@ -511,8 +497,7 @@ def test_the_panel_follows_a_new_line_only_when_the_viewer_is_at_the_end():
 
 
 def test_a_viewer_reading_above_the_end_is_not_pulled_down_by_a_new_line():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     # The position is read before the line is added, and the move only follows from that reading.
     added_before = page.index('document.getElementById("transcript").append(row)')
@@ -522,8 +507,7 @@ def test_a_viewer_reading_above_the_end_is_not_pulled_down_by_a_new_line():
 
 
 def test_a_line_that_joins_the_block_already_shown_is_still_shown():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     # A run of text from one participant grows inside the block that is already on screen, so counting
     # blocks is not enough: the page has to know what it drew inside that block.
@@ -533,8 +517,7 @@ def test_a_line_that_joins_the_block_already_shown_is_still_shown():
 
 
 def test_a_line_that_joins_a_block_is_added_to_that_block_and_not_as_a_new_item():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     # The line belongs to the box the run is shown in, so it is added there instead of starting
     # another item of the record.
@@ -545,8 +528,7 @@ def test_a_line_that_joins_a_block_is_added_to_that_block_and_not_as_a_new_item(
 
 
 def test_a_new_call_forgets_the_block_the_panel_had_been_adding_lines_to():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     # A record that shrank starts from nothing, so the box kept for the call that ended cannot be
     # written into by the new one.
@@ -556,8 +538,7 @@ def test_a_new_call_forgets_the_block_the_panel_had_been_adding_lines_to():
 
 
 def test_the_page_asks_for_the_file_content_and_keeps_the_download_in_the_browser():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     # The file text comes from the server; the download stays a browser action.
     assert 'fetch("/api/roster/transcript/markdown?at="' in page
@@ -566,15 +547,13 @@ def test_the_page_asks_for_the_file_content_and_keeps_the_download_in_the_browse
 
 
 def test_the_page_survives_a_failed_poll():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     assert "try {" in page  # a failed fetch must not leave lines that no longer match the record
 
 
 def test_the_page_gives_back_the_object_url_and_the_download_link():
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     assert "URL.revokeObjectURL" in page
     assert "document.body.appendChild(link)" in page
@@ -664,14 +643,13 @@ def test_a_system_line_is_a_quote_in_the_file():
 def test_the_file_uses_the_clock_passed_by_the_page(monkeypatch):
     from ziomek.api import roster_view
 
-    client = build_app()
     get_roster().join("John")
 
     def clock():
         return "2026-10-31T14:20:04Z"
 
     monkeypatch.setattr(roster_view, "clock", clock)
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
     assert "at = new Date()" in page
     assert "buildFilename(ext, at)" in page
     assert 'request.query_params.get("at")' in module_source()
@@ -690,12 +668,12 @@ def test_the_page_has_the_colors_and_the_box_shape():
 
 
 def test_the_page_writes_the_group_header_with_the_author():
-    page = page_source()
+    page = part_of_page("roster.html", "roster.mjs")
     assert '" (" + block.author + ")"' in page
 
 
 def test_the_panel_renders_a_system_block_as_its_own_line():
-    page = page_source()
+    page = part_of_page("roster.html", "roster.mjs")
 
     # A block that is not a group cannot be built from lines that do not exist.
     assert 'if (block.kind === "system")' in page
@@ -732,11 +710,11 @@ def test_the_two_clocks_use_the_same_shape():
     assert 'strftime("%Y-%m-%dT%H%M%SZ")' in (
         Path(__file__).parent.parent / "src" / "ziomek" / "api" / "roster_view.py"
     ).read_text(encoding="utf-8")
-    assert "getUTCHours()" in page_source()
+    assert "getUTCHours()" in part_of_page("roster.html", "roster.mjs")
 
 
 def test_the_file_name_follows_the_shape_the_spec_gives():
-    page = page_source()
+    page = part_of_page("roster.html", "roster.mjs")
 
     # ziomek_{YYYY-MM-DD}_{HHMM}_transcript.{ext}: dashes inside the date, underscore as the separator.
     assert 'dateParts(at).join("-") + "_" + clockParts(at).slice(0, 2).join("")' in page
@@ -761,7 +739,7 @@ def test_the_classes_the_page_uses_are_the_classes_the_page_defines():
 
 
 def test_the_page_builds_a_line_only_through_the_rule_in_python():
-    page = page_source()
+    page = part_of_page("roster.html", "roster.mjs")
 
     # The dead map is gone: the words exist in one place.
     assert "const PAST = {" not in page
@@ -789,20 +767,20 @@ def test_a_cell_that_cannot_be_measured_keeps_the_size_the_stylesheet_gives_it()
 
 def test_the_grid_is_written_as_whole_frames_on_both_edges():
     """A block is a whole number of frames on each axis, so the grid is written in frames, not in shares of the room, and a picture can be placed in such a cell."""
-    page = page_source()
+    page = part_of_page("roster.html", "roster.mjs")
     assert 'root.style.gridTemplateColumns = "repeat(" + grid.cols + ", " + frame + "px)"' in page
     assert 'root.style.gridTemplateRows = "repeat(" + grid.rows + ", " + frame + "px)"' in page
 
 
 def test_a_tile_that_is_capped_stays_in_the_middle_of_its_cell():
     """A capped tile is smaller than the cell it was measured for, so it sits in the middle of the cell instead of at its corner."""
-    page = page_source()
+    page = part_of_page("roster.html", "roster.css")
     assert ".tile { justify-self: center; align-self: center; }" in page
 
 
 def test_a_tile_is_sized_by_the_block_it_fills():
     """The size of a block is known when the grid is counted in whole frames, so a tile takes that size instead of an upper limit that a box falls back from."""
-    page = page_source()
+    page = part_of_page("roster.html", "roster.mjs")
     assert 'el.style.width = place.tile.width + "px";' in page
     assert 'el.style.height = place.tile.height + "px";' in page
     # the picture is placed inside the size the block was given, so nothing caps it
@@ -810,7 +788,7 @@ def test_a_tile_is_sized_by_the_block_it_fills():
 
 
 def test_a_skin_that_was_not_read_cannot_set_a_size_for_the_tile():
-    page = page_source()
+    page = part_of_page("roster.html", "roster.mjs")
     assert "if (!skin || !skin.frameWidth || !skin.frameHeight) continue;" in page
     guard = page.split("function apply_largest_tile(")[1].split("if (!frame) {")[1].split("}")[0]
     assert "return;" in guard
@@ -818,32 +796,32 @@ def test_a_skin_that_was_not_read_cannot_set_a_size_for_the_tile():
 
 def test_the_division_is_made_before_the_tiles_are_written():
     """A tile is placed in the block it was given, so the grid has to be named before the tiles are written."""
-    page = page_source()
+    page = part_of_page("roster.html", "roster.mjs")
     body = page.split("function render(tiles)")[1]
     assert body.index("apply_largest_tile(root, room, tiles)") < body.index("for (const tile of tiles)")
 
 
 def test_the_tiles_use_the_height_available_to_the_grid_as_well_as_its_width():
     """Rows can only fill the page when the grid is given the height it is asked for."""
-    page = page_source()
+    page = part_of_page("roster.html", "roster.css")
     assert "#main > #roster { flex: 1 1 auto; min-height: 0; }" in page
 
 
 def test_a_tile_fills_the_cell_it_was_divided_into_instead_of_keeping_a_square_shape():
-    page = page_source()
+    page = part_of_page("roster.html", "roster.css")
     assert ".tile { position: relative; overflow: hidden; }" in page
     assert "aspect-ratio" not in page
 
 
 def test_the_roster_box_is_bounded_and_scrolls_inside_it():
     """B+D: the box does not move the page; the tiles inside it scroll."""
-    page = page_source()
+    page = part_of_page("roster.html", "roster.css")
     assert "#roster { max-height: 100vh; overflow: auto; }" in page
 
 
 def test_the_page_shows_the_number_of_participants_in_the_call():
     """D: the number comes from the participants that joined, not from what is drawn."""
-    page = page_source()
+    page = part_of_page("roster.html", "roster.mjs")
     assert 'count.textContent = tiles.length + " participants"' in page
 
 
@@ -862,7 +840,7 @@ def test_the_page_has_a_second_toggle_for_the_text_inside_tiles():
 
 def test_the_page_has_one_rule_for_the_text_inside_a_tile():
     """One rule, written once: the tile text is the class the page writes."""
-    page = page_source()
+    page = part_of_page("roster.html", "roster.css")
     assert (
         ".text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; overflow-wrap: break-word; }"
         in page
@@ -873,8 +851,7 @@ def test_the_page_has_one_rule_for_the_text_inside_a_tile():
 
 def test_the_reader_takes_the_name_it_is_asked_for():
     """One rule for both toggles, so nothing is keyed to one name."""
-    client = build_app()
-    page = served_page(client)
+    page = part_of_page("roster.html", "roster.mjs")
 
     assert "function readStored(name)" in page
     assert "function setStored(name, value)" in page
@@ -891,7 +868,7 @@ def test_the_formats_button_shows_the_arrow_before_the_list_of_formats():
 
 def test_the_sidebar_has_a_fixed_width():
     """It does not grow with the window; the grid takes the rest."""
-    page = page_source()
+    page = part_of_page("roster.html", "roster.css")
     assert (
         "#panel { flex: 0 0 320px; max-height: 100vh; overflow: auto; border-left: 1px solid #444; padding-left: 12px; }"
         in page
@@ -901,7 +878,7 @@ def test_the_sidebar_has_a_fixed_width():
 
 def test_the_group_box_uses_the_same_round_as_the_tile():
     """Same corner radius as the tile, so both sides look like the same shape."""
-    page = page_source()
+    page = part_of_page("roster.html", "roster.css")
     assert (
         ".box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; border-radius: 6px; padding: 12px; }"
         in page
@@ -911,7 +888,7 @@ def test_the_group_box_uses_the_same_round_as_the_tile():
 
 def test_the_buttons_use_the_shape_of_the_rest_of_the_page():
     """Not the browser default: same surface, same corner, same font."""
-    page = page_source()
+    page = part_of_page("roster.html", "roster.css")
     assert (
         "button { background: #2a2a30; color: #ddd; border: 1px solid #4a4a52; border-radius: 6px; padding: 6px 10px; font: inherit; cursor: pointer; }"
         in page
@@ -957,7 +934,6 @@ def test_the_tile_payload_carries_the_default_skin_and_the_frame_for_its_express
     # The default is the only skin that exists, so a join with no entry of its own is drawn with it.
     from ziomek.api.roster_view import tiles
 
-    client = build_app()
     get_roster().join("John")
     assert Settings().roster_avatar == "single-frame"
     avatar = tiles()[0]["avatar"]
@@ -974,7 +950,6 @@ def test_a_skin_that_is_not_registered_draws_no_avatar_and_leaves_a_warning(capl
     from ziomek.api.roster_view import tiles
 
     settings = Settings(roster_pool=[("John", "", "not-a-skin")])
-    client = build_app()
     build_roster(settings)
     get_roster().join("John")
     assert tiles(settings=settings)[0]["avatar"] is None
@@ -985,7 +960,6 @@ def test_the_skin_named_by_a_pool_entry_is_used_for_that_participant():
     from ziomek.api.roster_view import tiles
 
     settings = Settings(roster_pool=[("cosette", "", "single-frame")])
-    client = build_app()
     build_roster(settings)
     get_roster().join("cosette")
     assert tiles(settings=settings)[0]["avatar"]["skin"] == "single-frame"
@@ -1001,7 +975,7 @@ def test_the_page_builds_the_name_on_the_left_and_the_expression_on_the_right():
 def test_nothing_is_written_for_a_participant_who_is_not_on_hold():
     # The row that carries the marker is built inside the check for that state, so a page for
     # participants who are not on hold carries no element for them, not an empty one.
-    page = page_source()
+    page = part_of_page("roster.html", "roster.mjs")
     assert 'if (tile.state === "held") {\n      const middle = el_class("middle");' in page
     assert "renderText(middle," in page
     assert 'renderText(el, "on_hold"' not in page
@@ -1009,13 +983,13 @@ def test_nothing_is_written_for_a_participant_who_is_not_on_hold():
 
 def test_the_time_a_participant_has_been_on_hold_is_stated_on_its_own_line():
     """The state and how long it has lasted are two things a reader takes in separately, so they are not written as one sentence."""
-    page = page_source()
+    page = part_of_page("roster.html", "roster.mjs")
     assert 'renderText(middle, "on_hold", "on hold\\n" + held(tile));' in page
 
 
 def test_the_held_marker_is_shown_in_the_quiet_color():
     """A held participant has no expression of their own, so what says they are held is not read as one."""
-    page = page_source()
+    page = part_of_page("roster.html", "roster.css")
     assert (
         ".middle .on_hold { background: rgba(12,12,18,0.7); border-radius: 6px; padding: 3px 6px; color: #999; }"
         in page
@@ -1024,20 +998,20 @@ def test_the_held_marker_is_shown_in_the_quiet_color():
 
 
 def test_the_text_stays_at_the_bottom_of_the_block():
-    page = page_source()
+    page = part_of_page("roster.html", "roster.css")
     assert ".bottom { position: absolute; left: 8px; right: 8px; bottom: 8px; }" in page
 
 
 def test_the_corner_labels_are_placed_from_the_block_as_the_text_is():
     # Both corners sit at the same inset, so the labels line up with the text.
-    page = page_source()
+    page = part_of_page("roster.html", "roster.css")
     assert ".top { position: absolute; top: 8px; left: 8px; right: 8px;" in page
 
 
 def test_the_expression_uses_a_monotype_font_and_is_smaller_than_name():
     # An expression is a state name, not an emotion: "playing darts" is not an emotion.
     # It is set in a monotype font and kept smaller than the name.
-    page = page_source()
+    page = part_of_page("roster.html", "roster.css")
     assert (
         ".expression { color: #d2a9ff; font-family: monospace; font-size: 11px; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }"
         in page
@@ -1047,21 +1021,21 @@ def test_the_expression_uses_a_monotype_font_and_is_smaller_than_name():
 
 def test_the_page_places_a_frame_inside_the_box_of_the_tile_it_draws():
     """A frame is drawn at its own size inside the box it was given, so the picture is placed from the middle of that box."""
-    page = page_source()
+    page = part_of_page("roster.html", "roster.mjs")
     assert "(boxWidth - frame.width * scaleWidth) / 2" in page
     assert "(boxHeight - frame.height * scaleHeight) / 2" in page
 
 
 def test_the_page_uses_the_image_address_the_server_answered_with():
     # The API answers with a data address, so the page must not build one again.
-    page = page_source()
+    page = part_of_page("roster.html", "roster.mjs")
     assert 'block.style.backgroundImage = "url(" + image + ")"' in page
     assert '"url(data:image/png;base64,"' not in page
 
 
 def test_the_page_gets_one_mapping_per_skin_and_reads_a_file_as_its_own_picture():
     # One place answers for a skin, so the page asks once per name and keeps what it got.
-    page = page_source()
+    page = part_of_page("roster.html", "roster.mjs")
     assert 'fetch("/api/avatar/sprite?skin="' in page
     assert "fetch(url)\n    .then((response) => (response.ok ? response.json() : null))" in page
     assert "if (!name || skins[name]) continue" in page
@@ -1073,7 +1047,7 @@ def test_the_page_gets_one_mapping_per_skin_and_reads_a_file_as_its_own_picture(
 
 def test_a_tile_that_has_no_avatar_is_left_as_it_is():
     # A skin that is not registered has no payload entry, so there is nothing to draw and no request for it.
-    page = page_source()
+    page = part_of_page("roster.html", "roster.mjs")
     assert "if (!skin) return" in page
     assert "if (!name || skins[name]) continue" in page
 
@@ -1087,7 +1061,7 @@ def test_the_record_items_are_list_items_with_the_markers_and_indent_removed():
 
 def test_the_text_block_can_actually_clamp_three_lines():
     # -webkit-line-clamp only clamps when the element is a box; display: block is not enough.
-    page = page_source()
+    page = part_of_page("roster.html", "roster.css")
 
     assert (
         ".text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; overflow-wrap: break-word; }"
@@ -1109,7 +1083,7 @@ def test_the_clamp_is_the_only_marker_and_the_full_text_stays_on_hover():
 
 def test_the_three_layers_are_the_three_separate_panels():
     # Group 2 from the mock: each layer keeps its own panel, so the name, the expression and the text each get their own rounded background.
-    page = page_source()
+    page = part_of_page("roster.html", "roster.css")
 
     assert ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }" in page
     assert (
@@ -1120,7 +1094,7 @@ def test_the_three_layers_are_the_three_separate_panels():
 
 def test_text_in_the_name_and_expression_lines_up_in_the_middle_of_their_boxes():
     """A box exactly as wide as its text has nothing to center against, so centering is written once on the row that holds the boxes rather than on each box."""
-    page = page_source()
+    page = part_of_page("roster.html", "roster.css")
     assert (
         ".top { position: absolute; top: 8px; left: 8px; right: 8px; z-index: 1; display: flex; justify-content: space-between; align-items: center; text-align: center; }"
         in page
@@ -1154,7 +1128,7 @@ def test_the_page_urls_use_the_root_paths():
 
 def test_the_roster_takes_the_rest_of_the_window_and_the_sidebar_stays_on_the_right():
     """The window is split by a fixed column on the right, so the roster grows into what is left."""
-    page = page_source()
+    page = part_of_page("roster.html", "roster.css")
     assert "#layout { display: flex; gap: 12px; min-height: 100vh; }" in page
     assert "#main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }" in page
     assert "#roster { max-height: 100vh; overflow: auto; }" in page
@@ -1163,7 +1137,7 @@ def test_the_roster_takes_the_rest_of_the_window_and_the_sidebar_stays_on_the_ri
 
 def test_the_stacked_fallback_below_narrow_width_is_left_as_it_was():
     """On a narrow window the sidebar is not bound to the edge, it stacks above the roster."""
-    page = page_source()
+    page = part_of_page("roster.html", "roster.css")
     assert "@media (max-width: 900px)" in page
     assert "#layout { display: block; }" in page
     assert "#roster, #panel { flex: none; }" in page
@@ -1171,7 +1145,7 @@ def test_the_stacked_fallback_below_narrow_width_is_left_as_it_was():
 
 def test_the_values_a_page_states_name_the_blocks_it_counted_not_the_shares_it_divided():
     """A page that cannot state values on its own still names what it measured, so the part added in dev mode can carry it."""
-    drawing = static_source("roster.mjs")
+    drawing = part_of_page("roster.html", "roster.mjs")
     assert 'state_sizes.report?.("measured", room, grid, frame, 1, stated_blocks);' in drawing
     assert 'state_sizes.report?.("cannot be measured", room, null, null, null, []);' in drawing
     assert 'state_sizes.report?.("no frame size was read for these skins", room, null, null, null, []);' in drawing
