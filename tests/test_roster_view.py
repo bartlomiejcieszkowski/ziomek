@@ -758,8 +758,8 @@ def test_a_cell_that_cannot_be_measured_keeps_the_size_the_stylesheet_gives_it()
     page = page_source()
     assert "grid-template-columns: repeat(auto-fill, minmax(180px, 1fr))" in page
     assert 'state_sizes.report?.("cannot be measured", room, null, null, null, []);' in page
-    # a room with no size to measure gives no blocks, so a tile is left with the size the stylesheet gives it
-    assert "if (room.width <= 0 || room.height <= 0) {" in page
+    # nothing taken from the area measured means nothing was read, so a tile is left with the size the stylesheet gives it
+    assert "if (!room.taken) {" in page
 
 
 def test_the_grid_is_written_as_whole_frames_on_both_edges():

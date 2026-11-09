@@ -17,7 +17,7 @@ document.body.append(indicator, values);
 // An empty box leaves a reader guessing, so the first line printed is the reason a measurement was not possible.
 function describe(report) {
   const lines = [report.path];
-  if (report.room) lines.push(`room ${report.room.width}x${report.room.height}`);
+  if (report.room) lines.push(`room ${report.room.measured.width}x${report.room.measured.height}`);
   if (report.tile) lines.push(`frame ${report.tile.width}x${report.tile.height}`);
   lines.push(`blocks ${report.blocks ? report.blocks.length : 0}`);
   return lines.join("\n");
