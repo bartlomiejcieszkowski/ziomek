@@ -373,24 +373,45 @@ function labelTextToggle() {
   document.getElementById("state_text").textContent = textOn() ? "hide text" : "show text";
 }
 
-document.getElementById("state_text").addEventListener("click", () => {
-  const on = !textOn();
-  setStored("ziomek_text", on ? "1" : "0");
+
+
+// The part is read without a page in front of it, so nothing on the page is touched until the page
+// asks for the view to start.
+function set_up_page_controls() {
   labelTextToggle();
-  render(lastTiles);
-});
-
-labelTextToggle();
-
-document.getElementById("toggle").addEventListener("click", () => {
-  const shown = !document.getElementById("layout").classList.contains("hide");
-  setShown(!shown);
-  setStored("ziomek_panel", shown ? "1" : "0");
-});
-
-document.getElementById("formats").addEventListener("click", () => {
-  document.getElementById("menu").classList.toggle("open");
-});
+  document.getElementById("state_text").addEventListener("click", () => {
+    const on = !textOn();
+    setStored("ziomek_text", on ? "1" : "0");
+    labelTextToggle();
+    render(lastTiles);
+  });
+  document.getElementById("toggle").addEventListener("click", () => {
+    const shown = !document.getElementById("layout").classList.contains("hide");
+    setShown(!shown);
+    setStored("ziomek_panel", shown ? "1" : "0");
+  });
+  document.getElementById("formats").addEventListener("click", () => {
+    document.getElementById("menu").classList.toggle("open");
+  });
+  document.getElementById("save").addEventListener("click", () => {
+    const at = new Date();
+    save("markdown", at);
+  });
+  document.getElementById("menu").addEventListener("click", (event) => {
+    const ext = event.target.dataset.format;
+    if (!ext) return;
+    save(event.target.dataset.format, new Date());
+  });
+  document.getElementById("save").addEventListener("click", () => {
+    const at = new Date();
+    save("markdown", at);
+  });
+  document.getElementById("menu").addEventListener("click", (event) => {
+    const ext = event.target.dataset.format;
+    if (!ext) return;
+    save(event.target.dataset.format, new Date());
+  });
+}
 
 async function save(format, at) {
   const ext = EXT[format] || format;
@@ -402,16 +423,7 @@ async function save(format, at) {
   download(new Blob([await response.text()], { type: "text/markdown" }), buildFilename(ext, at));
 }
 
-document.getElementById("save").addEventListener("click", () => {
-  const at = new Date();
-  save("markdown", at);
-});
 
-document.getElementById("menu").addEventListener("click", (event) => {
-  const ext = event.target.dataset.format;
-  if (!ext) return;
-  save(event.target.dataset.format, new Date());
-});
 
 async function draw_room() {
   try {
@@ -463,12 +475,12 @@ async function draw_record() {
 
 // Three seconds is the same wait the debug page uses, so a page that lost its connection asks again
 // on its own instead of leaving the delay to the browser.
-const AGAIN_AFTER = 3000;
+export const AGAIN_AFTER = 3000;
 const SIGNAL_PATH = "/api/roster/ws";
 
-const DRAWERS = { room: draw_room, record: draw_record };
+export const DRAWERS = { room: draw_room, record: draw_record };
 
-function ask_for(names) {
+export function ask_for(names) {
   for (const name of names) DRAWERS[name]();
 }
 
@@ -482,6 +494,7 @@ function connect_to_signal() {
 // The page decides when the view starts; the first picture comes from the connection being open,
 // which is also what a page that was away asks for when it is connected again.
 export async function start(page_default) {
+  set_up_page_controls();
   setShown(panelOpen(page_default));
   connect_to_signal();
 }
