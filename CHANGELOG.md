@@ -2,6 +2,36 @@
 
 All notable changes to this project are documented here.
 
+## [0.8.0] - 2026-11-10
+
+### Added
+
+- The MCP tools are served without an extra being installed, because `mcp` is now a normal dependency. HTTP is the transport taken by default, `--mcp-stdio` stays as the way to choose stdio, and `--no-mcp` turns the tools off. A run with nothing stated on the command line reads the decision from `no_mcp` and `mcp_transport` in the config file, so a config file can keep a service out of a run.
+- `resume` is the opposite of `hold`, so a pause started by an MCP call can end without the participant leaving the call. The tools listed are 17.
+- Two tools answer what a call holds and which faces can be drawn, the list and a single name through one view, so a participant cannot be stated differently by either. A face the server did not build is refused at join, since a name that cannot be drawn would show as an empty box instead of being stated at the moment of joining.
+- The app tells a connected page which part changed, at the points where it makes one: a join, a release, a line recorded, the end of a call, a hold and a resume. A page asks for the part it was told about instead of asking for the whole picture every second, asks for both when its connection is open again, and connects again after three seconds when it is lost.
+- The rule that decides what to ask for stands on its own in `src/ziomek/resources/static/signal.mjs`, so a test can call it with values. A message the page was not written for is followed as nothing instead of stopping the page.
+- A page shows that dev mode is on and what it measured: an indicator in the bottom corner, only on the page that carries its debug part, and the lines it prints are the same report it sends, so what a reader sees and what was stored cannot disagree. An indicator with an empty box now means no measurement was reached.
+- The record answer states the line written for each participant from one definition, `written_by_agent()` in `src/ziomek/api/roster_view.py`, and the page reads it from there. The rule itself stays in `Participant.status_text`, because the avatar path needs the same value and cannot run a rule written for the page.
+- A stacked window gives the roster a height to measure, so a window too narrow for two columns can draw at all, and the record keeps its own scroll instead of moving the whole page.
+- The room is divided in whole frame counts: a track costs a frame plus the gap that follows it, padding takes space away before any track is counted, and a block is a whole number of tracks on each axis, so the size a tile is given and the size a page states are the same numbers. A block that cannot be halved without breaking a frame count stays as it is.
+- Centering belongs to the row that holds the boxes, and a participant on hold has a row of their own. Text inside the name and the expression is centered, and both blocks stay level with each other. The marker for a participant on hold is read in the quiet color the page already uses for text that is not a participant's.
+- CI runs the tests for the rules the pages count with, finding the test files itself.
+
+### Changed
+
+- A page holds only markup and the links to its parts. The rules are files a browser loads as modules from `src/ziomek/resources/static/`, answered by type (`text/css`, `application/javascript`), and each part is asked to start rather than starting itself, which is what lets a test read a part without a browser.
+- The rule that sizes a skin is defined in one place, `src/ziomek/resources/static/fit.mjs`, and both drawing paths ask for it; `src/ziomek/resources/renderer.html` loads its script as a module so it can.
+- A report states nothing it cannot measure. The field that gave a size for a cell is gone, since a grid counted in whole frames has no share of the room left over for a cell, and the values a page posts state the area that was measured, kept apart from what padding takes.
+- A picture is put on a tile before it is placed. A fit is answered for every frame, because `DEFAULT_FIT` is `contain` at `src/ziomek/avatar/morda.py:21` and is used when a definition declares none, so the path that only says where a frame sits was taken for every skin and no picture was put on a tile.
+- A tile does not repeat what the panel already records, since the lines of the record are shown in the panel.
+- A name that could not be found is refused instead of falling back to the global avatar, so a caller can tell which face was changed. The wording for an unknown name is kept in one definition, so a tool that takes a name cannot state it differently from another.
+- A page that could not be sent to is said in the log and not kept, since its handler was still reading and such a page never came back.
+- An empty call has no end to it, so the end of a call is reported only when there was one. The quiet check runs every second and, for an empty call, reported a record change on every run, which is what the one-second transcript requests in the log were.
+- `scripts/morda.py` decides a skin by the names that make one, so a folder holding definitions named for an avatar is treated as a skin the way the reader treats it, and the warning says what is missing instead of one file name.
+- Format rules that cannot be read, or that do not read as JSON, are answered as a problem on the definition that needed them instead of stopping the run. A name claimed by another definition is reported with the file that carries it, and a source is read once instead of being opened to decide what it is and opened again to answer what it holds.
+- Tests read the part they are about, name what a reader would see go wrong, and keep a string check only for what text can prove; a check that asserted two behaviors is now two checks. The page is not touched before it is started, so the click handlers and the label are set up when the page asks for the view to start.
+
 ## [0.7.2] - 2026-11-05
 
 ### Fixed

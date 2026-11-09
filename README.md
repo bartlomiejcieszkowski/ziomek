@@ -2,13 +2,10 @@
 
 Humanize AI interaction by making it more natural. Work in progress.
 
-**One process:**
+One process: the call record (participants, what happened in order), TTS synthesis, STT, the avatar
+state machine, gamepad polling, the pages it serves, and the tools that answer an MCP call.
 
-- **ziomek** — the call record (participants, what happened in order), TTS synthesis, STT, avatar state machine, gamepad polling, the pages it serves, and an MCP server (port 5004)
-
-**One extension:**
-
-- **Pi Voice Assistant** — keyword-gated listening, gamepad input, and a TUI dashboard on top of the same server
+Work in progress.
 
 ## Quick Start
 
@@ -21,8 +18,8 @@ uv run ziomek
 `uv` creates a `.venv`, downloads dependencies, and installs `ziomek` in development mode from the local package. The speech part is not installed by default:
 
 ```bash
-uv run --extra stt python -m ziomek.cli               # STT with the server
-uv sync --extra stt                                   # once, then plain uv run works in this shell
+uv sync --extra stt                                   # once, so the speech part is installed
+uv run --extra stt ziomek                             # STT with the server
 ```
 
 ### Run the published package
@@ -287,10 +284,10 @@ The tools are served unless something says otherwise. On the default transport (
 | `set_expression`, `get_expression` | Change and read the face |
 | `status` | Model readiness, STT state, uptime, the backend in use |
 
-Resources: `voices://`, `models://`, `expressions://`, `config://`. The config resource answers only fields settings has. Running it standalone:
+Resources: `voices://`, `models://`, `expressions://`, `config://`. The config resource answers only fields settings has. Running the tools on their own, over stdio:
 
 ```bash
-uv run python -m ziomek.mcp.server
+uv run ziomek --mcp-stdio
 ```
 
 A name that is not in the call is answered by the global state machine, so a tool does not say the name was unknown. A join does not report the face it drew; that is in the record, not in the tool response.
