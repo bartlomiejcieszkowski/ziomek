@@ -56,6 +56,16 @@ test("the pages ask for the rule that decides the size of a skin instead of writ
   assert.ok(!drawing_page.includes("function fitScale("), "the drawing page writes the rule again");
 });
 
+test("a page that loads a part which asks for another part reads it in a way that allows asking", () => {
+  for (const name of ["roster.html", "renderer.html"]) {
+    const tags = page(name).match(/<script[^>]*>/g) ?? [];
+    assert.ok(tags.length > 0, name + " loads no part at all");
+    for (const tag of tags) {
+      assert.ok(tag.includes('type="module"'), name + " reads a part in a way that cannot ask: " + tag);
+    }
+  }
+});
+
 test("the debug page loads its own part before the page is started", () => {
   const html = page("roster_debug.html");
   // What the page asks for is checked by the test that says a page can only be given what a part provides.
