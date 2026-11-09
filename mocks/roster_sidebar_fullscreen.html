@@ -1,0 +1,249 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>roster mock — the window is split by a fixed column, the roster takes the rest</title>
+    <style>
+      body { font-family: sans-serif; background: #111; color: #eee; margin: 0; }
+      /* The window is split by a fixed column on the right, not by a percentage. */
+      #layout { display: flex; min-height: 100vh; gap: 12px; }
+      #main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+      /* Rows can only fill the page when the grid is given the height it is asked for. */
+      #main > #roster { flex: 1 1 auto; min-height: 0; }
+      #count { font-size: 13px; color: #999; padding: 8px; }
+      #measured { font-family: monospace; font-size: 12px; color: #7fb069; padding: 0 8px 8px; }
+      #panel { flex: 0 0 320px; max-height: 100vh; overflow: auto; border-left: 1px solid #444; padding-left: 12px; }
+      #transcript { list-style: none; padding: 0; }
+      /* Wrapping at spaces is not enough: a run with no space in it keeps going past the box. */
+      #transcript li, #transcript .box p { white-space: pre-wrap; overflow-wrap: break-word; }
+      .text, ul.events li { overflow-wrap: break-word; }
+
+      .tile { position: relative; overflow: hidden; padding: 12px; margin: 8px 0; background: #1b1b22; border-radius: 6px; }
+      /* A tile fills its cell up to this size, taken from the frames it can show, so pixels stay
+         even. It is set by the script below, which is the same arithmetic the page uses. */
+      .tile { max-width: var(--largest-tile); max-height: var(--largest-tile); }
+      /* A capped tile is smaller than the cell it was measured for, so it stays in the middle. */
+      .tile { justify-self: center; align-self: center; }
+      .avatar { position: absolute; inset: 0; background: #2a2a30; border-radius: 6px; background-repeat: no-repeat; image-rendering: pixelated; }
+      .top { position: absolute; top: 8px; left: 8px; right: 8px; z-index: 1; display: flex; justify-content: space-between; }
+      .bottom { position: absolute; left: 8px; right: 8px; bottom: 8px; }
+      .name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }
+      .expression { color: #d2a9ff; font-family: monospace; font-size: 11px; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }
+      .text { color: #ddd; background: rgba(12,12,18,0.7); border-radius: 8px; padding: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 20px; max-height: 50%; margin-top: auto; min-height: 0; overflow: hidden; }
+      .assignment { color: #c586c0; }
+      .system_text, .on_hold { white-space: pre-wrap; font-size: 13px; }
+      .box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; border-radius: 6px; padding: 12px; }
+      ul.events { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: #999; }
+      button { background: #2a2a30; color: #ddd; border: 1px solid #4a4a52; border-radius: 6px; padding: 6px 10px; font: inherit; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <div id="layout">
+      <div id="main">
+        <div id="count"></div>
+        <div id="measured"></div>
+        <div id="roster">
+          <div class="tile">
+            <div class="avatar"></div>
+            <div class="top"><span class="name">John A.</span><span class="expression">thinking</span></div>
+            <div class="bottom"><span class="text">reading the layout rules and writing them down, which is a long enough line to show where it stops</span></div>
+          </div>
+          <div class="tile">
+            <div class="avatar"></div>
+            <div class="top"><span class="name">Mary S.</span><span class="expression">listening</span></div>
+            <div class="bottom"><span class="text">short line</span><span class="assignment"> (the voice and the face drawn for this name)</span></div>
+          </div>
+        </div>
+      </div>
+      <div id="panel">
+        <button data-state="b">state B (text on)</button>
+        <button data-state="a">state A (text off)</button>
+        <ul id="transcript"></ul>
+      </div>
+    </div>
+
+    <script>
+      const MIN_CELL = 80;
+
+      /* No server answers here, so a frame is drawn as a pattern at the size the page would have
+         scaled it to. The numbers below are the same ones the page works with. */
+      const skins = {
+        john: { frameWidth: 32, frameHeight: 32, fit: "contain", pattern: "repeating-linear-gradient(0deg, #3a3a44 0 16px, #22222a 16px 32px)" },
+        mary: { frameWidth: 96, frameHeight: 120, fit: "cover", pattern: "repeating-linear-gradient(90deg, #3a3a44 0 48px, #22222a 48px 96px)" },
+      };
+
+      const tiles = [
+        { name: "John A.", skin: "john", expression: "thinking", text: "reading the layout rules and writing them down, which is a long enough line to show where it stops" },
+        { name: "Mary S.", skin: "mary", expression: "listening", text: "short line", assignment: "the voice and the face drawn for this name" },
+      ];
+
+      const boxes = [
+        { name: "John A.", groups: [{ author: "agent", lines: ["reading the layout rules and writing them down"] }] },
+        { name: "Mary S.", groups: [{ author: "agent", lines: ["short line"] }, { author: "system", lines: ["joined the call"], assignment: "the voice and the face drawn for this name" }] },
+        { name: "Mary S.", state: "on hold 00:41" },
+      ];
+
+      function measure_room(root) {
+        return { width: root.clientWidth, height: root.clientHeight };
+      }
+
+      function largest_frame() {
+        let frame = 0;
+        for (const tile of tiles) {
+          const skin = skins[tile.skin];
+          const side = Math.min(skin.frameWidth, skin.frameHeight);
+          if (!frame || side < frame) frame = side;
+        }
+        return frame;
+      }
+
+      function divide_room(room, count) {
+        let rows = 1;
+        let cols = 1;
+        while (rows * cols < count) {
+          const cell_width = room.width / cols;
+          const cell_height = room.height / rows;
+          if (Math.min(cell_width, cell_height) / 2 < MIN_CELL) break;
+          // Halve the longer edge, since that is the one with room left to split.
+          if (cell_width >= cell_height) {
+            cols *= 2;
+          } else {
+            rows *= 2;
+          }
+        }
+        return { rows: rows, cols: cols };
+      }
+
+      // The scale that places one frame inside the box, which is what a fit says in numbers.
+      function fit_scale(fit, frameWidth, frameHeight, boxWidth, boxHeight) {
+        const byWidth = boxWidth / frameWidth;
+        const byHeight = boxHeight / frameHeight;
+        if (fit === "fill") return [byWidth, byHeight];
+        if (fit === "cover") {
+          const scale = Math.max(byWidth, byHeight);
+          return [scale, scale];
+        }
+        if (fit === "none") return [1, 1];
+        if (fit === "scale-down") {
+          const scale = Math.min(1, Math.min(byWidth, byHeight));
+          return [scale, scale];
+        }
+        const scale = Math.min(byWidth, byHeight);
+        return [scale, scale];
+      }
+
+      function draw_frame(block, skin) {
+        const boxWidth = block.getBoundingClientRect().width;
+        const boxHeight = block.getBoundingClientRect().height;
+        if (!boxWidth || !boxHeight) return;  // not laid out yet, so there is no size to scale to
+        const [scaleWidth, scaleHeight] = fit_scale(skin.fit, skin.frameWidth, skin.frameHeight, boxWidth, boxHeight);
+        block.style.backgroundImage = skin.pattern;
+        block.style.backgroundSize = (skin.frameWidth * scaleWidth) + "px " + (skin.frameHeight * scaleHeight) + "px";
+      }
+
+      function show_measured(room, parts, frame, frames) {
+        const lines = [];
+        lines.push("room: " + room.width + " x " + room.height);
+        if (parts) lines.push("cell: " + Math.round(room.width / parts.cols) + " x " + Math.round(room.height / parts.rows) + " (" + parts.rows + " rows, " + parts.cols + " cols)");
+        if (frame) lines.push("frame: " + frame + " px, " + frames + " whole frames");
+        else lines.push("no frame size was read for these skins");
+        document.getElementById("measured").textContent = lines.join(" · ");
+      }
+
+      function render() {
+        const root = document.getElementById("roster");
+        document.getElementById("count").textContent = tiles.length + " participants";
+        const room = measure_room(root);
+        const parts = divide_room(room, tiles.length);
+        root.style.gridTemplateColumns = "repeat(" + parts.cols + ", minmax(0, 1fr))";
+        root.style.gridTemplateRows = "repeat(" + parts.rows + ", minmax(0, 1fr))";
+        const frame = largest_frame();
+        if (!frame) {  // nothing was read for these skins, so no size can be derived
+          show_measured(room, parts, null, null);
+          return;
+        }
+        const frames = Math.max(1, Math.floor(Math.min((room.width / parts.cols) / frame, (room.height / parts.rows) / frame)));
+        root.style.setProperty("--largest-tile", frames * frame + "px");
+        show_measured(room, parts, frame, frames);
+
+        tiles.forEach((tile) => {
+          const el = document.createElement("div");
+          el.className = "tile";
+          const block = document.createElement("div");
+          block.className = "avatar";
+          el.append(block);
+          const top = document.createElement("div");
+          top.className = "top";
+          top.append(name_span("name", tile.name), name_span("expression", tile.expression));
+          el.append(top);
+          const bottom = document.createElement("div");
+          bottom.className = "bottom";
+          bottom.append(name_span("text", tile.text));
+          if (tile.assignment) bottom.append(name_span("assignment", " (" + tile.assignment + ")"));
+          el.append(bottom);
+          root.append(el);
+          draw_frame(block, skins[tile.skin]);
+        });
+      }
+
+      function name_span(className, value) {
+        const el = document.createElement("span");
+        el.className = className;
+        el.textContent = value;
+        return el;
+      }
+
+      const transcript = document.getElementById("transcript");
+
+      function render_state_a() {
+        const names = new Set();
+        boxes.forEach((box) => {
+          if (box.name && !names.has(box.name)) {
+            names.add(box.name);
+            const row = document.createElement("li");
+            row.append(name_span("name", box.name));
+            if (box.state) row.append(name_span("on_hold", " " + box.state));
+            transcript.append(row);
+          }
+        });
+      }
+
+      function render_state_b() {
+        boxes.forEach((box) => {
+          const row = document.createElement("li");
+          const boxEl = document.createElement("div");
+          boxEl.className = "box";
+          const header = document.createElement("div");
+          header.append(name_span("name", box.name));
+          if (box.groups && box.groups[0].author) header.append(name_span("group_author", " (" + box.groups[0].author + ")"));
+          boxEl.append(header);
+          (box.groups || []).forEach((group) => {
+            group.lines.forEach((line) => {
+              const p = document.createElement("p");
+              if (group.author === "system") p.className = "system_text";
+              p.textContent = line;
+              if (group.assignment) p.append(name_span("assignment", " " + group.assignment));
+              boxEl.append(p);
+            });
+          });
+          if (box.state) boxEl.append(name_span("on_hold", box.state));
+          row.append(boxEl);
+          transcript.append(row);
+        });
+      }
+
+      function show(state) {
+        transcript.innerHTML = "";
+        if (state === "a") render_state_a();
+        else render_state_b();
+      }
+
+      document.querySelectorAll("button").forEach((button) => {
+        button.addEventListener("click", () => show(button.dataset.state));
+      });
+
+      render();
+      show("b");
+    </script>
+  </body>
+</html>
