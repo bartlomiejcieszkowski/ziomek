@@ -261,13 +261,13 @@ function draw_avatar(tile, block) {
   // its own rule, which fills the block; one that does not asks for one whole count for both axes, so the
   // shape of a picture is never changed to fill the space it was given.
   const scale = Math.max(1, Math.min(Math.floor(boxWidth / frame.width), Math.floor(boxHeight / frame.height)));
+  // The server answers with a data address, so the page uses it as it is.
+  block.style.backgroundImage = "url(" + image + ")"
   if (frame.fit) {
     const [fitWidth, fitHeight] = fit_scale(frame.fit, frame.width, frame.height, boxWidth, boxHeight);
     show_cell(block, skin, frame, fitWidth, fitHeight, boxWidth, boxHeight);
     return;
-  }
-  // The server answers with a data address, so the page uses it as it is.
-  block.style.backgroundImage = "url(" + image + ")";
+  };
   show_cell(block, skin, frame, scale, scale, boxWidth, boxHeight);
 }
 
