@@ -18,14 +18,15 @@ _connected_clients: list[WebSocket] = []
 
 
 async def _broadcast(message: dict[str, Any]) -> None:
-    """Send the signal to every page that is listening."""
+    """Send the signal to every page that is listening, and drop a page that cannot be sent to."""
     if not _connected_clients:
         return
     disconnected: list[WebSocket] = []
     for client in _connected_clients:
         try:
             await client.send_json(message)
-        except (WebSocketDisconnect, RuntimeError, Exception):
+        except Exception:
+            logger.warning("a page could not be told about %s", message["kind"])
             disconnected.append(client)
     for client in disconnected:
         if client in _connected_clients:
