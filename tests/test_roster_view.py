@@ -190,6 +190,39 @@ def test_the_transcript_lists_the_call_in_order():
     ]
 
 
+def test_the_record_answer_states_the_line_written_for_each_participant():
+    """The line a tile shows is stated by the record answer, from the rule that keeps it."""
+    client = build_app()
+    roster = get_roster()
+    participant = roster.join("John")
+    participant.add_text("compiling", author="agent")
+
+    answer = client.get("/api/roster/transcript").json()
+
+    assert answer["written_by_agent"] == {"John": "compiling"}
+
+
+def test_a_participant_with_no_line_written_has_nothing_stated():
+    """Nothing is invented for a participant who has not written."""
+    client = build_app()
+    roster = get_roster()
+    roster.join("John")
+
+    answer = client.get("/api/roster/transcript").json()
+
+    assert answer["written_by_agent"] == {"John": None}
+
+
+def test_the_tile_answer_does_not_state_a_line_the_record_answer_already_states():
+    """A line is stated in one place, so the tile answer does not state it again."""
+    from ziomek.api import roster_view
+
+    client = build_app()
+    get_roster().join("John")
+
+    assert "status_text" not in roster_view.tiles()
+
+
 def test_the_transcript_keeps_the_text_and_its_author():
     client = build_app()
     roster = get_roster()
@@ -841,7 +874,7 @@ def test_the_page_has_a_second_toggle_for_the_text_inside_tiles():
     """The text inside a tile can be turned off; the tile itself stays."""
     page = page_source()
     assert 'id="state_text"' in page
-    assert 'if (textOn()) renderText(bottom, "text", tile.status_text);' in page
+    assert "if (!textOn()) return;" in part_of_page("roster.html", "roster.mjs")
 
 
 def test_the_page_has_one_rule_for_the_text_inside_a_tile():
@@ -1149,12 +1182,29 @@ def test_the_roster_takes_the_rest_of_the_window_and_the_sidebar_stays_on_the_ri
     assert "#roster { flex: 0 0 55%" not in page
 
 
-def test_the_stacked_fallback_below_narrow_width_is_left_as_it_was():
-    """On a narrow window the sidebar is not bound to the edge, it stacks above the roster."""
-    page = part_of_page("roster.html", "roster.css")
-    assert "@media (max-width: 900px)" in page
-    assert "#layout { display: block; }" in page
-    assert "#roster, #panel { flex: none; }" in page
+def rule_for_a_narrow_window(css):
+    """The part of the stylesheet that only applies when the window is narrow."""
+    start = css.index("@media (max-width: 900px) {")
+    return css[start : css.index("\n}", start)]
+
+
+def test_a_narrow_window_stops_the_two_areas_sharing_a_row():
+    """At a narrow window the page stops putting the drawing and the record side by side, so the record falls below."""
+    narrow = rule_for_a_narrow_window(part_of_page("roster.html", "roster.css"))
+    assert "#layout { display: block" in narrow
+    assert "#roster, #panel { flex: none; }" in narrow
+
+
+def test_the_picture_area_is_given_a_height_in_a_stacked_window_so_it_can_be_measured():
+    """A stacked area gets no height from a row, so the number of blocks cannot be counted without a stated height."""
+    narrow = rule_for_a_narrow_window(part_of_page("roster.html", "roster.css"))
+    assert "#roster { height: 60vh; }" in narrow
+
+
+def test_the_record_area_is_given_a_height_in_a_stacked_window_so_its_own_scroll_is_kept():
+    """The record keeps its own scroll, so a long record does not move the whole page."""
+    narrow = rule_for_a_narrow_window(part_of_page("roster.html", "roster.css"))
+    assert "#panel { height: 40vh;" in narrow
 
 
 def test_the_values_a_page_states_name_the_blocks_it_counted_not_the_shares_it_divided():
