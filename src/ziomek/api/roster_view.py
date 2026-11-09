@@ -80,13 +80,18 @@ def avatar_for(participant, settings=None) -> dict | None:
     return {"skin": name, "frame": frame}
 
 
+def written_by_agent() -> dict[str, str | None]:
+    """For each participant in the call, the line written for them by the agent."""
+    roster = get_roster()
+    return {p.display_name: p.status_text for p in roster.participants}
+
+
 def tiles(settings=None) -> list[dict]:
     """One tile per participant in the call."""
     roster = get_roster()
     return [
         {
             "name": participant.display_name,
-            "status_text": participant.status_text,
             "system_text": participant.system_text,
             "state": participant.state,
             "held_seconds": participant.held_seconds,
@@ -220,7 +225,9 @@ def sentence(entry: dict) -> str:
 @router.get("/api/roster/transcript", summary="Transcript", description="List what happened in the call, in order.")
 async def get_transcript_view() -> JSONResponse:
     """Serve the entries of the current call record."""
-    return JSONResponse(content={"entries": transcript(), "blocks": blocks(transcript())})
+    return JSONResponse(
+        content={"entries": transcript(), "blocks": blocks(transcript()), "written_by_agent": written_by_agent()}
+    )
 
 
 def markdown_text(grouped: list[dict], timestamp: str) -> str:

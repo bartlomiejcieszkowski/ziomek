@@ -12,6 +12,8 @@ let lastTiles = [];
 // kept as well; a run of text from one participant joins the block already on screen.
 let shown_block = null;
 let shown_lines = 0;
+// A tile shows the line written for its participant, so the element on each tile is kept by name.
+let line_on_tile = {};
 
 const EXT = { markdown: "md", json: "json" };
 
@@ -170,6 +172,7 @@ function render(tiles) {
   lastTiles = tiles;  // what is on screen, so a window change can be laid out again from it
   const root = document.getElementById("roster");
   root.innerHTML = "";
+  line_on_tile = {};  // the tiles on screen are gone, so the lines they showed are forgotten
   const count = document.getElementById("count");
   count.textContent = tiles.length + " participants";
   const room = room_for(read_number, { width: root.clientWidth, height: root.clientHeight }, getComputedStyle(root));
@@ -201,7 +204,13 @@ function render(tiles) {
 
     // The text sits at the bottom of the block; the whole text is in the transcript panel.
     const bottom = el_class("bottom");
-    if (textOn()) renderText(bottom, "text", tile.status_text);
+    if (textOn()) {
+      // The value is not read here; it is put on the tile from the answer for the record.
+      const line = document.createElement("p");
+      line.className = "text";
+      bottom.appendChild(line);
+      line_on_tile[tile.name] = line;
+    }
     renderText(bottom, "system_text", tile.system_text);
     if (tile.state === "held") {
       const middle = el_class("middle");
@@ -211,6 +220,17 @@ function render(tiles) {
     el.appendChild(bottom);
     root.appendChild(el);
     draw_avatar(tile, block);
+  }
+  show_written_lines();
+}
+
+function show_written_lines() {
+  if (!textOn()) return;
+  for (const [name, element] of Object.entries(line_on_tile)) {
+    const line = lastPayload.written_by_agent?.[name] ?? null;
+    if (!line) continue;  // nothing is stated for this participant, so the tile shows nothing
+    element.textContent = line;
+    element.title = line;  // the whole line is here, only three lines of it can be shown
   }
 }
 
@@ -482,6 +502,7 @@ async function draw_record() {
   }
 
   rendered = lastBlocks.length;
+  show_written_lines();
 }
 
 // Three seconds is the same wait the debug page uses, so a page that lost its connection asks again
