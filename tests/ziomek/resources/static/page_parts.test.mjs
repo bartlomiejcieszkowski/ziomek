@@ -111,6 +111,31 @@ test("a page that cannot keep the connection asks again on its own", () => {
   );
 });
 
+const body_of = (definition) => {
+  const code = part("roster.mjs");
+  const start = code.indexOf(`function ${definition} {`);
+  assert.ok(start >= 0, `the page does not have ${definition}`);
+  return code.slice(start, code.indexOf("\n}", start));
+};
+
+test("the page lays out the picture again when the window it is in changes size", () => {
+  // A window is not something the app knows about, so this can only be read as text.
+  assert.ok(part("roster.mjs").includes('window.addEventListener("resize", lay_out_again)'));
+  assert.ok(body_of("lay_out_again()").includes("render(lastTiles)"));
+});
+
+test("a window change is answered without asking for the picture again", () => {
+  assert.ok(!body_of("lay_out_again()").includes("fetch("), "the page asks again for what it already has");
+});
+
+test("the page keeps what it showed so a window change can be answered from it", () => {
+  assert.ok(body_of("render(tiles)").includes("lastTiles = tiles;"), "nothing is kept from what was shown");
+});
+
+test("a window change before anything has been shown is not acted on", () => {
+  assert.ok(body_of("lay_out_again()").includes("if (!lastTiles.length) return;"));
+});
+
 test("the debug page loads its own part before the page is started", () => {
   const html = page("roster_debug.html");
   // What the page asks for is checked by the test that says a page can only be given what a part provides.
