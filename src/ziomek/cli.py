@@ -10,15 +10,9 @@ Usage:
 import argparse
 import sys
 from importlib.metadata import version as get_version
-from importlib.util import find_spec
 
 from ziomek.server import run_server
 from ziomek.stt import stt_installed
-
-
-def mcp_installed() -> bool:
-    """Return True if the optional 'mcp' package is importable."""
-    return find_spec("mcp") is not None
 
 
 def serve_cmd(args):
@@ -39,8 +33,8 @@ def serve_cmd(args):
         stt_model_dir=args.stt_model_dir,
         dev_mode=args.dev,
         verbose=args.verbose,
-        mcp_stdio=args.mcp_stdio,
-        mcp_http=args.mcp,
+        no_mcp=args.no_mcp or None,
+        mcp_transport="stdio" if args.mcp_stdio else None,
         mcp_port=args.mcp_port,
         mcp_config_exposed=args.mcp_config,
     )
@@ -194,12 +188,12 @@ def main():
     parser.add_argument(
         "--mcp-stdio",
         action="store_true",
-        help="Enable MCP server in stdio mode alongside HTTP server",
+        help="Serve the tools over stdio instead of the transport taken by default",
     )
     parser.add_argument(
-        "--mcp",
+        "--no-mcp",
         action="store_true",
-        help="Enable MCP server in HTTP mode alongside HTTP server",
+        help="Do not serve the tools (they are served unless this is set)",
     )
     parser.add_argument(
         "--mcp-port",
@@ -380,11 +374,6 @@ def main():
     stt_parser.set_defaults(func=benchmark_run_cmd)
 
     args = parser.parse_args()
-
-    if (args.mcp or args.mcp_stdio) and not mcp_installed():
-        print("Error: MCP support requires the 'mcp' package, which is not installed.", file=sys.stderr)
-        print("Install it with: uv pip install 'ziomek[mcp]' (or run without --mcp / --mcp-stdio).", file=sys.stderr)
-        sys.exit(1)
 
     # Option 3: warn and continue — the server runs with STT disabled.
     # Only worth reporting when STT would actually be used.

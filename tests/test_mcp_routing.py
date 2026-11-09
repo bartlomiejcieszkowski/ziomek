@@ -1,155 +1,99 @@
-"""Tests for MCP port-based routing logic."""
+"""What a run serves for MCP, and on which port."""
 
-from __future__ import annotations
-
-import json
 from unittest.mock import MagicMock, patch
 
-import pytest
+from starlette.testclient import TestClient
+
+from ziomek.config import Settings
 
 
-class TestMcpPortRouting:
-    """Tests for MCP port-based routing in run_server()."""
+def quiet_settings(**over) -> Settings:
+    """Settings that start nothing real: no audio device, no speech engine, no gamepad."""
+    base = dict(audio_backend="noop", no_stt=True, no_gamepad=True)
+    base.update(over)
+    return Settings(**base)
 
-    @patch("ziomek.server.create_app")
-    @patch("ziomek.server.setup_logging")
-    @patch("ziomek.server.uvicorn.run")
-    @patch("ziomek.server.Settings.compose")
-    def test_mcp_http_on_same_port_integrated(
-        self,
-        mock_compose,
-        mock_uvicorn,
-        mock_logging,
-        mock_create_app,
+
+def served_page(settings: Settings) -> TestClient:
+    """The app as it is built for a run, read on localhost so the origin is accepted."""
+    from ziomek.server import create_app
+
+    return TestClient(create_app(settings), base_url="http://localhost")
+
+
+class RunsInline:
+    """A thread stand-in that runs its work at once, so a test can see what it did."""
+
+    def __init__(self, target=None, *args, **kwargs):
+        self._target = target
+
+    def start(self):
+        if self._target:
+            self._target()
+
+
+def test_the_page_is_served_the_tools_when_nothing_is_stated():
+    """MCP is on by default, so a plain run answers the tools on the main port."""
+    answer = served_page(quiet_settings()).get("/mcp/health")
+    assert answer.status_code == 200
+
+
+def test_the_page_is_not_served_the_tools_when_the_run_turns_them_off():
+    """Turning MCP off is what decides, and the default does not override it."""
+    answer = served_page(quiet_settings(no_mcp=True)).get("/mcp/health")
+    assert answer.status_code == 404
+
+
+def test_the_stdio_server_runs_when_stdio_is_stated():
+    """Stating stdio chooses that transport instead of the one taken by default."""
+    settings = quiet_settings(mcp_transport="stdio")
+    with (
+        patch("ziomek.server.Settings.compose", return_value=settings),
+        patch("ziomek.server.setup_logging"),
+        patch("ziomek.server.uvicorn.run"),
+        patch("threading.Thread", RunsInline),
+        patch("ziomek.mcp.start_mcp_server", new=MagicMock()) as started_stdio,
     ):
-        """When mcp_http=True and mcp_port matches main port → integrated on main port."""
         from ziomek.server import run_server
 
-        mock_settings = MagicMock()
-        mock_settings.host = "localhost"
-        mock_settings.port = 5004
-        mock_settings.mcp_port = 5004
-        mock_compose.return_value = mock_settings
-        mock_app = MagicMock()
-        mock_create_app.return_value = mock_app
+        run_server(port=5004, mcp_transport="stdio")
 
-        run_server(
-            port=5004,
-            mcp_http=True,
-            mcp_port=5004,
-        )
+    started_stdio.assert_called_once()
 
-        # Should call register_mcp_http_routes to integrate on main app
-        mock_create_app.assert_called_once()
-        # Verify the app was patched with MCP routes
-        call_kwargs = mock_create_app.call_args[1]
-        assert call_kwargs.get("mcp_http") is True
-        # uvicorn.run should be called once on main port
-        assert mock_uvicorn.call_count == 1
-        mock_uvicorn.assert_called_with(mock_app, host="localhost", port=5004)
 
-    @patch("ziomek.mcp.http.start_mcp_http_server")
-    @patch("ziomek.server.create_app")
-    @patch("ziomek.server.setup_logging")
-    @patch("ziomek.server.uvicorn.run")
-    @patch("ziomek.server.Settings.compose")
-    def test_mcp_http_on_different_port_separate(
-        self,
-        mock_compose,
-        mock_uvicorn,
-        mock_logging,
-        mock_create_app,
-        mock_mcp_server,
+def test_the_tools_are_served_on_their_own_process_when_an_other_port_is_stated():
+    """A port that is not the main one means a server of its own, on that port."""
+    settings = quiet_settings(port=5004, mcp_port=5005)
+    with (
+        patch("ziomek.server.Settings.compose", return_value=settings),
+        patch("ziomek.server.setup_logging"),
+        patch("ziomek.server.uvicorn.run"),
+        patch("threading.Thread", RunsInline),
+        patch("ziomek.mcp.http.start_mcp_http_server") as started_http,
     ):
-        """When mcp_http=True and mcp_port differs → separate MCP server."""
         from ziomek.server import run_server
 
-        mock_settings = MagicMock()
-        mock_settings.host = "localhost"
-        mock_settings.port = 5004
-        mock_settings.mcp_port = 5005  # Different from main port
-        mock_compose.return_value = mock_settings
-        mock_app = MagicMock()
-        mock_create_app.return_value = mock_app
+        run_server(port=5004)
 
-        class _ImmediateThread:
-            def __init__(self, target=None, *args, **kwargs):
-                self._target = target
+    served_on = started_http.call_args.kwargs
+    assert served_on["host"] == "localhost"
+    assert served_on["port"] == 5005
 
-            def start(self):
-                if self._target:
-                    self._target()
 
-        # The MCP dispatch runs in a daemon thread; run it inline so this is deterministic.
-        with patch("ziomek.server.threading.Thread", _ImmediateThread):
-            run_server(
-                port=5004,
-                mcp_http=True,
-                mcp_port=5005,
-            )
-
-        # MCP must be served on its own port, not merged into the main app.
-        mock_mcp_server.assert_called_once_with(host="localhost", port=5005)
-        # uvicorn.run should be called once for main server
-        assert mock_uvicorn.call_count == 1
-        mock_uvicorn.assert_called_with(mock_app, host="localhost", port=5004)
-
-    @patch("ziomek.server.create_app")
-    @patch("ziomek.server.setup_logging")
-    @patch("ziomek.server.uvicorn.run")
-    @patch("ziomek.server.Settings.compose")
-    def test_mcp_http_not_enabled(
-        self,
-        mock_compose,
-        mock_uvicorn,
-        mock_logging,
-        mock_create_app,
+def test_nothing_is_served_when_the_run_turns_them_off_even_if_stdio_is_stated():
+    """Turning something off is a stronger statement than choosing how it is served."""
+    settings = quiet_settings(no_mcp=True, mcp_transport="stdio")
+    with (
+        patch("ziomek.server.Settings.compose", return_value=settings),
+        patch("ziomek.server.setup_logging"),
+        patch("ziomek.server.uvicorn.run"),
+        patch("threading.Thread", RunsInline),
+        patch("ziomek.mcp.start_mcp_server", new=MagicMock()) as started_stdio,
+        patch("ziomek.mcp.http.start_mcp_http_server") as started_http,
     ):
-        """When mcp_http=False → no MCP routing."""
         from ziomek.server import run_server
 
-        mock_settings = MagicMock()
-        mock_settings.host = "localhost"
-        mock_settings.port = 5004
-        mock_compose.return_value = mock_settings
-        mock_app = MagicMock()
-        mock_create_app.return_value = mock_app
+        run_server(port=5004, no_mcp=True, mcp_transport="stdio")
 
-        run_server(
-            port=5004,
-            mcp_http=False,
-        )
-
-        # Should call uvicorn.run once (no MCP)
-        assert mock_uvicorn.call_count == 1
-        mock_uvicorn.assert_called_with(mock_app, host="localhost", port=5004)
-
-    @patch("ziomek.server.create_app")
-    @patch("ziomek.server.setup_logging")
-    @patch("ziomek.server.uvicorn.run")
-    @patch("ziomek.server.Settings.compose")
-    def test_mcp_stdio_enabled(
-        self,
-        mock_compose,
-        mock_uvicorn,
-        mock_logging,
-        mock_create_app,
-    ):
-        """When mcp_stdio=True → MCP stdio server in background thread."""
-        from ziomek.server import run_server
-
-        mock_settings = MagicMock()
-        mock_settings.host = "localhost"
-        mock_settings.port = 5004
-        mock_compose.return_value = mock_settings
-        mock_app = MagicMock()
-        mock_create_app.return_value = mock_app
-
-        run_server(
-            port=5004,
-            mcp_stdio=True,
-        )
-
-        # Should call uvicorn.run once (MCP stdio runs in thread)
-        assert mock_uvicorn.call_count == 1
-        mock_uvicorn.assert_called_with(mock_app, host="localhost", port=5004)
+    started_stdio.assert_not_called()
+    started_http.assert_not_called()

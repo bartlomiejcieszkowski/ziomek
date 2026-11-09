@@ -18,21 +18,21 @@ Humanize AI interaction by making it more natural. Work in progress.
 uv run ziomek
 ```
 
-`uv` creates a `.venv`, downloads dependencies, and installs `ziomek` in development mode from the local package. The optional pieces are not installed by default:
+`uv` creates a `.venv`, downloads dependencies, and installs `ziomek` in development mode from the local package. The speech part is not installed by default:
 
 ```bash
-uv run --extra stt --extra mcp python -m ziomek.cli   # STT and MCP together
-uv sync --extra mcp                                    # once, then plain uv run works in this shell
+uv run --extra stt python -m ziomek.cli               # STT with the server
+uv sync --extra stt                                   # once, then plain uv run works in this shell
 ```
 
 ### Run the published package
 
 ```bash
 uvx ziomek
-uvx "ziomek[mcp,stt]"
+uvx "ziomek[stt]"
 ```
 
-Extras are declared in `pyproject.toml` under `[project.optional-dependencies]` (`stt`, `mcp`), so an install without them has no STT engine and no MCP server.
+Extras are declared in `pyproject.toml` under `[project.optional-dependencies]` (`stt`), so an install without it has no STT engine. The tools are part of the package itself, so nothing extra is needed to answer an MCP call.
 
 The browser is opened at the roster page on startup; pass `--no-browser` to skip it. Alternative launch scripts:
 
@@ -146,8 +146,8 @@ uv run ziomek --host 0.0.0.0 --port 5004 --log-level INFO --voice cosette --cach
 | `--stt-engine` | faster_whisper | STT engine (needs the `stt` extra) |
 | `--stt-model` | tiny.en | STT model |
 | `--stt-model-dir` | — | Model download directory |
-| `--mcp` | false | MCP server in HTTP mode alongside the main server |
-| `--mcp-stdio` | false | MCP server in stdio mode alongside the main server |
+| `--no-mcp` | false | Do not serve the tools; they are served unless this is set |
+| `--mcp-stdio` | false | Serve the tools over stdio instead of the transport taken by default |
 | `--mcp-port` | same as `--port` | Separate MCP port; a different port means a separate process with its own empty roster |
 | `--mcp-config` | false | Expose the full config through MCP (read-only by default) |
 | `--scaffold-config` | false | Write a default `ziomek_config.yaml` and exit |
@@ -174,7 +174,8 @@ Settings are read from the config file, then the environment, then the command l
 |---------|---------|-------------|
 | `port` | 5004 | HTTP port |
 | `mcp_port` | 5004 | MCP port; same as `port` means one process |
-| `mcp_transport` | stdio | `stdio` or `http` |
+| `no_mcp` | false | Do not serve the tools through MCP |
+| `mcp_transport` | http | `http` or `stdio` |
 | `audio_backend` | sounddevice | See the backend table |
 | `audio_device` | — | Device index or name; not applied by any backend |
 | `skins_dir` | skins | Where definitions are looked for, relative to the run directory |
@@ -271,7 +272,7 @@ Debug endpoints: `/api/debug/state`, `/api/debug/cache`, `/api/debug/config`, `/
 
 ## MCP Server
 
-With `--mcp` on the same port, the MCP routes are added to the main process, so tools see the roster that page shows. With a different `--mcp-port`, it is a separate process with its own empty roster — a join there does not appear on the page. Routes: `/mcp`, `/mcp/sse`, `/mcp/message`, `/mcp/health`, `/mcp/info`.
+The tools are served unless something says otherwise. On the default transport (HTTP) the routes are added to the main process, so tools see the roster that page shows. Choosing `--mcp-stdio` runs the tools in the process through stdio instead. With a different `--mcp-port`, it is a separate process with its own empty roster — a join there does not appear on the page. Routes: `/mcp`, `/mcp/sse`, `/mcp/message`, `/mcp/health`, `/mcp/info`. `--no-mcp` serves nothing.
 
 | Tool | What it does |
 |------|--------------|
@@ -289,7 +290,7 @@ With `--mcp` on the same port, the MCP routes are added to the main process, so 
 Resources: `voices://`, `models://`, `expressions://`, `config://`. The config resource answers only fields settings has. Running it standalone:
 
 ```bash
-uv run --extra mcp python -m ziomek.mcp.server
+uv run python -m ziomek.mcp.server
 ```
 
 A name that is not in the call is answered by the global state machine, so a tool does not say the name was unknown. A join does not report the face it drew; that is in the record, not in the tool response.

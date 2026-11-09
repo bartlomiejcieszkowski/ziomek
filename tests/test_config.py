@@ -202,6 +202,51 @@ def test_no_stt_cli_beats_config_file():
         assert s.no_stt is True
 
 
+def test_the_tools_are_not_turned_off_when_nothing_is_stated():
+    """MCP is on by default, so a run that states nothing serves it."""
+    assert Settings().no_mcp is False
+
+
+def test_the_transport_taken_when_nothing_is_stated_is_http():
+    """The transport a run uses when nothing is stated is the one it serves the tools over."""
+    assert Settings().mcp_transport == "http"
+
+
+def test_a_transport_read_from_the_config_file_is_used_when_nothing_is_stated_on_the_command_line():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "ziomek_config.yaml")
+        with open(path, "w") as f:
+            f.write("mcp_transport: stdio\n")
+        assert Settings.compose(file_path=path).mcp_transport == "stdio"
+
+
+def test_a_config_file_can_turn_the_tools_off():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "ziomek_config.yaml")
+        with open(path, "w") as f:
+            f.write("no_mcp: true\n")
+        assert Settings.load(path).no_mcp is True
+
+
+def test_turning_the_tools_off_on_the_command_line_beats_the_config_file():
+    """Precedence: CLI > config file."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "ziomek_config.yaml")
+        with open(path, "w") as f:
+            f.write("no_mcp: false\n")
+        assert Settings.compose(file_path=path, no_mcp=True).no_mcp is True
+
+
+def test_scaffold_config_documents_the_tools_and_their_default_transport():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "ziomek_server_config.yaml")
+        Settings.scaffold_config(path)
+        with open(path) as f:
+            content = f.read()
+        assert "no_mcp" in content
+        assert "http" in content
+
+
 def test_scaffold_config_creates_file():
     """Settings.scaffold_config creates a default YAML config file."""
     with tempfile.TemporaryDirectory() as tmpdir:
