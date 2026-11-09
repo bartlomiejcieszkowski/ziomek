@@ -72,12 +72,19 @@ test("the page asks for the rule that decides what to ask for", () => {
   assert.ok(part("roster.mjs").includes('from "./signal.mjs"'), "the page part decides what to ask for on its own");
 });
 
-test("the page asks for the whole picture when its connection is open again", () => {
+// The part that connects is read as one block, so a check about what happens when a connection is
+// opened cannot be satisfied by code placed in the handler for a lost connection.
+const connection_handler = () => {
   const code = part("roster.mjs");
-  assert.ok(code.includes("signal.onopen"), "nothing is asked when a connection is opened");
+  const start = code.indexOf("function connect_to_signal() {");
+  assert.ok(start >= 0, "the part does not connect on its own");
+  return code.slice(start, code.indexOf("\n}", start));
+};
+
+test("the page asks for the whole picture when a connection is opened", () => {
   assert.ok(
-    code.slice(code.indexOf("signal.onopen")).includes("ask_for(what_to_ask_on_connection())"),
-    "a change made while the page was away is not asked for",
+    connection_handler().includes("signal.onopen = () => ask_for(what_to_ask_on_connection());"),
+    "the whole picture is not asked for when a connection is opened",
   );
 });
 
@@ -89,11 +96,9 @@ test("the page does not ask on its own after the first picture", () => {
 test("a page that cannot keep the connection asks again on its own", () => {
   // How long it waits is checked as a value in the test that reads the page as values. Here only the
   // scheduling can be read, since nothing can be connected without a browser.
-  const code = part("roster.mjs");
-  assert.ok(code.includes("signal.onclose"), "a lost connection is not connected again");
   assert.ok(
-    code.slice(code.indexOf("signal.onclose")).includes("setTimeout(connect_to_signal, AGAIN_AFTER)"),
-    "the wait before asking again is left to the browser default",
+    connection_handler().includes("signal.onclose = () => setTimeout(connect_to_signal, AGAIN_AFTER);"),
+    "a lost connection is not connected again on its own",
   );
 });
 
