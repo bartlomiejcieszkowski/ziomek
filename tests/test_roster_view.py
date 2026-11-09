@@ -6,7 +6,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from tests.roster_page_helpers import page_source, part_of_page, served_page
+from tests.roster_page_helpers import page_shell, page_source, part_of_page, served_page
 
 
 def module_source():
@@ -1152,3 +1152,19 @@ def test_the_values_a_page_states_name_the_blocks_it_counted_not_the_shares_it_d
     assert body.index("stated_blocks = blocks_in_frames(grid, parts.length, frame);") < body.index(
         'state_sizes.report?.("measured"'
     )
+
+
+def test_a_page_can_only_be_given_what_a_part_provides():
+    """A name a part does not provide makes the whole request fail, so a page asks for a part for what that part provides."""
+    for page in ("roster.html", "roster_debug.html"):
+        asked = [line for line in page_shell(page).splitlines() if "import {" in line]
+        for line in asked:
+            names = [name.strip() for name in line.split("{")[1].split("}")[0].split(",")]
+            part = line.split("/static/")[1].split('"')[0]
+            source = part_of_page(page, part)
+            for name in names:
+                assert (
+                    f"export function {name}(" in source
+                    or f"export async function {name}(" in source
+                    or f"export const {name} " in source
+                ), f"{page} asks for {name}, which {part} does not provide"
