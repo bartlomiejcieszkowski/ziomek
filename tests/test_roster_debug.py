@@ -44,15 +44,16 @@ def test_the_page_that_draws_tiles_states_nothing_while_no_reading_is_set():
     assert 'state_sizes.report?.("cannot be measured"' in drawing
 
 
-def test_the_debug_page_is_the_page_with_only_its_own_part_added():
-    """The page shown in dev mode is the same page with one link added for the part that states values, and that part asks for the rules from the page's own part."""
+def test_the_debug_page_is_the_page_with_only_its_own_parts_added():
+    """The page shown in dev mode is the same page with only what exists in dev mode added to it: the part that states values and the rule that styles what it shows."""
     own = [
         line
         for line in page_shell("roster_debug.html").split("\n")
         if line not in page_shell("roster.html").split("\n")
     ]
-    assert len(own) == 1
-    assert 'import { state_sizes } from "/static/roster_debug.mjs";' in own[0]
+    assert len(own) == 2
+    assert any('"/static/roster_debug.mjs"' in line for line in own)
+    assert any('"/static/roster_debug.css"' in line for line in own)
     assert 'from "./state_sizes.mjs"' in static_source("roster_debug.mjs")
 
 
@@ -129,3 +130,77 @@ def test_the_room_is_divided_in_whole_frame_counts_not_equal_tracks():
     joined = static_source("roster.mjs")
     assert 'root.style.gridTemplateColumns = "repeat(" + grid.cols + ", " + frame + "px)"' in joined
     assert 'root.style.gridTemplateRows = "repeat(" + grid.rows + ", " + frame + "px)"' in joined
+
+
+# What a page in dev mode shows on screen, for the person looking at it.
+
+
+def test_a_page_served_in_dev_mode_shows_that_it_is_the_one_served_in_dev_mode():
+    """Only the part added in dev mode can know how the app was started, so it is what says so on screen."""
+    part = static_source("roster_debug.mjs")
+    assert 'const indicator = document.createElement("div");' in part
+    assert 'indicator.className = "debug_mode";' in part
+    assert 'indicator.textContent = "debug mode";' in part
+
+
+def test_a_page_that_was_not_served_in_dev_mode_shows_nothing_about_dev_mode():
+    """A page without that part has no way to know how the app was started, so it shows no indicator."""
+    for name in ("roster.mjs", "roster.css"):
+        assert "debug_mode" not in static_source(name)
+
+
+def test_a_page_served_in_dev_mode_prints_what_it_measured():
+    """The values a page measured are shown next to the indicator that says dev mode is on."""
+    part = static_source("roster_debug.mjs")
+    assert 'const values = document.createElement("div");' in part
+    assert 'values.className = "debug_values";' in part
+    assert "values.textContent = describe(report);" in part
+
+
+def test_a_page_that_was_not_served_in_dev_mode_prints_nothing_it_measured():
+    """Without that part nothing is stated, so a page draws tiles and says nothing about their sizes."""
+    for name in ("roster.mjs", "roster.css"):
+        assert "debug_values" not in static_source(name)
+
+
+def test_what_a_page_shows_about_its_sizes_is_the_report_it_sends():
+    """What is on screen and what is stored must not be able to disagree, so one report serves both."""
+    part = static_source("roster_debug.mjs")
+    assert part.count("build_report(") == 1
+    assert "values.textContent = describe(report);" in part
+    assert "body: JSON.stringify(report)" in part
+
+
+def test_a_page_that_could_not_measure_anything_says_why_not():
+    """An empty box leaves a reader guessing, so the reason a measurement was not possible is the first thing printed."""
+    part = static_source("roster_debug.mjs")
+    described = part[part.index("function describe(report)") :]
+    assert "const lines = [report.path];" in described
+
+
+def test_the_page_served_in_dev_mode_links_the_rule_that_styles_what_it_shows():
+    """A page holds links only, so the rule for the indicator and the printed values is a part it asks for."""
+    assert 'href="/static/roster_debug.css"' in page_shell("roster_debug.html")
+
+
+def test_a_page_that_is_not_the_one_served_in_dev_mode_links_no_rule_for_it():
+    """Nothing that only exists in dev mode is asked for by a page that was not served in dev mode."""
+    assert "roster_debug.css" not in page_shell("roster.html")
+
+
+def test_the_indicator_stays_in_the_bottom_right_corner_of_the_window():
+    """The indicator is read at the edge of the window, so it stays there and does not move with the record."""
+    rule = static_source("roster_debug.css")
+    block = rule[rule.index(".debug_mode {") : rule.index(".debug_values {")]
+    assert "position: fixed;" in block
+    assert "right: 8px;" in block
+    assert "bottom: 8px;" in block
+
+
+def test_the_printed_values_stay_in_the_bottom_left_corner_of_the_window():
+    """The printed values are read against the drawing area, so they stay at its edge."""
+    rule = static_source("roster_debug.css")
+    block = rule[rule.index(".debug_values {") :]
+    assert "position: fixed;" in block
+    assert "left: 8px;" in block
+    assert "bottom: 8px;" in block
