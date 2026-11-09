@@ -22,4 +22,6 @@
   background: rgba(0,0,0,.1);
   color: #666;
   font-size: 12px;
+  /* Each value is written on its own line, so a reader sees them apart instead of as one run of words. */
+  white-space: pre-wrap;
 }

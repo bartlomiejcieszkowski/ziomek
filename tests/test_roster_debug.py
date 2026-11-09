@@ -211,3 +211,10 @@ def test_the_printed_values_stay_in_the_bottom_left_corner_of_the_window():
     assert "position: fixed;" in block
     assert "left: 8px;" in block
     assert "bottom: 8px;" in block
+
+
+def test_the_values_printed_by_a_page_stay_on_the_lines_they_are_written_on():
+    """The values are written one per line, so a reader sees them apart instead of as one run of words."""
+    rule = static_source("roster_debug.css")
+    block = rule[rule.index(".debug_values {") :]
+    assert "white-space: pre-wrap;" in block
