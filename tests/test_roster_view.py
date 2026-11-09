@@ -448,8 +448,8 @@ def test_the_panel_lines_keep_their_newlines():
     assert "#transcript li, #transcript .box p { white-space: pre-wrap; }" in stylesheet
 
 
-def test_the_panel_is_not_rebuilt_on_every_poll():
-    """The page keeps what it has already shown instead of clearing the list each tick."""
+def test_the_record_that_is_already_on_screen_is_kept_when_the_page_is_asked_again():
+    """The page keeps what it has already shown instead of clearing the list on every ask."""
     script = part_of_page("roster.html", "roster.mjs")
 
     assert "let rendered = 0;" in script
@@ -545,10 +545,10 @@ def test_the_page_asks_for_the_file_content_and_keeps_the_download_in_the_browse
     assert "revokeObjectURL" in page
 
 
-def test_the_page_survives_a_failed_poll():
+def test_the_page_keeps_what_it_has_when_an_ask_does_not_answer():
     page = part_of_page("roster.html", "roster.mjs")
 
-    assert "try {" in page  # a failed fetch must not leave lines that no longer match the record
+    assert "try {" in page  # an ask that does not answer must not leave lines that no longer match the record
 
 
 def test_the_page_gives_back_the_object_url_and_the_download_link():
