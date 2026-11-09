@@ -58,7 +58,7 @@ test("the pages ask for the rule that decides the size of a skin instead of writ
 
 test("the debug page loads its own part before the page is started", () => {
   const html = page("roster_debug.html");
-  assert.ok(html.includes('<script type="module">import { state_sizes } from "/static/roster_debug.mjs";'));
+  // What the page asks for is checked by the test that says a page can only be given what a part provides.
   assert.ok(html.indexOf('"/static/roster_debug.mjs"') < html.indexOf("start("), "the page starts before the reading is set");
   assert.ok(!/<script[^>]*>[^<]*(?:function|const state_sizes = null)/.test(html), "the page defines what a part already defines");
 });
