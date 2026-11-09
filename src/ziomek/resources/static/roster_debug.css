@@ -1,0 +1,25 @@
+/* the rule for what a page in dev mode shows about itself */
+
+/* The indicator is read at the edge of the window, away from the record. */
+.debug_mode {
+  position: fixed;
+  right: 8px;
+  bottom: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(0,0,0,.1);
+  color: #666;
+  font-size: 12px;
+}
+
+/* The printed values are read against the drawing area, so they stay at its edge. */
+.debug_values {
+  position: fixed;
+  left: 8px;
+  bottom: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(0,0,0,.1);
+  color: #666;
+  font-size: 12px;
+}
