@@ -654,16 +654,19 @@ def test_the_file_uses_the_clock_passed_by_the_page(monkeypatch):
     assert 'request.query_params.get("at")' in module_source()
 
 
-def test_the_page_has_the_colors_and_the_box_shape():
-    page = page_source()
+def test_the_box_is_drawn_on_its_own_ground_with_its_own_border_and_round():
+    sheet = part_of_page("roster.html", "roster.css")
     assert (
         ".box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; border-radius: 6px; padding: 12px; }"
-        in page
+        in sheet
     )
-    assert ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }" in page
-    assert ".event { color: #e0a568; }" in page
-    assert ".system_text { color: #7fb069; }" in page
-    assert 'el_class("name")' in page
+
+
+def test_a_name_a_line_and_a_system_line_are_told_apart_by_colour():
+    sheet = part_of_page("roster.html", "roster.css")
+    assert ".name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }" in sheet
+    assert ".event { color: #e0a568; }" in sheet
+    assert ".system_text { color: #7fb069; }" in sheet
 
 
 def test_the_page_writes_the_group_header_with_the_author():

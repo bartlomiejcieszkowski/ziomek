@@ -32,12 +32,15 @@ def client():
 class TestAvatarViewPage:
     """The served page must exist and connect to the WebSocket route."""
 
-    def test_view_page_returns_html(self, client):
+    def test_the_page_for_the_faces_is_answered_as_a_document(self, client):
         resp = client.get("/avatar")
         assert resp.status_code == 200
         assert "text/html" in resp.headers["content-type"]
+
+    def test_the_page_names_an_address_an_icon_can_be_answered_from(self, client):
         # A browser asks for an icon on its own when it renders a page, so the page names the
         # path the app answers for instead of the one nothing serves.
+        resp = client.get("/avatar")
         assert '<link rel="icon" href="/favicon.svg">' in resp.text
 
     def test_page_has_separate_areas_for_name_and_text(self, client):
