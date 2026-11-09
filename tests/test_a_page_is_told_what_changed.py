@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 
 import pytest
 from starlette.testclient import TestClient
@@ -134,6 +135,39 @@ def test_the_app_still_works_when_no_page_is_connected_to_be_told(app_running):
     participant = running_roster.join("John")
     assert participant.name == "John"
     assert len(running_roster.participants) == 1
+
+
+class PageThatCannotBeSentTo:
+    """A page whose connection gives a failure when something is sent to it."""
+
+    async def send_json(self, message):
+        raise RuntimeError("the socket is closed")
+
+
+def test_a_page_that_cannot_be_sent_to_is_no_longer_listened_for():
+    """A page that cannot be sent to is not kept as a page to tell the next change to."""
+    roster_ws._connected_clients.append(PageThatCannotBeSentTo())
+    asyncio.run(roster_ws._broadcast({"kind": "room"}))
+    assert roster_ws._connected_clients == []
+
+
+def test_a_failure_to_tell_a_page_is_said_in_the_log():
+    """A page dropped because nothing could be sent to it is not dropped without a trace."""
+    records = []
+
+    class Records(logging.Handler):
+        def emit(self, record):
+            records.append(record)
+
+    log = logging.getLogger("ziomek.api.roster_ws")
+    handler = Records()
+    log.addHandler(handler)
+    try:
+        roster_ws._connected_clients.append(PageThatCannotBeSentTo())
+        asyncio.run(roster_ws._broadcast({"kind": "room"}))
+    finally:
+        log.removeHandler(handler)
+    assert records, "nothing was said about the failure"
 
 
 def test_a_page_is_told_that_the_record_was_cleared_when_the_call_ends(app_running):
