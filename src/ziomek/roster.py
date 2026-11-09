@@ -68,12 +68,15 @@ class Participant:
         self.state = "held"
         self.held_at = time.monotonic()
         if self.roster is not None:
+            self.roster.report_change("room")
             self.roster.record(self.name, "hold")
 
     def resume(self) -> None:
         """Count inactivity again."""
         self.state = "active"
         self.held_at = None
+        if self.roster is not None:
+            self.roster.report_change("room")
         self.seen()
 
     def seen(self) -> None:
@@ -122,6 +125,7 @@ class Roster:
         rng: random.Random | None = None,
         state_machine_factory=None,
         push_hook=None,
+        changed=None,
         default_skin: str = "single-frame",
         name_lists: dict[str, list[str]] | None = None,
         voices: list[str] | None = None,
@@ -134,6 +138,9 @@ class Roster:
         # The view push is attached to every machine the roster makes, so a participant's
         # expression change reaches the page instead of being polled.
         self.push_hook = push_hook
+        # Which part changed is reported here, so a page can ask for that part alone. A call built
+        # without this reports nothing.
+        self.changed = changed
         # Words are the second part of a name when the first part is taken in the call.
         self.words: list[str] = list(words or [])
         # Name lists from the package resources, read as one pool of names.
@@ -176,6 +183,9 @@ class Roster:
         # areas from its own record.
         participant.state_machine = self._machine_for(participant)
         self.participants.append(participant)
+        # A participant added to the call is a change to the room, and the join entry below is a
+        # change to the record, so both are reported.
+        self.report_change("room")
         # The join entry carries what was drawn for the name, so the record shows the assignment.
         self.record(participant.name, "join", voice=participant.voice, skin=participant.skin)
         return participant
@@ -199,6 +209,16 @@ class Roster:
         """Release the pool entry; the usage history stays for the next pick."""
         if participant in self.participants:
             self.participants.remove(participant)
+            self.report_change("room")
+
+    def report_change(self, kind: str) -> None:
+        """Report which part changed, so a page can ask for that part alone.
+
+        A call that was built without anything to report to does nothing here.
+        """
+        if self.changed is None:
+            return
+        self.changed(kind)
 
     def _count(self, name: str) -> int:
         count = self.usage_counts.get(name, 0) + 1
@@ -323,6 +343,7 @@ class Roster:
         if skin is not None:
             entry["skin"] = skin
         self.events.append(entry)
+        self.report_change("record")
         participant = self._find(name)
         if participant is not None:
             participant.events.append(entry)
@@ -338,6 +359,8 @@ class Roster:
         """Drop the participants and the record; the usage history stays for the next call."""
         self.participants.clear()
         self.events.clear()
+        # The record is gone, so a page that drew it has to be told this changed as well.
+        self.report_change("record")
 
 
 _roster: Roster | None = None
@@ -346,7 +369,7 @@ _roster: Roster | None = None
 def build_roster(settings) -> Roster:
     """Build the roster for the current call from the configured pool."""
     global _roster
-    from ziomek.api import avatar_ws
+    from ziomek.api import avatar_ws, roster_ws
     from ziomek.avatar.skins import get_registry
 
     registry = get_registry()
@@ -357,6 +380,7 @@ def build_roster(settings) -> Roster:
         skins=list(registry.list()) if registry else [],
         quiet_for=settings.roster_quiet_for,
         push_hook=avatar_ws.notify_change,
+        changed=roster_ws.tell_page,
         default_skin=settings.roster_avatar,
     )
     return _roster

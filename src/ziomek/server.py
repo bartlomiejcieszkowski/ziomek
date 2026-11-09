@@ -17,6 +17,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response
 from ziomek import __version__, event_loop
 from ziomek.api import avatar_ws
 from ziomek.api.avatar_ws import router as avatar_ws_router
+from ziomek.api.roster_ws import router as roster_ws_router
 from ziomek.api.stt_ws import router as stt_ws_router
 from ziomek.avatar.skins import build_registry
 from ziomek.avatar.state_machine import AvatarInput, AvatarStateMachine
@@ -197,6 +198,8 @@ def create_app(
     app.include_router(health.router)
     app.include_router(stt_ws_router)
     app.include_router(avatar_ws_router)
+    # The signal path that tells a page which part changed, next to the path for the single view.
+    app.include_router(roster_ws_router)
 
     # The icon a page shows in its tab, served for the path the pages link to.
     @app.get("/favicon.svg")
