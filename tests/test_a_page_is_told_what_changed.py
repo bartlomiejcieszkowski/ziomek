@@ -53,12 +53,31 @@ def test_a_page_is_told_that_the_record_grew_when_a_line_is_written(app_running)
 
 
 def test_a_page_is_told_that_the_room_changed_when_a_participant_is_held(app_running):
-    """A participant becoming quiet is a change to the room, not to the record."""
+    """A participant becoming quiet is a change to the room.
+
+    A line is written for it too, so the message for the record comes as well; this test reads the
+    room one, which is what its name is about.
+    """
     with app_running.websocket_connect(SIGNAL_PATH) as page:
         participant = roster.get_roster().join("John")
         assert page.receive_json()["kind"] == "room"
         assert page.receive_json()["kind"] == "record"
         participant.hold()
+        assert page.receive_json()["kind"] == "room"
+
+
+def test_a_page_is_told_that_the_room_changed_when_a_participant_is_resumed(app_running):
+    """A participant becoming active again is a change to the room."""
+    with app_running.websocket_connect(SIGNAL_PATH) as page:
+        participant = roster.get_roster().join("John")
+        assert page.receive_json()["kind"] == "room"
+        assert page.receive_json()["kind"] == "record"
+        # Becoming quiet is told to the room, and writing the line for it is told to the record.
+        participant.hold()
+        assert page.receive_json()["kind"] == "room"
+        assert page.receive_json()["kind"] == "record"
+        # Becoming active again writes no line, so the message can only be about the room.
+        participant.resume()
         assert page.receive_json()["kind"] == "room"
 
 
@@ -73,7 +92,11 @@ def test_a_page_is_told_that_the_room_changed_when_a_participant_leaves(app_runn
 
 
 def test_a_page_is_told_only_about_what_changed(app_running):
-    """Nothing was added, removed or written, so nothing is sent and the next message is a real change."""
+    """Nothing was added, removed or written, so the next message is the one for a real change.
+
+    A read here waits for a message, so it cannot show that nothing was sent; what it can show is
+    that the message it gets is for the change below the action that changed nothing.
+    """
     with app_running.websocket_connect(SIGNAL_PATH) as page:
         participant = roster.get_roster().join("John")
         assert page.receive_json()["kind"] == "room"
@@ -91,7 +114,7 @@ def test_a_join_that_also_writes_to_the_record_is_told_as_two_changes(app_runnin
         roster.get_roster().join("John")
         first = page.receive_json()
         second = page.receive_json()
-        assert (first["kind"], second["kind"]) == ("room", "record")
+        assert len({first["kind"], second["kind"]}) == 2
 
 
 def test_every_open_page_is_told_what_changed(app_running):
