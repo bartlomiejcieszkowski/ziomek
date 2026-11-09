@@ -15,7 +15,7 @@ from ziomek.stt import STTEngine, STTResult, STTState, stt_installed
 class TestSttInstalled:
     """Tests for the optional 'stt' extra availability check."""
 
-    def test_true_when_package_importable(self):
+    def test_the_command_says_the_speech_package_is_there_when_it_can_be_found(self):
         with patch("ziomek.stt.find_spec", return_value=object()):
             assert stt_installed() is True
 

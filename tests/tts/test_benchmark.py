@@ -16,7 +16,7 @@ from ziomek.tts.voice import VoiceStateCache
 class TestBenchmarkMock:
     """Tests for TTS benchmark module using mocked model."""
 
-    def test_benchmark_imports(self):
+    def test_the_check_can_be_started_with_the_texts_it_measures_against(self):
         """Benchmark module imports successfully."""
         from ziomek.tts.benchmark import SAMPLE_TEXTS, _print_summary, _run_benchmark
 

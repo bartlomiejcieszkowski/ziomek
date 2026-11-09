@@ -13,7 +13,7 @@ from ziomek.stt import stt_installed
 class TestMcpInstalled:
     """Tests for the optional 'mcp' package availability check."""
 
-    def test_true_when_package_importable(self):
+    def test_the_command_says_the_tool_package_is_there_when_it_can_be_found(self):
         with patch("ziomek.cli.find_spec", return_value=object()):
             assert mcp_installed() is True
 
@@ -81,7 +81,7 @@ class TestMcpFlagGuard:
 class TestSttInstalled:
     """Tests for the optional 'stt' extra availability check."""
 
-    def test_true_when_package_importable(self):
+    def test_the_command_says_the_speech_package_is_there_when_it_can_be_found(self):
         with patch("ziomek.stt.find_spec", return_value=object()):
             assert stt_installed() is True
 

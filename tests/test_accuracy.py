@@ -89,7 +89,7 @@ class TestAccuracyMock:
         )
         return mock
 
-    def test_accuracy_imports(self):
+    def test_the_measures_can_be_reached_when_the_package_is_read(self):
         """Module imports correctly."""
         from ziomek.tts import accuracy  # noqa: F401
 
