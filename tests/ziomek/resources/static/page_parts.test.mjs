@@ -72,6 +72,15 @@ test("the page asks for the rule that decides what to ask for", () => {
   assert.ok(part("roster.mjs").includes('from "./signal.mjs"'), "the page part decides what to ask for on its own");
 });
 
+test("the page asks for the rule that reads a message", () => {
+  const code = part("roster.mjs");
+  assert.ok(code.includes('import { read_signal') && code.includes("read_signal(event.data)"), "the page does not ask for the rule that reads a message");
+});
+
+test("the page does not read a message on its own", () => {
+  assert.ok(!part("roster.mjs").includes("JSON.parse("), "the page reads a message on its own");
+});
+
 // The part that connects is read as one block, so a check about what happens when a connection is
 // opened cannot be satisfied by code placed in the handler for a lost connection.
 const connection_handler = () => {
