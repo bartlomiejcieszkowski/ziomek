@@ -1036,6 +1036,14 @@ def test_the_page_uses_the_image_address_the_server_answered_with():
     assert '"url(data:image/png;base64,"' not in page
 
 
+def test_a_frame_is_drawn_with_its_picture_whatever_way_it_is_placed():
+    """How a frame is placed only says where it sits, so the picture has to be put on the tile before that is decided."""
+    page = part_of_page("roster.html", "roster.mjs")
+    picture = page.index('block.style.backgroundImage = "url(" + image + ")"')
+    placed_by_the_fit = page.index("if (frame.fit) {")
+    assert picture < placed_by_the_fit
+
+
 def test_the_page_gets_one_mapping_per_skin_and_reads_a_file_as_its_own_picture():
     # One place answers for a skin, so the page asks once per name and keeps what it got.
     page = part_of_page("roster.html", "roster.mjs")
