@@ -38,6 +38,7 @@ button { background: #2a2a30; color: #ddd; border: 1px solid #4a4a52; border-rad
 @media (max-width: 900px) {
   #layout { display: block; }
   #roster, #panel { flex: none; }
+  #roster { height: 60vh; } /* the box that can be measured has to be given by the page, not by the part */
 }
 .box { background: #2a2a30; border: 1px solid #4a4a52; margin-bottom: 14px; border-radius: 6px; padding: 12px; }
 .name { color: #8ab4f8; background: rgba(12,12,18,0.7); border-radius: 6px; padding: 4px 6px; }
