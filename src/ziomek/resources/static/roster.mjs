@@ -2,7 +2,7 @@ import { blocks_in_frames, whole_frame_grid } from "./roster_grid.mjs";
 import { read_number } from "./numbers.mjs";
 import { room_for, state_sizes } from "./state_sizes.mjs";
 import { fit_scale } from "./fit.mjs";
-import { what_to_ask_for, what_to_ask_on_connection } from "./signal.mjs";
+import { read_signal, what_to_ask_for, what_to_ask_on_connection } from "./signal.mjs";
 let lastPayload = {};
 let lastBlocks = [];
 let rendered = 0;
@@ -487,7 +487,7 @@ export function ask_for(names) {
 function connect_to_signal() {
   const signal = new WebSocket(SIGNAL_PATH);
   signal.onopen = () => ask_for(what_to_ask_on_connection());
-  signal.onmessage = (event) => ask_for(what_to_ask_for(JSON.parse(event.data)));
+  signal.onmessage = (event) => ask_for(what_to_ask_for(read_signal(event.data)));
   signal.onclose = () => setTimeout(connect_to_signal, AGAIN_AFTER);
 }
 
