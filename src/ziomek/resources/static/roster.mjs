@@ -6,6 +6,8 @@ import { read_signal, what_to_ask_for, what_to_ask_on_connection } from "./signa
 let lastPayload = {};
 let lastBlocks = [];
 let rendered = 0;
+// What the page showed is kept, so a window that changed size can be answered from it without asking again.
+let lastTiles = [];
 // A block can grow after it has been drawn, so what the page drew inside the last block is
 // kept as well; a run of text from one participant joins the block already on screen.
 let shown_block = null;
@@ -165,6 +167,7 @@ function apply_largest_tile(root, room, parts) {
 }
 
 function render(tiles) {
+  lastTiles = tiles;  // what is on screen, so a window change can be laid out again from it
   const root = document.getElementById("roster");
   root.innerHTML = "";
   const count = document.getElementById("count");
@@ -377,8 +380,16 @@ function labelTextToggle() {
 
 // The part is read without a page in front of it, so nothing on the page is touched until the page
 // asks for the view to start.
+// A window that changed size is not something the app knows about, so the picture is laid out again
+// from what the page already has.
+function lay_out_again() {
+  if (!lastTiles.length) return;  // nothing has been shown yet, so there is nothing to lay out
+  render(lastTiles);
+}
+
 function set_up_page_controls() {
   labelTextToggle();
+  window.addEventListener("resize", lay_out_again);
   document.getElementById("state_text").addEventListener("click", () => {
     const on = !textOn();
     setStored("ziomek_text", on ? "1" : "0");
