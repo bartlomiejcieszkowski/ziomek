@@ -178,6 +178,13 @@ def test_a_page_that_could_not_measure_anything_says_why_not():
     assert "const lines = [report.path];" in described
 
 
+def test_the_values_printed_by_a_page_state_the_area_it_measured():
+    """A record read from the printed values is about the area a page measured, so the numbers printed are that area and not what padding takes from it."""
+    part = static_source("roster_debug.mjs")
+    described = part[part.index("function describe(report)") :]
+    assert "lines.push(`room ${report.room.measured.width}x${report.room.measured.height}`);" in described
+
+
 def test_the_page_served_in_dev_mode_links_the_rule_that_styles_what_it_shows():
     """A page holds links only, so the rule for the indicator and the printed values is a part it asks for."""
     assert 'href="/static/roster_debug.css"' in page_shell("roster_debug.html")

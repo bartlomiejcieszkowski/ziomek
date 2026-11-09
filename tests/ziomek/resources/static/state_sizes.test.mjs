@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { blocks_in_frames, whole_frame_grid } from "../../../../src/ziomek/resources/static/roster_grid.mjs";
-import { build_report, describe_blocks, state_sizes } from "../../../../src/ziomek/resources/static/state_sizes.mjs";
+import { read_number } from "../../../../src/ziomek/resources/static/numbers.mjs";
+import { build_report, describe_blocks, room_for, state_sizes } from "../../../../src/ziomek/resources/static/state_sizes.mjs";
 
 const room = (width, height, padding, gap) => ({ measured: { width, height }, taken: { padding: { x: padding, y: padding }, gap: { x: gap, y: gap } } });
 
@@ -48,4 +49,23 @@ test("a report states nothing it cannot measure", () => {
   const r = room(2260, 1311, 30, 8);
   const report = build_report(r, "measured", whole_frame_grid(r, 100), 100, 1, []);
   assert.ok(!("cell" in report), "a field a reader cannot reproduce from the room");
+});
+
+// A room is read from the page, so a page that has no padding to measure gives nothing for the counting.
+const read_room = (box, styles) => room_for(read_number, box, styles);
+const both_sides = { paddingLeft: "8px", paddingRight: "8px", paddingTop: "8px", paddingBottom: "8px", columnGap: "8px", rowGap: "8px" };
+
+test("the area a page measured is kept apart from what padding takes from it", () => {
+  const seen = read_room({ width: 1323, height: 870 }, both_sides);
+  assert.deepEqual(seen.measured, { width: 1323, height: 870 });
+});
+
+test("padding takes both sides of the area a page measured", () => {
+  const seen = read_room({ width: 1323, height: 870 }, both_sides);
+  assert.deepEqual(seen.taken.padding, { x: 16, y: 16 });
+});
+
+test("nothing is taken from a page that has no padding to read", () => {
+  const seen = read_room({ width: 500, height: 400 }, { ...both_sides, paddingLeft: "0px", paddingRight: "0px", paddingTop: "0px", paddingBottom: "0px" });
+  assert.equal(seen.taken, null);
 });

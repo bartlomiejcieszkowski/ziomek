@@ -168,8 +168,8 @@ function render(tiles) {
   root.innerHTML = "";
   const count = document.getElementById("count");
   count.textContent = tiles.length + " participants";
-  const room = room_for(read_number, root);
-  if (room.width <= 0 || room.height <= 0) {  // the stacked layout has no room to measure, so nothing here applies
+  const room = room_for(read_number, { width: root.clientWidth, height: root.clientHeight }, getComputedStyle(root));
+  if (!room.taken) {  // nothing was taken from the area measured, so nothing here applies
     stated_blocks = [];
     state_sizes.report?.("cannot be measured", room, null, null, null, []);
     return;
