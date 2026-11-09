@@ -1,0 +1,77 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>a call with one participant who has written lines</title>
+    <link rel="stylesheet" href="roster_page.css" />
+  </head>
+  <body>
+    <div id="layout">
+      <div id="main">
+        <div id="count"></div>
+        <div id="roster"></div>
+      </div>
+      <div id="panel">
+        <div id="header">
+          <button id="toggle">hide</button>
+          <button id="state_text">show text</button>
+          <button id="save">Save</button>
+          <button id="formats">▼</button>
+          <div id="menu">
+            <button data-format="markdown">Markdown</button>
+            <button data-format="json">JSON</button>
+          </div>
+        </div>
+        <ul id="transcript"></ul>
+      </div>
+    </div>
+
+    <!-- The data a mock shows, in the shapes the server answers with. A face is drawn as a flat
+         square in the colour stated for that expression, since a page opened as a file cannot read an
+         image. One participant, three lines, so the record shows a run of text with its own block. -->
+    <script>
+      const fixture = {
+        panel_default: "open",
+        skins: {
+          "single-frame": {
+            skin: "single-frame",
+            frameWidth: 100,
+            frameHeight: 100,
+            colors: { thinking: "#5aa46a" },
+          },
+        },
+        tiles: [
+          {
+            name: "cosette",
+            status_text: "Someone is here.",
+            system_text: "joined.",
+            state: "active",
+            held_seconds: 0,
+            expression: "thinking",
+            avatar: { skin: "single-frame", frame: { kind: "cell", row: 2, column: 0, fit: null, width: 100, height: 100 } },
+          },
+        ],
+        blocks: [
+          {
+            kind: "system",
+            name: "cosette",
+            author: "system",
+            text: "joined.",
+            assignment: "(cosette, single-frame)",
+          },
+          {
+            kind: "group",
+            name: "cosette",
+            author: "agent",
+            lines: [
+              "I have been asleep for a thousand years.",
+              "The dark is quiet here.",
+              "Someone is here.",
+            ],
+          },
+        ],
+      };
+    </script>
+    <script src="roster_page.js"></script>
+  </body>
+</html>

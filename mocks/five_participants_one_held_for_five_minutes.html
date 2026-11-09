@@ -1,0 +1,114 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>a call with five participants, one of them held for five minutes</title>
+    <link rel="stylesheet" href="roster_page.css" />
+  </head>
+  <body>
+    <div id="layout">
+      <div id="main">
+        <div id="count"></div>
+        <div id="roster"></div>
+      </div>
+      <div id="panel">
+        <div id="header">
+          <button id="toggle">hide</button>
+          <button id="state_text">show text</button>
+          <button id="save">Save</button>
+          <button id="formats">▼</button>
+          <div id="menu">
+            <button data-format="markdown">Markdown</button>
+            <button data-format="json">JSON</button>
+          </div>
+        </div>
+        <ul id="transcript"></ul>
+      </div>
+    </div>
+
+    <!-- The data a mock shows, in the shapes the server answers with. Five participants with
+         different faces, one held for 300s (five minutes), so the marker for a held participant is
+         shown; one participant has written nothing, so the record has no block for them; a system
+         line between two runs is what closes the run before it. A face is drawn as a flat square in
+         the colour stated for that expression, since a page opened as a file cannot read an image. -->
+    <script>
+      const fixture = {
+        panel_default: "open",
+        skins: {
+          "single-frame": {
+            skin: "single-frame",
+            frameWidth: 100,
+            frameHeight: 100,
+            colors: { happy: "#c0574f", neutral: "#4a6fa8", thinking: "#5aa46a", focused: "#8a63c9", excited: "#4f9ba8" },
+          },
+          "single-frame-green": {
+            skin: "single-frame-green",
+            frameWidth: 100,
+            frameHeight: 100,
+            colors: { neutral: "#5aa46a" },
+          },
+        },
+        tiles: [
+          {
+            name: "alba",
+            status_text: "The window is open.",
+            system_text: "joined.",
+            state: "active",
+            held_seconds: 0,
+            expression: "happy",
+            avatar: { skin: "single-frame", frame: { kind: "cell", row: 0, column: 0, fit: null, width: 100, height: 100 } },
+          },
+          {
+            name: "anna",
+            status_text: "Nothing moves in the dark.",
+            system_text: null,
+            state: "active",
+            held_seconds: 0,
+            expression: "thinking",
+            avatar: { skin: "single-frame", frame: { kind: "cell", row: 2, column: 0, fit: null, width: 100, height: 100 } },
+          },
+          {
+            name: "cosette",
+            status_text: null,
+            system_text: "joined.",
+            state: "active",
+            held_seconds: 0,
+            expression: "neutral",
+            avatar: { skin: "single-frame-green", frame: { kind: "cell", row: 2, column: 0, fit: null, width: 100, height: 100 } },
+          },
+          {
+            name: "javert",
+            status_text: "I am not speaking.",
+            system_text: "is on hold.",
+            state: "held",
+            held_seconds: 300,
+            expression: "focused",
+            avatar: { skin: "single-frame", frame: { kind: "cell", row: 3, column: 0, fit: null, width: 100, height: 100 } },
+          },
+          {
+            name: "vera",
+            status_text: null,
+            system_text: "joined.",
+            state: "active",
+            held_seconds: 0,
+            expression: "excited",
+            avatar: { skin: "single-frame", frame: { kind: "cell", row: 5, column: 0, fit: null, width: 100, height: 100 } },
+          },
+        ],
+        blocks: [
+          { kind: "system", name: "alba", author: "system", text: "joined.", assignment: "(alba, single-frame)" },
+          { kind: "group", name: "alba", author: "agent", lines: ["The window is open.", "There is light outside." ] },
+          { kind: "system", name: "anna", author: "system", text: "joined.", assignment: "(anna, single-frame)" },
+          { kind: "group", name: "anna", author: "agent", lines: ["Nothing moves in the dark."] },
+          { kind: "system", name: "cosette", author: "system", text: "joined.", assignment: "(cosette, single-frame-green)" },
+          { kind: "system", name: "javert", author: "system", text: "joined.", assignment: "(javert, single-frame)" },
+          { kind: "group", name: "javert", author: "agent", lines: ["I am not speaking."] },
+          { kind: "system", name: "javert", author: "system", text: "is on hold." },
+          { kind: "group", name: "anna", author: "agent", lines: ["Someone stopped talking.", "The room is quiet again."] },
+          { kind: "system", name: "vera", author: "system", text: "joined.", assignment: "(vera, single-frame)" },
+        ],
+      };
+    </script>
+    <script src="roster_page.js"></script>
+  </body>
+</html>
