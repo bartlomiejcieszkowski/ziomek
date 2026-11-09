@@ -185,6 +185,14 @@ def test_a_page_is_told_that_the_record_was_cleared_when_the_call_ends(app_runni
         assert page.receive_json()["kind"] == "record"
 
 
+def test_the_end_of_a_call_is_reported_only_when_there_was_a_call_to_end():
+    """A quiet check that finds nothing to drop changes nothing, so a page is not told about it."""
+    reports = []
+    quiet_roster = roster.Roster(changed=reports.append)
+    quiet_roster.drop_quiet(0.0)
+    assert reports == [], "the end of a call that was not there was reported"
+
+
 def test_a_change_that_comes_through_the_tools_reaches_a_connected_page(app_running):
     """The tools join on the same roster the app built, so their change is told as well."""
     with app_running.websocket_connect(SIGNAL_PATH) as page:
