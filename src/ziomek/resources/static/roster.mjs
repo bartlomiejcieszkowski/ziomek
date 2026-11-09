@@ -2,6 +2,7 @@ import { blocks_in_frames, whole_frame_grid } from "./roster_grid.mjs";
 import { read_number } from "./numbers.mjs";
 import { room_for, state_sizes } from "./state_sizes.mjs";
 import { fit_scale } from "./fit.mjs";
+import { what_to_ask_for, what_to_ask_on_connection } from "./signal.mjs";
 let lastPayload = {};
 let lastBlocks = [];
 let rendered = 0;
@@ -412,12 +413,19 @@ document.getElementById("menu").addEventListener("click", (event) => {
   save(event.target.dataset.format, new Date());
 });
 
-async function refresh() {
+async function draw_room() {
   try {
     const response = await fetch("/api/roster");
     const tiles = await response.json();
     await load_skins(tiles);
     render(tiles);
+  } catch {
+    return;  // a failed ask keeps the picture as it was, so nothing is shown from it
+  }
+}
+
+async function draw_record() {
+  try {
     const stream = await fetch("/api/roster/transcript");
     lastPayload = await stream.json();
     lastBlocks = lastPayload.blocks;
@@ -453,9 +461,27 @@ async function refresh() {
   rendered = lastBlocks.length;
 }
 
-// The page decides when the view starts and what it shows first.
+// Three seconds is the same wait the debug page uses, so a page that lost its connection asks again
+// on its own instead of leaving the delay to the browser.
+const AGAIN_AFTER = 3000;
+const SIGNAL_PATH = "/api/roster/ws";
+
+const DRAWERS = { room: draw_room, record: draw_record };
+
+function ask_for(names) {
+  for (const name of names) DRAWERS[name]();
+}
+
+function connect_to_signal() {
+  const signal = new WebSocket(SIGNAL_PATH);
+  signal.onopen = () => ask_for(what_to_ask_on_connection());
+  signal.onmessage = (event) => ask_for(what_to_ask_for(JSON.parse(event.data)));
+  signal.onclose = () => setTimeout(connect_to_signal, AGAIN_AFTER);
+}
+
+// The page decides when the view starts; the first picture comes from the connection being open,
+// which is also what a page that was away asks for when it is connected again.
 export async function start(page_default) {
   setShown(panelOpen(page_default));
-  await refresh();
-  setInterval(refresh, 1000);
+  connect_to_signal();
 }
