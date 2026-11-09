@@ -200,8 +200,8 @@ class Roster:
                 dropped.append(participant)
         for participant in dropped:
             participant.leave()
-        # When the last participant goes away, the call is over and its record is cleared.
-        if not self.participants:
+        # A call that is already empty has no end to it, so a check that dropped nothing reports nothing.
+        if dropped and not self.participants:
             self.end_call()
         return dropped
 
