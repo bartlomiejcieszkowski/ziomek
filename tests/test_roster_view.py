@@ -816,6 +816,12 @@ def test_the_roster_box_is_bounded_and_scrolls_inside_it():
     assert "#roster { max-height: 100vh; overflow: auto; }" in page
 
 
+def test_the_page_keeps_no_space_of_its_own_between_the_window_and_the_drawing():
+    """The browser gives a page a margin of its own, which is what moves the drawing when the drawing already fills the window."""
+    page = part_of_page("roster.html", "roster.css")
+    assert "body { margin: 0; }" in page
+
+
 def test_the_page_shows_the_number_of_participants_in_the_call():
     """D: the number comes from the participants that joined, not from what is drawn."""
     page = part_of_page("roster.html", "roster.mjs")

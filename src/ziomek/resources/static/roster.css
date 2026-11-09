@@ -1,4 +1,6 @@
 body { font-family: sans-serif; background: #111; color: #eee; }
+/* The browser adds a margin of its own around a page, which is what moves the drawing down when the drawing already fills the window. */
+body { margin: 0; }
 #layout { display: flex; gap: 12px; min-height: 100vh; }
 #main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 #roster { max-height: 100vh; overflow: auto; }
