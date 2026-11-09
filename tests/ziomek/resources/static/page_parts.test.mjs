@@ -66,14 +66,10 @@ test("a page that loads a part which asks for another part reads it in a way tha
   }
 });
 
-test("the page asks only for what it was told about", () => {
-  const code = part("roster.mjs");
-  assert.ok(code.includes('from "./signal.mjs"'), "the page part decides what to ask for on its own");
-  // Each name the rule gives has its own drawer, so one signal cannot draw both parts of the picture.
-  assert.ok(code.includes("room: draw_room") && code.includes("record: draw_record"), "a part of the picture has no drawer of its own");
-  const handler = code.slice(code.indexOf("signal.onmessage"));
-  assert.ok(handler.includes("ask_for(what_to_ask_for("), "what a signal says is not followed");
-  assert.ok(!handler.includes("draw_room()") && !handler.includes("draw_record()"), "both parts are drawn for one signal");
+test("the page asks for the rule that decides what to ask for", () => {
+  // Which part a page is asked for is checked as a value in the test that reads the page as values.
+  // Only the fact that it asks for the rule instead of writing one cannot be checked as a value.
+  assert.ok(part("roster.mjs").includes('from "./signal.mjs"'), "the page part decides what to ask for on its own");
 });
 
 test("the page asks for the whole picture when its connection is open again", () => {
@@ -90,14 +86,14 @@ test("the page does not ask on its own after the first picture", () => {
   assert.ok(!part("roster.mjs").includes("setInterval("), "the page still asks on a timer");
 });
 
-test("a page that cannot keep the connection asks again after three seconds", () => {
+test("a page that cannot keep the connection asks again on its own", () => {
+  // How long it waits is checked as a value in the test that reads the page as values. Here only the
+  // scheduling can be read, since nothing can be connected without a browser.
   const code = part("roster.mjs");
   assert.ok(code.includes("signal.onclose"), "a lost connection is not connected again");
-  const after = code.slice(code.indexOf("signal.onclose"));
-  assert.ok(code.includes("AGAIN_AFTER = 3000"), "three seconds are not stated in the part");
   assert.ok(
-    after.includes("setTimeout(connect_to_signal, AGAIN_AFTER)"),
-    "the delay before asking again is left to the browser default",
+    code.slice(code.indexOf("signal.onclose")).includes("setTimeout(connect_to_signal, AGAIN_AFTER)"),
+    "the wait before asking again is left to the browser default",
   );
 });
 
