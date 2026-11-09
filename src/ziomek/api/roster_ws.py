@@ -37,8 +37,8 @@ def tell_page(kind: str) -> None:
 
     The app can report a change from a worker thread (the gamepad polling thread, an MCP tool
     call), so the send is scheduled on the server's event loop instead of running on the thread
-    that noticed the change. A change nobody is listening for is not kept; the page asks for the
-    whole picture when its connection is open again.
+    that noticed the change. A change nobody is listening for is not kept; a page asks for the whole
+    picture when its connection is open, which is also what a page that was away needs.
     """
     if not _connected_clients:
         return
