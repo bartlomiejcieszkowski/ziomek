@@ -66,6 +66,41 @@ test("a page that loads a part which asks for another part reads it in a way tha
   }
 });
 
+test("the page asks only for what it was told about", () => {
+  const code = part("roster.mjs");
+  assert.ok(code.includes('from "./signal.mjs"'), "the page part decides what to ask for on its own");
+  // Each name the rule gives has its own drawer, so one signal cannot draw both parts of the picture.
+  assert.ok(code.includes("room: draw_room") && code.includes("record: draw_record"), "a part of the picture has no drawer of its own");
+  const handler = code.slice(code.indexOf("signal.onmessage"));
+  assert.ok(handler.includes("ask_for(what_to_ask_for("), "what a signal says is not followed");
+  assert.ok(!handler.includes("draw_room()") && !handler.includes("draw_record()"), "both parts are drawn for one signal");
+});
+
+test("the page asks for the whole picture when its connection is open again", () => {
+  const code = part("roster.mjs");
+  assert.ok(code.includes("signal.onopen"), "nothing is asked when a connection is opened");
+  assert.ok(
+    code.slice(code.indexOf("signal.onopen")).includes("ask_for(what_to_ask_on_connection())"),
+    "a change made while the page was away is not asked for",
+  );
+});
+
+test("the page does not ask on its own after the first picture", () => {
+  // A timer is not something a value test can reach here, so this is read as a string.
+  assert.ok(!part("roster.mjs").includes("setInterval("), "the page still asks on a timer");
+});
+
+test("a page that cannot keep the connection asks again after three seconds", () => {
+  const code = part("roster.mjs");
+  assert.ok(code.includes("signal.onclose"), "a lost connection is not connected again");
+  const after = code.slice(code.indexOf("signal.onclose"));
+  assert.ok(code.includes("AGAIN_AFTER = 3000"), "three seconds are not stated in the part");
+  assert.ok(
+    after.includes("setTimeout(connect_to_signal, AGAIN_AFTER)"),
+    "the delay before asking again is left to the browser default",
+  );
+});
+
 test("the debug page loads its own part before the page is started", () => {
   const html = page("roster_debug.html");
   // What the page asks for is checked by the test that says a page can only be given what a part provides.
