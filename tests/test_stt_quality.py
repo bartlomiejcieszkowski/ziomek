@@ -83,7 +83,7 @@ class TestBenchmarkMock:
         )
         return mock
 
-    def test_benchmark_imports(self):
+    def test_the_measures_can_be_reached_when_the_package_is_read(self):
         """Module imports correctly."""
         from ziomek.stt import benchmark  # noqa: F401
 
