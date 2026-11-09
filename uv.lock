@@ -3034,6 +3034,7 @@ source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "jsonschema" },
+    { name = "mcp" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pillow" },
@@ -3050,9 +3051,6 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-mcp = [
-    { name = "mcp" },
-]
 stt = [
     { name = "realtimestt", extra = ["faster-whisper"] },
     { name = "silero-vad" },
@@ -3075,7 +3073,7 @@ dev = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.100" },
     { name = "jsonschema", specifier = ">=4.26" },
-    { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.0.0" },
+    { name = "mcp", specifier = ">=1.0.0" },
     { name = "numpy", specifier = ">=1.24" },
     { name = "pillow", specifier = ">=10.0" },
     { name = "pocket-tts", specifier = ">=3.0" },
@@ -3091,7 +3089,7 @@ requires-dist = [
     { name = "torch", specifier = ">=2.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.23" },
 ]
-provides-extras = ["mcp", "stt"]
+provides-extras = ["stt"]
 
 [package.metadata.requires-dev]
 dev = [

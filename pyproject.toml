@@ -21,6 +21,7 @@ dependencies = [
     "pillow>=10.0", "requests>=2.31",
     "pygame-ce>=2.5.8",
     "jsonschema>=4.26",
+    "mcp>=1.0.0",
 ]
 
 [project.urls]
@@ -71,7 +72,6 @@ markers = [
 
 [project.optional-dependencies]
 stt = ["RealtimeSTT[faster-whisper]>=0.4", "silero-vad>=6.0"]
-mcp = ["mcp>=1.0.0"]
 
 [dependency-groups]
 dev = [

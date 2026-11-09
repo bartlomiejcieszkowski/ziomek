@@ -106,8 +106,6 @@ def create_app(
     settings: Settings | None = None,
     dev_mode: bool = False,
     verbose: bool = False,
-    mcp_stdio: bool = False,
-    mcp_http: bool = False,
     mcp_config_exposed: bool = False,
     open_browser: bool = False,
 ) -> FastAPI:
@@ -218,8 +216,10 @@ def create_app(
             html_path = Path(__file__).parent / "resources" / "debug.html"
             return HTMLResponse(content=html_path.read_text(encoding="utf-8"))
 
-    # MCP server (separate thread for stdio, HTTP routes for http mode)
-    if mcp_stdio:
+    # What the tools are reached through is stated by settings, not by a flag passed here.
+    if settings.no_mcp:
+        _logger.info("MCP server not started (turned off)")
+    elif settings.mcp_transport == "stdio":
         import threading
 
         def _start_mcp() -> None:
@@ -230,8 +230,7 @@ def create_app(
         mcp_thread = threading.Thread(target=_start_mcp, daemon=True)
         mcp_thread.start()
         _logger.info("MCP server started (stdio transport)")
-
-    if mcp_http:
+    else:
         from ziomek.mcp.http import register_mcp_http_routes
 
         register_mcp_http_routes(app, mcp_config_exposed, dev_mode)
@@ -257,8 +256,8 @@ def run_server(
     stt_model_dir: str | None = None,
     dev_mode: bool = False,
     verbose: bool = False,
-    mcp_stdio: bool = False,
-    mcp_http: bool = False,
+    no_mcp: bool | None = None,
+    mcp_transport: str | None = None,
     mcp_port: int | None = None,
     mcp_config_exposed: bool = False,
 ):
@@ -284,8 +283,8 @@ def run_server(
         stt_model_dir: STT model download directory.
         dev_mode: Enable debug endpoints and debug page.
         verbose: Enable DEBUG logging.
-        mcp_stdio: Enable MCP server in stdio mode alongside HTTP server.
-        mcp_http: Enable MCP server in HTTP mode alongside HTTP server.
+        no_mcp: Do not serve the tools; the config decides when nothing is stated.
+        mcp_transport: Transport to use for the tools; the config decides when nothing is stated.
         mcp_config_exposed: Expose full config via MCP (default: read-only).
     """
     # Determine effective log level
@@ -308,15 +307,14 @@ def run_server(
         stt_model=stt_model,
         stt_model_dir=stt_model_dir,
         mcp_port=mcp_port,
-        mcp_transport="http" if mcp_http else "stdio",
+        no_mcp=no_mcp,
+        mcp_transport=mcp_transport,
     )
     setup_logging(level=effective_level, enable_buffer=dev_mode)
     app = create_app(
         settings,
         dev_mode=dev_mode,
         verbose=verbose,
-        mcp_stdio=mcp_stdio,
-        mcp_http=mcp_http,
         mcp_config_exposed=mcp_config_exposed,
         open_browser=not settings.no_browser,
     )
@@ -329,11 +327,13 @@ def run_server(
         print(f"  Debug mode enabled: http://{settings.host}:{effective_port}/debug", file=sys.stderr)
     if verbose:
         print("  Verbose mode enabled: DEBUG logging", file=sys.stderr)
-    if mcp_stdio:
-        print(f"  MCP server enabled (stdio transport)", file=sys.stderr)
+    if settings.no_mcp:
+        print("  MCP server is not serving tools (turned off)", file=sys.stderr)
+    elif settings.mcp_transport == "stdio":
+        print("  MCP server enabled (stdio transport)", file=sys.stderr)
         if mcp_config_exposed:
             print("  MCP config exposed: full config (default: read-only)", file=sys.stderr)
-    if mcp_http:
+    elif settings.mcp_transport == "http":
         _mcp_port = settings.mcp_port or effective_port
         if _mcp_port == effective_port:
             print(
@@ -341,7 +341,6 @@ def run_server(
             )
             if mcp_config_exposed:
                 print("  MCP config exposed: full config (default: read-only)", file=sys.stderr)
-            uvicorn.run(app, host=settings.host, port=effective_port)
         else:
             print(f"  MCP server enabled (http transport, separate port {_mcp_port})", file=sys.stderr)
             if mcp_config_exposed:
@@ -355,9 +354,9 @@ def run_server(
 
             mcp_thread = threading.Thread(target=_start_mcp_http, daemon=True)
             mcp_thread.start()
-            uvicorn.run(app, host=settings.host, port=effective_port)
-    else:
-        uvicorn.run(app, host=settings.host, port=effective_port)
+
+    # The app runs on its own port whatever the tools are reached through.
+    uvicorn.run(app, host=settings.host, port=effective_port)
 
 
 def shutdown_server() -> None:

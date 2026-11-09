@@ -23,7 +23,8 @@ class Settings(BaseModel):
     stt_model: str = "tiny.en"
     stt_model_dir: str | None = None
     mcp_port: int = 5004
-    mcp_transport: str = "stdio"
+    no_mcp: bool = False
+    mcp_transport: str = "http"
     # Regular skins are looked up here, relative to the directory the server runs in. The
     # default skin is read from the package resources and is found first, so it keeps a name
     # it claims.
@@ -118,6 +119,7 @@ class Settings(BaseModel):
         stt_model: str | None = None,
         stt_model_dir: str | None = None,
         mcp_port: int | None = None,
+        no_mcp: bool | None = None,
         mcp_transport: str | None = None,
     ) -> "Settings":
         """Compose Settings from config sources with precedence: CLI > env > file > defaults."""
@@ -135,6 +137,7 @@ class Settings(BaseModel):
         stt_model_val = stt_model or file_settings.stt_model
         stt_model_dir_val = stt_model_dir or file_settings.stt_model_dir
         mcp_port_val = mcp_port if mcp_port is not None else file_settings.mcp_port
+        no_mcp_val = no_mcp if no_mcp is not None else file_settings.no_mcp
         mcp_transport_val = mcp_transport or file_settings.mcp_transport
         return cls(
             audio_backend=cli_backend_val,
@@ -151,6 +154,7 @@ class Settings(BaseModel):
             stt_model=stt_model_val,
             stt_model_dir=stt_model_dir_val,
             mcp_port=mcp_port_val,
+            no_mcp=no_mcp_val,
             mcp_transport=mcp_transport_val,
         )
 
@@ -189,8 +193,9 @@ class Settings(BaseModel):
 # stt_model_dir:
 
 # MCP (Model Context Protocol) settings
-# mcp_port: 5004
-# mcp_transport: stdio  # stdio | http
+# The tools are served unless this is set
+# no_mcp: false
+# mcp_transport: http  # http | stdio
 
 # Skins
 # skins_dir: skins           # directory under the current directory holding skin folders and .morda archives
