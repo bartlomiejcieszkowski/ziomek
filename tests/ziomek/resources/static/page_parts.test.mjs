@@ -132,6 +132,18 @@ test("the page keeps what it showed so a window change can be answered from it",
   assert.ok(body_of("render(tiles)").includes("lastTiles = tiles;"), "nothing is kept from what was shown");
 });
 
+test("the tile shows the line stated for that participant", () => {
+  const record = body_of("draw_record()");
+  assert.ok(record.includes("show_written_lines()"), "the record is drawn without putting its lines on the tiles");
+  const show = body_of("show_written_lines()");
+  assert.ok(show.includes("written_by_agent"), "the line stated for a participant is not used");
+  assert.ok(show.includes("textContent"), "the tile is not written with the line");
+});
+
+test("putting a line on a tile does not ask for anything again", () => {
+  assert.ok(!body_of("show_written_lines()").includes("fetch("), "the page asks again for what it already has");
+});
+
 test("a window change before anything has been shown is not acted on", () => {
   assert.ok(body_of("lay_out_again()").includes("if (!lastTiles.length) return;"));
 });
