@@ -51,7 +51,6 @@ def test_the_roster_view_lists_the_participants_of_the_call():
     tiles = client.get("/api/roster").json()
 
     assert [tile["name"] for tile in tiles] == ["John", "Donald"]
-    assert tiles[0]["status_text"] == "compiling"
     assert tiles[1]["state"] == "held"
     assert [(e["name"], e["action"]) for e in tiles[1]["events"]] == [
         ("Donald", "join"),
@@ -62,9 +61,9 @@ def test_the_roster_view_lists_the_participants_of_the_call():
 def test_the_roster_page_renders_a_tile_for_each_participant():
     page = part_of_page("roster.html", "roster.mjs")
 
-    # Tiles are built per participant, and the text areas are filled from the tile data.
+    # Tiles are built per participant; the line each one shows is asserted as a value in
+    # tests/ziomek/resources/static/page_parts.test.mjs.
     assert 'className = "tile"' in page
-    assert "status_text" in page
 
 
 def test_the_roster_page_is_served_by_the_server():
