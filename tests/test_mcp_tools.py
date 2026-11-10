@@ -393,6 +393,25 @@ class TestJoiningWithAFace:
         assert "no skin registry was built" in _text(result)
 
 
+class TestANameThatIsNotInTheCallIsAnsweredTheSameWayByEveryToolThatTakesOne:
+    def test_every_tool_that_names_a_participant_refuses_a_name_that_is_not_in_the_call(self):
+        """The words a wrong name is answered with cannot depend on which tool was asked."""
+        asked_for = {
+            "say": {"name": "not-in-the-call", "text": "hello"},
+            "write": {"name": "not-in-the-call", "text": "a line"},
+            "set_expression": {"name": "not-in-the-call", "expression": "happy"},
+            "get_expression": {"name": "not-in-the-call"},
+            "hold": {"name": "not-in-the-call"},
+            "resume": {"name": "not-in-the-call"},
+            "leave": {"name": "not-in-the-call"},
+            "read_participant": {"name": "not-in-the-call"},
+        }
+        for tool, arguments in asked_for.items():
+            result = _answer(tool, arguments, Roster())
+            assert result.is_error is True, tool + " answered a name that is not in the call as if it were"
+            assert "Unknown participant: not-in-the-call" in _text(result), tool + " says it in its own words"
+
+
 class TestAnExpressionIsAppliedToTheNameItWasAskedAbout:
     """A name stated by a call has to be the name it acts on.
 
