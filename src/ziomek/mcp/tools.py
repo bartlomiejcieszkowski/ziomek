@@ -242,10 +242,7 @@ async def _handle_write(arguments: dict) -> CallToolResult:
     name = arguments.get("name")
     participant = _find_participant(roster, name)
     if participant is None:
-        return CallToolResult(
-            content=[TextContent(type="text", text=json.dumps({"error": f"Unknown participant: {name}"}))],
-            is_error=True,
-        )
+        return _unknown_name(name)
 
     text = arguments.get("text", "")
     participant.add_text(text, author="agent")
@@ -258,10 +255,7 @@ async def _handle_say(arguments: dict) -> CallToolResult:
     name = arguments.get("name")
     participant = _find_participant(roster, name)
     if participant is None:
-        return CallToolResult(
-            content=[TextContent(type="text", text=json.dumps({"error": f"Unknown participant: {name}"}))],
-            is_error=True,
-        )
+        return _unknown_name(name)
 
     text = arguments.get("text", "")
     if arguments.get("record", True):
