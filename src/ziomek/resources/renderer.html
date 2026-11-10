@@ -55,6 +55,7 @@
 
   <script type="module">
     import { fit_scale } from "/static/fit.mjs";
+import { frame_to_show, interval_to_wait } from "/static/frame_order.mjs";
     const canvas = document.getElementById('avatar');
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;  // pixels do not blur, which is how the format reads scaling
@@ -147,9 +148,7 @@
         statusEl.textContent = `${expression} has no frame to draw`;
         return;
       }
-      // A list that loops returns to its first entry, one that does not stops at its last.
-      const count = entry.frames.length;
-      const frame = entry.loop ? entry.frames[cycleIndex % count] : entry.frames[Math.min(cycleIndex, count - 1)];
+      const frame = frame_to_show(entry, cycleIndex);
       const picture = imageFor(frame, () => drawFrame(expression, cycleIndex));
       if (!picture) return;  // drawn again once the picture can be read
 
@@ -183,11 +182,16 @@
         if (!entry || !entry.frames.length) return;  // nothing to advance over
         const count = entry.frames.length;
         const cycle = currentCycleIndex >= 0 ? currentCycleIndex : animFrameIndex % count;
-        drawFrame(expr, cycle);
+        drawFrame(expr, currentCycleIndex >= 0 ? currentCycleIndex : animFrameIndex);
         animFrameIndex++;
-        if (!entry.loop && animFrameIndex >= count) clearInterval(animTimer);  // a list that does not loop stops
+        if (!entry.loop && animFrameIndex >= entry.frames.length) clearInterval(animTimer);  // a list that does not loop stops
       };
-      const delay = (mapping[currentExpression] && mapping[currentExpression].interval_ms) || DEFAULT_INTERVAL;
+      const entry = mapping[currentExpression] || fallbackEntry;
+      const delay = interval_to_wait(entry, DEFAULT_INTERVAL);
+      if (!delay) {
+        step();  // a skin that shows one frame has nothing to advance over
+        return;
+      }
       animTimer = setInterval(step, delay);
     }
 

@@ -4,6 +4,7 @@ import { room_for, state_sizes } from "./state_sizes.mjs";
 import { fit_scale } from "./fit.mjs";
 import { read_signal, what_to_ask_for, what_to_ask_on_connection } from "./signal.mjs";
 import { moving } from "./clock.mjs";
+import { frame_for_view, interval_to_wait, moment_to_use } from "./frame_order.mjs";
 let lastPayload = {};
 let lastBlocks = [];
 let rendered = 0;
@@ -13,6 +14,9 @@ let held_shown = {};  // the element that shows it, so a number can be written a
 // A block can grow after it has been drawn, so what the page drew inside the last block is
 // kept as well; a run of text from one participant joins the block already on screen.
 const read_at = {};  // the moment a number was read, per participant
+const reached = {};  // the frame of what they show that a participant reached, per participant
+const on_screen = {};  // what a participant is on screen showing, so a change starts a picture again
+const next_draw = {};  // the schedule that will draw it again, per participant
 let shown_block = null;
 let shown_lines = 0;
 // A tile shows the line written for its participant, so the element on each tile is kept by name.
@@ -275,14 +279,22 @@ const show_cell = function (block, skin, frame, scaleWidth, scaleHeight, boxWidt
 
 
 // A tile shows one frame of its own skin, which is the frame the mapping resolved for it.
+// A skin that states no time between its frames is drawn at the time this page keeps.
+const draw_again_after = 200;
+
 function draw_avatar(tile, block) {
   const avatar = tile.avatar;
   if (!avatar) return;
   const skin = skins[avatar.skin];
   if (!skin) return;  // nothing was fetched for this skin, so the block stays as it is
-  const frame = avatar.frame;
+  const moment = moment_to_use(on_screen[tile.name], tile.expression, reached[tile.name]);
+  on_screen[tile.name] = tile.expression;
+  reached[tile.name] = moment;
+  const frame = frame_for_view(skin.expressions, tile.expression, avatar.frame, moment);
+  if (!frame) return;  // nothing names a picture for what this participant shows
   const image = image_for(avatar.skin, frame, () => draw_avatar(tile, block));
   if (!image) return;  // not read yet, so it is drawn once the picture arrives
+  draw_it_again(tile, block, skin);
   const boxWidth = block.getBoundingClientRect().width;
   const boxHeight = block.getBoundingClientRect().height;
   if (!boxWidth || !boxHeight || !frame.width || !frame.height) return;  // not laid out yet, so there is no size to scale to
@@ -298,6 +310,17 @@ function draw_avatar(tile, block) {
     return;
   };
   show_cell(block, skin, frame, scale, scale, boxWidth, boxHeight);
+}
+
+// A picture is drawn again from what the page already has, so nothing is asked for because time passed.
+function draw_it_again(tile, block, skin) {
+  const entry = skin.expressions?.[tile.expression];
+  const wait = interval_to_wait(entry, draw_again_after);
+  if (!wait) return;  // one frame has no time between frames, and a skin that states none has no time of its own
+  // A list that does not loop stays where it reached, so there is nothing further to draw.
+  if (!entry.loop && reached[tile.name] >= entry.frames.length - 1) return;
+  if (next_draw[tile.name]) clearTimeout(next_draw[tile.name]);
+  next_draw[tile.name] = setTimeout(() => draw_avatar(tile, block), wait);
 }
 
 function image_for(skin_name, frame, redraw) {
