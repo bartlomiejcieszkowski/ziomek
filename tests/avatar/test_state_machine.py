@@ -186,3 +186,25 @@ def test_a_period_stated_as_no_number_is_read_as_no_period():
     sm = AvatarStateMachine()
     assert sm.setExpression("surprised", duration_ms=None) is True
     assert sm.tick(60_000).expressionName == "surprised"
+
+
+def test_an_expression_of_the_same_strength_is_not_taken_over_by_a_trigger():
+    """Only a stronger expression takes over what is showing."""
+    sm = AvatarStateMachine()
+    sm.update(
+        AvatarInput(buttons=[], axes=[0, 0, 0], connected=True, streaming=True, chatFocused=False, errorState=False)
+    )
+    assert sm.tick(1).expressionName == "thinking"
+
+    # streaming stays on, so the expression asked for is not ended by the trigger going away
+    sm.update(
+        AvatarInput(
+            buttons=[{"pressed": True, "value": 0}],
+            axes=[0, 0, 0],
+            connected=True,
+            streaming=True,
+            chatFocused=False,
+            errorState=False,
+        )
+    )
+    assert sm.tick(1).expressionName == "thinking"

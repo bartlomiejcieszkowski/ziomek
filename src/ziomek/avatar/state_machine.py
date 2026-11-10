@@ -438,8 +438,6 @@ class AvatarStateMachine:
         new_type = self._get_trigger_type(expr)
         if current_type == new_type:
             return False
-        if current_type == "idle" and new_type in ("button", "axis", "vscode"):
-            return True
         return False
 
     def _get_trigger_type(self, expr: ExpressionDef) -> str:
