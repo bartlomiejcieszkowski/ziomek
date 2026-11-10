@@ -185,7 +185,8 @@ class AvatarStateMachine:
         # The participant record is the source for the name and text areas.
         self.on_change: Callable[[Participant | None, str, int], None] | None = None
         self._message_expiry_timestamp: float = 0
-        self._timed_expression_timer: object | None = None
+        # The time left of a period a call asked for, counted while that call still holds.
+        self._expression_period_left_ms: float | None = None
         # An expression stated without a period is kept until something else changes it.
         self._expression_stated_without_a_period: ExpressionDef | None = None
         self._message_timer: object | None = None
@@ -228,6 +229,17 @@ class AvatarStateMachine:
             )
 
         self._current.timer += dt_ms
+
+        # A period a call asked for can be shorter than the expression's own length, so the
+        # expression ends at whichever comes first.
+        if self._current_expression_type == "external" and self._expression_period_left_ms is not None:
+            self._expression_period_left_ms -= dt_ms
+            if self._expression_period_left_ms <= 0:
+                self._expression_period_left_ms = None
+                self._current = None
+                self._current_expression_type = None
+                self._start_expression(self._find_idle_expression())
+                return self.tick(0)
 
         # Handle cycle advancement
         frame_duration = (
@@ -301,8 +313,7 @@ class AvatarStateMachine:
         self._message_expiry_timestamp = 0
         if self._message_timer:
             self._message_timer = None
-        if self._timed_expression_timer:
-            self._timed_expression_timer = None
+        self._expression_period_left_ms = None
         self._expression_stated_without_a_period = None
 
     def getCurrentState(self) -> ExpressionState:
@@ -324,23 +335,12 @@ class AvatarStateMachine:
         self._start_expression(expr)
         self._current_expression_type = "external"
 
-        if self._timed_expression_timer:
-            self._timed_expression_timer = None
-
         if duration_ms and duration_ms > 0:
+            self._expression_period_left_ms = duration_ms
             self._expression_stated_without_a_period = None
-            import threading
-
-            def _timeout() -> None:
-                self._current_expression_type = None
-                self._timed_expression_timer = None
-
-            # In Python we'd use timer threads; simplified here
-            self._timed_expression_timer = threading.Timer(duration_ms / 1000, _timeout)
-            self._timed_expression_timer.daemon = True
-            self._timed_expression_timer.start()
         else:
             # Nothing was stated as a period, so this expression is not given one.
+            self._expression_period_left_ms = None
             self._expression_stated_without_a_period = self._current.defn
 
         return True

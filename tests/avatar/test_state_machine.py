@@ -188,6 +188,14 @@ def test_a_period_stated_as_no_number_is_read_as_no_period():
     assert sm.tick(60_000).expressionName == "surprised"
 
 
+def test_an_expression_that_is_asked_for_a_shorter_period_than_its_own_length_ends_at_the_period_asked_for():
+    """A period is what a caller asked for, so it cannot be longer than the expression it was given."""
+    sm = AvatarStateMachine()
+    assert sm.setExpression("dying", duration_ms=500) is True
+    assert sm.tick(400).expressionName == "dying"
+    assert sm.tick(150).expressionName != "dying"
+
+
 def test_an_expression_of_the_same_strength_is_not_taken_over_by_a_trigger():
     """Only a stronger expression takes over what is showing."""
     sm = AvatarStateMachine()
