@@ -184,3 +184,29 @@ test("the debug page loads its own part before the page is started", () => {
   assert.ok(html.indexOf('"/static/roster_debug.mjs"') < html.indexOf("start("), "the page starts before the reading is set");
   assert.ok(!/<script[^>]*>[^<]*(?:function|const state_sizes = null)/.test(html), "the page defines what a part already defines");
 });
+
+test("the pages ask for the rule that decides what a moment draws instead of writing their own", () => {
+  const drawing = part("roster.mjs");
+  const drawing_page = page("renderer.html");
+  assert.ok(drawing.includes('from "./frame_order.mjs"'), "the drawing part decides a frame on its own");
+  assert.ok(drawing_page.includes('from "/static/frame_order.mjs"'), "the page that draws a skin decides a frame on its own");
+  for (const name of ["frame_to_show", "frame_for_view", "moment_to_use", "interval_to_wait"]) {
+    assert.ok(!drawing.includes("function " + name + "("), name + " is defined in the drawing part as well");
+    assert.ok(!drawing_page.includes("function " + name + "("), name + " is defined in the page as well");
+  }
+});
+
+test("the picture in a tile is drawn from what the rule says for the moment a participant is at", () => {
+  const code = part("roster.mjs");
+  assert.ok(code.includes("frame_for_view("), "the tile draws the frame it was given instead of what the moment names");
+  assert.ok(code.includes("moment_to_use("), "the moment a participant is at is not asked for");
+});
+
+test("a tile is drawn again when its own time has come, without asking the app for anything", () => {
+  const code = part("roster.mjs");
+  const timers = code.split("\n").filter((line) => line.includes("setInterval(") || line.includes("setTimeout("));
+  assert.ok(timers.some((line) => line.includes("draw")), "nothing is drawn again on a timer, so a picture stays as it was first read");
+  for (const line of timers) {
+    assert.ok(!line.includes("fetch(") && !line.includes("ask_for("), "the page asks on its own on a timer: " + line);
+  }
+});
