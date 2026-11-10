@@ -141,7 +141,13 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "expression": {"type": "string", "description": "Expression name (e.g. happy, sad, neutral)."},
-                "duration_ms": {"type": "integer", "description": "Duration in ms (optional, permanent if omitted)."},
+                "duration_ms": {
+                    "type": ["number", "null"],
+                    "description": (
+                        "How long to hold the expression, in ms. Nothing stated or null means it stays "
+                        "until something else changes it."
+                    ),
+                },
                 "name": {
                     "type": "string",
                     "description": "Participant this expression is for. Without it, the global avatar is used.",

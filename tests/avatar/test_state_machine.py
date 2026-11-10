@@ -171,3 +171,18 @@ def test_set_message_is_recorded_on_the_participant_as_written_by_the_agent():
 
     assert participant.status_text == "compiling software"
     assert participant.texts[0].author == "agent"
+
+
+def test_an_expression_that_is_not_given_a_period_is_held_past_any_period_it_could_have_meant():
+    """A period that was never stated must not end the expression on its own."""
+    sm = AvatarStateMachine()
+    assert sm.setExpression("surprised") is True
+    assert sm.tick(100).expressionName == "surprised"
+    assert sm.tick(60_000).expressionName == "surprised"
+
+
+def test_a_period_stated_as_no_number_is_read_as_no_period():
+    """Saying "no period" as a value must answer the same as leaving it out."""
+    sm = AvatarStateMachine()
+    assert sm.setExpression("surprised", duration_ms=None) is True
+    assert sm.tick(60_000).expressionName == "surprised"
