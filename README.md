@@ -119,7 +119,7 @@ A device choice in settings is not applied by any backend, so it does not reach 
 
 ## Gamepad
 
-Polling exists (`src/ziomek/gamepad.py`, a background thread, `--no-gamepad` to skip it), but polled input is not applied to anything: `handle_gamepad_input` is inert because the gamepad is meant to be a control method, not an expression source. The button-to-action mapping for agents is not decided yet. The mapping table below belongs to the Pi extension.
+Polling exists (`src/ziomek/gamepad.py`, a background thread, `--no-gamepad` to skip it), but polled input is not applied to anything: `handle_gamepad_input` is inert because the gamepad is meant to be a control method, not an expression source. The button-to-action mapping for agents is not decided yet.
 
 ## Launch Commands
 
@@ -291,30 +291,6 @@ uv run ziomek --mcp-stdio
 ```
 
 A name that is not in the call is answered by the global state machine, so a tool does not say the name was unknown. A join does not report the face it drew; that is in the record, not in the tool response.
-
-## Pi Voice Assistant Extension
-
-Work in progress and not usable yet.
-
-```bash
-cd pi-ziomek
-npm install
-npm run build
-```
-
-Add the compiled output to your Pi configuration:
-
-```json
-{ "extensions": ["pi-ziomek/dist/index.js"] }
-```
-
-The extension reads its configuration from `~/.pi/agent/extensions/pi-ziomek/config.json` (`voice.serverUrl`, `voice.keyword`, `voice.keywords`, `voice.maxListenDuration`, `gamepad.enabled`, `gamepad.pollIntervalMs`, `gamepad.debounceMs`, `gamepad.buttonMap`, `dashboard.enabled`, `dashboard.autoShow`, `dashboard.refreshIntervalMs`). Tool definitions are in `pi-ziomek/src/tools.ts`.
-
-Keyword gating: a keyword is a case-insensitive prefix match, stripped from the transcription before the text is sent to the agent — saying `ziomek, continue` sends only `continue`.
-
-The TUI dashboard shows connection state, engine and model info, the last few transcriptions, gamepad state, and recent actions. It is toggled with the `toggle_dashboard` action or the `/dashboard` slash command.
-
-Default button mapping for the extension: A short listening, B cycle responses, X long listening, Y re-speak the last output, D-pad up/down scroll history, LB/RB previous and next response, Start toggle dashboard, Select show status.
 
 ## Testing
 
