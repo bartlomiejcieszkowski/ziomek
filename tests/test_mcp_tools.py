@@ -458,3 +458,28 @@ class TestAnExpressionIsAppliedToTheNameItWasAskedAbout:
         assert result.is_error is False
         assert json.loads(_text(result))["name"] is None
         machine.setExpression.assert_called_once_with("happy", None)
+
+
+class TestAnExpressionWithoutAPeriodStays:
+    def test_a_period_stated_as_no_number_reaches_the_machine_as_no_period(self):
+        """The tool must not turn a stated nothing into a period it made up."""
+        machine = MagicMock()
+        machine.setExpression.return_value = True
+
+        with patch("ziomek.server._state_machine", machine):
+            result = _answer("set_expression", {"expression": "surprised", "duration_ms": None}, Roster())
+
+        assert result.is_error is not True
+        assert machine.setExpression.call_args.args[1] is None
+
+    def test_the_tool_that_sets_an_expression_can_be_told_that_no_period_is_given(self):
+        """A caller that wants an expression to stay needs a way to say so as a value."""
+        tool = next(t for t in mcp_tools_module.TOOLS if t.name == "set_expression")
+        assert "null" in tool.input_schema["properties"]["duration_ms"]["type"]
+
+    def test_the_tool_that_sets_an_expression_says_that_no_period_means_it_stays(self):
+        """The words a model reads decide whether it states a period or invents one."""
+        tool = next(t for t in mcp_tools_module.TOOLS if t.name == "set_expression")
+        description = tool.input_schema["properties"]["duration_ms"]["description"]
+        assert "until something else changes" in description
+        assert "permanent" not in description

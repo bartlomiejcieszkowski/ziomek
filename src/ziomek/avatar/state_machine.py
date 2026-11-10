@@ -186,6 +186,8 @@ class AvatarStateMachine:
         self.on_change: Callable[[Participant | None, str, int], None] | None = None
         self._message_expiry_timestamp: float = 0
         self._timed_expression_timer: object | None = None
+        # An expression stated without a period is kept until something else changes it.
+        self._expression_stated_without_a_period: ExpressionDef | None = None
         self._message_timer: object | None = None
 
     def update(self, input: AvatarInput) -> None:
@@ -241,7 +243,13 @@ class AvatarStateMachine:
                 if self._current.cycleIndex >= self._current.defn.cycleCount:
                     leftover = self._current.timer
                     self._current = None
-                    if self._current_expression_type in ("button", "external"):
+                    if (
+                        self._current_expression_type == "external"
+                        and self._expression_stated_without_a_period is not None
+                    ):
+                        # With no period stated, the expression keeps what it was set to.
+                        self._start_expression_as_stated()
+                    elif self._current_expression_type in ("button", "external"):
                         self._current_expression_type = None
                     if self._current_expression_type is None:
                         self._start_expression(self._find_idle_expression())
@@ -251,7 +259,10 @@ class AvatarStateMachine:
                 # Single-cycle expression ended
                 leftover = self._current.timer
                 self._current = None
-                if self._current_expression_type in ("button", "external"):
+                if self._current_expression_type == "external" and self._expression_stated_without_a_period is not None:
+                    # With no period stated, the expression keeps what it was set to.
+                    self._start_expression_as_stated()
+                elif self._current_expression_type in ("button", "external"):
                     self._current_expression_type = None
                 if self._current_expression_type is None:
                     self._start_expression(self._find_idle_expression())
@@ -292,6 +303,7 @@ class AvatarStateMachine:
             self._message_timer = None
         if self._timed_expression_timer:
             self._timed_expression_timer = None
+        self._expression_stated_without_a_period = None
 
     def getCurrentState(self) -> ExpressionState:
         return ExpressionState(
@@ -316,6 +328,7 @@ class AvatarStateMachine:
             self._timed_expression_timer = None
 
         if duration_ms and duration_ms > 0:
+            self._expression_stated_without_a_period = None
             import threading
 
             def _timeout() -> None:
@@ -326,6 +339,9 @@ class AvatarStateMachine:
             self._timed_expression_timer = threading.Timer(duration_ms / 1000, lambda: None)
             self._timed_expression_timer.daemon = True
             self._timed_expression_timer.start()
+        else:
+            # Nothing was stated as a period, so this expression is not given one.
+            self._expression_stated_without_a_period = self._current.defn
 
         return True
 
@@ -435,6 +451,17 @@ class AvatarStateMachine:
     def _is_trigger_active(self, defn: ExpressionDef) -> bool:
         # Lifecycle handled by _update_level_triggers
         return True
+
+    def _start_expression_as_stated(self) -> None:
+        """Start again the expression a call stated without a period, as that call stated it."""
+        stated = self._expression_stated_without_a_period
+        self._current = _CurrentState(
+            defn=stated,
+            name=stated.name,
+            cycleIndex=0,
+            cycleCount=stated.cycleCount,
+            timer=0.0,
+        )
 
     def _start_expression(self, name_or_def: str | ExpressionDef) -> None:
         if isinstance(name_or_def, str):
