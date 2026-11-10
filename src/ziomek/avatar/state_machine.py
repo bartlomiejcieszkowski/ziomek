@@ -336,7 +336,7 @@ class AvatarStateMachine:
                 self._timed_expression_timer = None
 
             # In Python we'd use timer threads; simplified here
-            self._timed_expression_timer = threading.Timer(duration_ms / 1000, lambda: None)
+            self._timed_expression_timer = threading.Timer(duration_ms / 1000, _timeout)
             self._timed_expression_timer.daemon = True
             self._timed_expression_timer.start()
         else:
