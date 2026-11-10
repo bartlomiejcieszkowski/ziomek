@@ -97,9 +97,39 @@ test("the page asks for the whole picture when a connection is opened", () => {
   );
 });
 
-test("the page does not ask on its own after the first picture", () => {
+test("the page does not ask for anything on its own after the first picture", () => {
   // A timer is not something a value test can reach here, so this is read as a string.
-  assert.ok(!part("roster.mjs").includes("setInterval("), "the page still asks on a timer");
+  for (const line of part("roster.mjs").split("\n")) {
+    if (!line.includes("setInterval(")) continue;
+    assert.ok(!line.includes("fetch(") && !line.includes("ask_for("), "the page asks on its own on a timer: " + line);
+  }
+});
+
+test("the drawing part asks for the rule that moves a number instead of writing its own", () => {
+  const code = part("roster.mjs");
+  assert.ok(code.includes('from "./clock.mjs"'), "the page part writes its own rule for a number that moves");
+  assert.ok(!code.includes("function moving("), "the page part defines the rule again");
+});
+
+test("the moment a number was read is kept with it, so the time since reading can be counted", () => {
+  assert.ok(body_of("draw_room()").includes("read_at[tile.name] = Date.now()"), "the moment of reading is not kept");
+});
+
+test("a number shown after it was read includes the time that passed since reading", () => {
+  assert.ok(body_of("held(tile)").includes("moving("), "the shown number is the value as it was read");
+});
+
+test("the page keeps a clock so a number that moved is still shown as moved", () => {
+  assert.ok(part("roster.mjs").includes("setInterval(keep_current, 1000)"), "nothing on the page keeps it current");
+  assert.ok(body_of("keep_current()").includes("held(tile)"), "the number is not shown again from what was read");
+});
+
+test("the clock on the page does not ask for anything", () => {
+  assert.ok(!body_of("keep_current()").includes("fetch("), "the clock asks for something");
+});
+
+test("the part that counts time cannot ask for anything", () => {
+  assert.ok(!part("clock.mjs").includes("fetch("), "a part that counts time asks for something");
 });
 
 test("a page that cannot keep the connection asks again on its own", () => {
