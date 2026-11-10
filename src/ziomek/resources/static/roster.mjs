@@ -3,13 +3,16 @@ import { read_number } from "./numbers.mjs";
 import { room_for, state_sizes } from "./state_sizes.mjs";
 import { fit_scale } from "./fit.mjs";
 import { read_signal, what_to_ask_for, what_to_ask_on_connection } from "./signal.mjs";
+import { moving } from "./clock.mjs";
 let lastPayload = {};
 let lastBlocks = [];
 let rendered = 0;
 // What the page showed is kept, so a window that changed size can be answered from it without asking again.
 let lastTiles = [];
+let held_shown = {};  // the element that shows it, so a number can be written again without asking
 // A block can grow after it has been drawn, so what the page drew inside the last block is
 // kept as well; a run of text from one participant joins the block already on screen.
+const read_at = {};  // the moment a number was read, per participant
 let shown_block = null;
 let shown_lines = 0;
 // A tile shows the line written for its participant, so the element on each tile is kept by name.
@@ -173,6 +176,7 @@ function render(tiles) {
   const root = document.getElementById("roster");
   root.innerHTML = "";
   line_on_tile = {};  // the tiles on screen are gone, so the lines they showed are forgotten
+  held_shown = {};  // the numbers shown are forgotten as well
   const count = document.getElementById("count");
   count.textContent = tiles.length + " participants";
   const room = room_for(read_number, { width: root.clientWidth, height: root.clientHeight }, getComputedStyle(root));
@@ -215,6 +219,7 @@ function render(tiles) {
     if (tile.state === "held") {
       const middle = el_class("middle");
       renderText(middle, "on_hold", "on hold\n" + held(tile));
+      held_shown[tile.name] = middle.lastChild;  // kept so the number can be written again
       el.appendChild(middle);
     }
     el.appendChild(bottom);
@@ -313,7 +318,8 @@ function image_for(skin_name, frame, redraw) {
 }
 
 function held(tile) {
-  const seconds = tile.held_seconds || 0;
+  const at = read_at[tile.name] ?? Date.now();
+  const seconds = moving(tile.held_seconds || 0, Math.floor((Date.now() - at) / 1000));
   return String(Math.floor(seconds / 60)).padStart(2, "0") + ":" + String(seconds % 60).padStart(2, "0");
 }
 
@@ -460,6 +466,9 @@ async function draw_room() {
   try {
     const response = await fetch("/api/roster");
     const tiles = await response.json();
+    for (const tile of tiles) {
+      if (tile.state === "held") read_at[tile.name] = Date.now();
+    }
     await load_skins(tiles);
     render(tiles);
   } catch {
@@ -523,10 +532,24 @@ function connect_to_signal() {
   signal.onclose = () => setTimeout(connect_to_signal, AGAIN_AFTER);
 }
 
+// A number that keeps moving after it was read is shown as the value plus the time since reading, so a number is not asked for again just because time passed.
+function keep_current() {
+  for (const tile of lastTiles) {
+    if (tile.state !== "held") continue;
+    const shown = held_shown[tile.name];
+    if (!shown) continue;  // nothing is shown for this participant
+    const value = "on hold\n" + held(tile);
+    shown.textContent = value;
+    shown.title = value;
+  }
+}
+
 // The page decides when the view starts; the first picture comes from the connection being open,
 // which is also what a page that was away asks for when it is connected again.
 export async function start(page_default) {
   set_up_page_controls();
+
   setShown(panelOpen(page_default));
+  setInterval(keep_current, 1000);  // a number that was read keeps moving, so the page writes it again
   connect_to_signal();
 }
