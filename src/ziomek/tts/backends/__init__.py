@@ -41,10 +41,10 @@ class BackendRegistry:
         except ImportError as exc:
             logger.warning("Backend %s unavailable (%s) — skipped", name, exc)
 
-    def get(self, name: str) -> "IBackend":
+    def get(self, name: str, device=None, extra_settings=None) -> "IBackend":
         if name not in self._backends:
             raise ValueError(f"Unknown audio backend: {name}")
-        return self._backends[name]()  # type: ignore[no-any-return]
+        return self._backends[name](device=device, extra_settings=extra_settings)  # type: ignore[no-any-return]
 
     def list_backends(self) -> list[str]:
         return list(self._backends.keys())

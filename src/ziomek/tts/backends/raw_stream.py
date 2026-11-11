@@ -71,14 +71,14 @@ class Timeline:
         return len(self._pending)
 
 
-def open_stream(rate: int):
+def open_stream(rate: int, device=None):
     """Open a stream, or report that this path cannot be used and give up.
 
     It is reported rather than falling back to another path, so a test in prod stays answerable: the
     name you chose is the path the audio went through.
     """
     try:
-        return sd.RawOutputStream(samplerate=rate, channels=1, dtype="float32")
+        return sd.RawOutputStream(samplerate=rate, channels=1, dtype="float32", device=device)
     except Exception as exc:
         logger.error("cannot open an output stream at %s: %s", rate, exc)
         return None
@@ -156,7 +156,13 @@ def wait_for_device(stream, capacity: int, rate: int) -> None:
 class _RawStreamBackend(IBackend):
     """Shared parts of the two raw stream forms: one stream, one reading path."""
 
-    def __init__(self) -> None:
+    @property
+    def can_be_aimed_at_a_device(self) -> bool:
+        """This path can be told which device to open a stream for."""
+        return True
+
+    def __init__(self, device=None, extra_settings=None) -> None:
+        super().__init__(device, extra_settings)
         self._timeline = Timeline()
 
     def list_devices(self) -> list[dict]:
@@ -177,8 +183,8 @@ class _RawStreamBackend(IBackend):
 class RawStreamBackend(_RawStreamBackend):
     """Raw output stream, one sound at a time, so a second sound waits for the first."""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, device=None, extra_settings=None) -> None:
+        super().__init__(device, extra_settings)
         self._lock = threading.Lock()
 
     @property
@@ -189,7 +195,7 @@ class RawStreamBackend(_RawStreamBackend):
         """Single-shot playback, and the same for a second sound: this form keeps one at a time."""
         samples, rate = read_samples(data)
         self._timeline.add(samples)
-        stream = open_stream(rate)
+        stream = open_stream(rate, self.which_device_hears())
         if stream is None:
             return
         try:
@@ -209,8 +215,9 @@ class RawStreamBackend(_RawStreamBackend):
 class _Writer:
     """One thread writing one shared timeline to one stream."""
 
-    def __init__(self, timeline: Timeline) -> None:
+    def __init__(self, timeline: Timeline, device: int | None = None) -> None:
         self._timeline = timeline
+        self._device = device
         self._thread: threading.Thread | None = None
         self._drained = threading.Event()
 
@@ -222,7 +229,7 @@ class _Writer:
         self._thread.start()
 
     def _run(self, rate: int) -> None:
-        stream = open_stream(rate)
+        stream = open_stream(rate, self._device)
         if stream is None:
             self._drained.set()
             return
@@ -275,7 +282,7 @@ class RawStreamOverlapBackend(_RawStreamBackend):
 
     def __init__(self) -> None:
         super().__init__()
-        self._writer = _Writer(self._timeline)
+        self._writer = _Writer(self._timeline, self.which_device_hears())
 
     @property
     def supports_mixing(self) -> bool:

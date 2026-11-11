@@ -18,9 +18,15 @@ class PyaudioBackend(IBackend):
     def supports_mixing(self) -> bool:
         return True
 
-    def __init__(self) -> None:
+    @property
+    def can_be_aimed_at_a_device(self) -> bool:
+        """This path can be told which device to write to."""
+        return True
+
+    def __init__(self, device=None, extra_settings=None) -> None:
         import pyaudio
 
+        super().__init__(device, extra_settings)
         self._pa = pyaudio.PyAudio()
         try:
             info = self._pa.get_default_output_device_info()
@@ -36,7 +42,7 @@ class PyaudioBackend(IBackend):
             channels=1,
             rate=sr,
             output=True,
-            output_device_index=self._output_device,
+            output_device_index=self.which_device_hears() or self._output_device,
         )
         stream.write(data)
         stream.stop_stream()
@@ -50,7 +56,7 @@ class PyaudioBackend(IBackend):
             channels=1,
             rate=sr,
             output=True,
-            output_device_index=self._output_device,
+            output_device_index=self.which_device_hears() or self._output_device,
             frames_per_buffer=1024,
         )
         stream.write(data)
