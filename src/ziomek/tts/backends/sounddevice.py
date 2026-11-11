@@ -16,6 +16,16 @@ class SounddeviceBackend(IBackend):
     def supports_mixing(self) -> bool:
         return True
 
+    @property
+    def can_be_aimed_at_a_device(self) -> bool:
+        """This path can be told which device to play on."""
+        return True
+
+    @property
+    def can_be_aimed_at_a_device(self) -> bool:
+        """This path can be told which device to play on."""
+        return True
+
     def play(self, data: bytes, sr: int) -> None:
         """Single-shot playback: wait until the device has taken every sample."""
         self._playback(data, sr, wait=True)
@@ -31,7 +41,7 @@ class SounddeviceBackend(IBackend):
                 audio_data = audio_data.mean(axis=1)
             if audio_data.dtype != np.float32:
                 audio_data = audio_data.astype(np.float32)
-            sd.play(audio_data, samplerate=read_sr, blocking=wait)
+            sd.play(audio_data, samplerate=read_sr, blocking=wait, device=self.which_device_hears())
             # Nothing is stopped after a playback that is not waited for: stopping before the device
             # has taken the samples cuts the end of what was queued. Overlapping playback needs an
             # explicit output stream, which is recorded in docs/internal/TODO.md.
