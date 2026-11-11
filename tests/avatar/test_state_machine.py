@@ -216,3 +216,11 @@ def test_an_expression_of_the_same_strength_is_not_taken_over_by_a_trigger():
         )
     )
     assert sm.tick(1).expressionName == "thinking"
+
+
+def test_a_period_of_zero_answers_as_no_period_was_stated():
+    """Nothing stated and a period of nothing reach the same rule, so a value is not read as a length."""
+    sm = AvatarStateMachine()
+    assert sm.setExpression("surprised", duration_ms=0) is True
+    assert sm.tick(100).expressionName == "surprised"
+    assert sm.tick(60_000).expressionName == "surprised"
