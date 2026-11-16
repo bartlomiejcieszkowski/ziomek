@@ -21,7 +21,7 @@ dependencies = [
     "pillow>=10.0", "requests>=2.31",
     "pygame-ce>=2.5.8",
     "jsonschema>=4.26",
-    "mcp>=1.0.0",
+    "mcp>=2.3.0",
 ]
 
 [project.urls]
