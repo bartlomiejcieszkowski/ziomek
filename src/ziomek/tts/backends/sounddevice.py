@@ -21,11 +21,6 @@ class SounddeviceBackend(IBackend):
         """This path can be told which device to play on."""
         return True
 
-    @property
-    def can_be_aimed_at_a_device(self) -> bool:
-        """This path can be told which device to play on."""
-        return True
-
     def play(self, data: bytes, sr: int) -> None:
         """Single-shot playback: wait until the device has taken every sample."""
         self._playback(data, sr, wait=True)
