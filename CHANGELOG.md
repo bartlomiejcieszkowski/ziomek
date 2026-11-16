@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented here.
 
+## [0.9.0] - 2026-11-16
+
+### Added
+
+- A device name is read as the side of the sound path it words, so a request naming a kind can be answered without the table. Only the part before a parenthesis is read, because the other part names the driver and not the side. (`src/ziomek/tts/backends/device_type.py:5-6`, `:11`; `accac294`)
+- A device ask answers with every device that carries the name instead of picking one, and an empty answer means nothing was named or nothing carries it. That keeps nothing-found apart from the system default, which a caller chooses only when it asks for it. (`src/ziomek/tts/backends/devices.py:11`, `:33`; `d8805f9e`)
+- The rules that decide what a moment draws are kept in one part so they can be read as values: the frame to show, the frame for a view, the moment to use, and the time between frames. A list that does not loop stays where it reached, and a change of what a participant shows starts the moment at its first entry. (`src/ziomek/resources/static/frame_order.mjs:3`, `:14`, `:23`, `:30`; `051764b1`, `2fb97464`)
+- A skin that states a time between frames now moves on the page, because a tile draws what its moment names and draws it again when the next frame is due. (`src/ziomek/resources/static/roster.mjs:290`, `:318`; `203e3693`)
+- An expression stated without a period is kept until something else changes it, instead of ending at its own length. (`src/ziomek/avatar/state_machine.py:190-191`, `:274`; `a9508c4a`)
+- A skin with five faces read from one sheet, each definition keeping the name it states. (`src/ziomek/resources/two-tone/`; `94feae2f`)
+
+### Changed
+
+- A period ends an expression at the moment it was asked for, so a period shorter than the expression's own length is what answers. (`src/ziomek/avatar/state_machine.py:235-238`; `301d6ece`)
+- An expression of the same strength is not taken over by a trigger; the branch that let an idle expression be taken over by a button, an axis or the editor is gone. (`src/ziomek/avatar/state_machine.py:438-440`; `6c529cbe`)
+- An unknown name is answered through one definition, so the tools that take a name cannot word it differently from each other. (`src/ziomek/mcp/tools.py:574`; `5b782331`)
+- The opening of the README no longer names a product that is not here, and the gamepad section no longer points at a mapping table that was removed with it. (`README.md`; `e8a03580`)
+
+### Fixed
+
+- The time shown for a pause no longer freezes. A number that keeps moving after it was read is shown as the value plus the time since reading, so the page does not ask again for something that only moved. (`src/ziomek/resources/static/clock.mjs:2`, `src/ziomek/resources/static/roster.mjs:345`; `350d6002`)
+- The period a call states now runs what clears the hold. (`src/ziomek/avatar/state_machine.py:235`; `067ab04f`)
+
 ## [0.8.0] - 2026-11-10
 
 ### Added
