@@ -1,0 +1,68 @@
+{
+  "name": "two-tone_moss",
+  "type": "sheet",
+  "sheet": {
+    "file": "sheet.png"
+  },
+  "frame": {
+    "width": 128,
+    "height": 128
+  },
+  "grid": {
+    "rows": 5,
+    "columns": 7
+  },
+  "frames": {
+    "neutral": {
+      "cell": {
+        "row": 2,
+        "column": 0
+      }
+    },
+    "happy": {
+      "cell": {
+        "row": 2,
+        "column": 1
+      }
+    },
+    "surprised": {
+      "cell": {
+        "row": 2,
+        "column": 2
+      }
+    },
+    "anger": {
+      "cell": {
+        "row": 2,
+        "column": 3
+      }
+    },
+    "disgust": {
+      "cell": {
+        "row": 2,
+        "column": 4
+      }
+    },
+    "fear": {
+      "cell": {
+        "row": 2,
+        "column": 5
+      }
+    },
+    "sad": {
+      "cell": {
+        "row": 2,
+        "column": 6
+      }
+    }
+  },
+  "expressions": {
+    "neutral": "neutral",
+    "happy": "happy",
+    "surprised": "surprised",
+    "anger": "anger",
+    "disgust": "disgust",
+    "fear": "fear",
+    "sad": "sad"
+  }
+}
