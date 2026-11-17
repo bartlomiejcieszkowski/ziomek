@@ -17,6 +17,7 @@ from mcp.types import (
     Tool,
 )
 
+from ziomek import messages
 from ziomek.avatar.skins import get_registry
 from ziomek.roster import DuplicateNameError, Roster, get_roster
 
@@ -186,6 +187,18 @@ TOOLS = [
                 "call_id": {"type": "string", "description": "Reserved, not used yet."},
             },
             "required": [],
+        },
+    ),
+    Tool(
+        name="read_messages",
+        description=(
+            "Read the messages this participant has not been answered with. Being answered does not record "
+            "them as read; that is said separately."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {"name": {"type": "string", "description": "Name for this participant."}},
+            "required": ["name"],
         },
     ),
     Tool(
@@ -580,6 +593,18 @@ def _find_participant(roster: Roster, name: str):
     return next((p for p in roster.participants if p.name == name), None)
 
 
+async def _handle_read_messages(arguments: dict | None = None) -> CallToolResult:
+    name = (arguments or {}).get("name")
+    roster = get_roster()
+    participant = _find_participant(roster, name) if name else None
+    if participant is None:
+        return _unknown_name(name)
+    # Which messages are new is answered by one definition, so this asks it rather than checking here.
+    return _text_payload(
+        {"name": participant.name, "messages": messages.answer_new_messages_for(participant, roster.events)}
+    )
+
+
 async def _handle_status(arguments: dict | None = None) -> CallToolResult:
     from ziomek.server import _audio_player, _stt_engine, _tts_model, get_uptime
 
@@ -671,6 +696,7 @@ async def _on_call_tool(ctx: ServerRequestContext, params: CallToolRequestParams
         "status": _handle_status,
         "read_participants": _handle_read_participants,
         "read_participant": _handle_read_participant,
+        "read_messages": _handle_read_messages,
         "read_available_skins": _handle_read_available_skins,
         "debug_get_render_state": _handle_debug_get_render_state,
     }
