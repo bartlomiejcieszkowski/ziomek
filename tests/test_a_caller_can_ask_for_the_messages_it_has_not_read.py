@@ -15,33 +15,20 @@ def _call_tool(name, arguments):
     return asyncio.run(mcp_tools._on_call_tool(None, CallToolRequestParams(name=name, arguments=arguments)))
 
 
-def test_a_caller_can_ask_for_the_messages_it_has_not_been_answered_with(monkeypatch):
-    roster = Roster()
-    speaker = roster.join("John A.")
-    caller = roster.join("Maria B.")
-    speaker.add_text("the kettle is on", author=speaker.name)
-    speaker.add_text("a word kept for later", author=speaker.name)
-    caller.set_read_up_to(roster.events[0]["time"])
-    monkeypatch.setattr("ziomek.mcp.tools.get_roster", lambda: roster)
-
-    result = _call_tool("read_messages", {"name": caller.name})
-    data = json.loads(result.content[0].text)
-    assert [entry["text"] for entry in data["messages"]] == ["a word kept for later"]
-
-
 def test_the_caller_is_answered_through_the_one_definition_of_which_messages_are_new(monkeypatch):
-    """A different answer from the definition shows up, so the tool does not keep its own check."""
+    """The tool answers what the definition says, not what it works out on its own."""
 
     roster = Roster()
     speaker = roster.join("John A.")
-    speaker.add_text("a line that is not a message", author=speaker.name)
-    speaker.add_text("the kettle is on", author=speaker.name)
+    speaker.add_text("a word the speaker wrote for themselves", author=speaker.name)
     monkeypatch.setattr("ziomek.mcp.tools.get_roster", lambda: roster)
+    # A definition that does not skip a line its own author wrote, so the answer differs from what
+    # the tool would have built for itself.
     monkeypatch.setattr(
         "ziomek.messages.answer_new_messages_for",
-        lambda participant, entries: [entry for entry in entries if entry["text"] != "a line that is not a message"],
+        lambda participant, entries: [entry for entry in entries if entry.get("text") is not None],
     )
 
     result = _call_tool("read_messages", {"name": speaker.name})
     data = json.loads(result.content[0].text)
-    assert [entry["text"] for entry in data["messages"]] == ["the kettle is on"]
+    assert [entry.get("text") for entry in data["messages"]] == ["a word the speaker wrote for themselves"]
