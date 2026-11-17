@@ -410,6 +410,7 @@ class TestANameThatIsNotInTheCallIsAnsweredTheSameWayByEveryToolThatTakesOne:
             "resume": {"name": "not-in-the-call"},
             "leave": {"name": "not-in-the-call"},
             "read_participant": {"name": "not-in-the-call"},
+            "read_messages": {"name": "not-in-the-call"},
             "mark_as_read": {"name": "not-in-the-call", "entries": []},
         }
         for tool, arguments in asked_for.items():
