@@ -1,6 +1,7 @@
 """Participant records hold the name and text, not the state machine."""
 
 import time
+from unittest.mock import patch
 
 from ziomek.avatar.state_machine import AvatarStateMachine
 from ziomek.roster import Roster
@@ -67,7 +68,10 @@ def test_the_participant_keeps_its_own_events():
     roster = Roster()
     p = roster.join("John A.")
 
-    assert p.events == [{"name": "John A.", "action": "join", "voice": p.voice, "skin": p.skin}]
+    entry = p.events[0]
+    assert entry["name"] == "John A."
+    assert entry["action"] == "join"
+    # The record now carries the moment each part happened, so this test reads the parts it is about.
 
 
 def test_the_join_entry_carries_the_voice_and_face_it_assigned():
@@ -90,7 +94,11 @@ def test_an_entry_for_a_join_keeps_nothing_that_was_not_drawn():
     participant = roster.join("John A.")
 
     assert participant.voice is None and participant.skin is None
-    assert roster.events[0] == {"name": "John A.", "action": "join"}
+    entry = roster.events[0]
+    assert entry["name"] == "John A."
+    assert entry["action"] == "join"
+    # The time is the moment it was noted; nothing else is kept for a plain join.
+    assert not any(key in entry for key in ("text", "author", "voice", "skin"))
 
 
 def test_joining_a_name_that_is_already_in_the_call_is_rejected():
@@ -168,3 +176,24 @@ def test_the_record_is_cleared_when_the_last_participant_is_dropped():
 
     assert roster.participants == []
     assert roster.events == []
+
+
+def test_the_record_keeps_the_moment_a_part_of_it_happened():
+    roster = Roster()
+    with patch("ziomek.roster.time.monotonic", return_value=1000.0):
+        entry = roster.record("John A.", "text", text="compiling", author="agent")
+
+    assert entry["time"] == 1000.0
+
+
+def test_a_participant_has_no_moment_read_up_to_before_one_is_set():
+    participant = Roster().join("John A.")
+
+    assert participant.read_up_to is None
+
+
+def test_the_moment_a_participant_is_told_it_read_up_to_is_answered_back():
+    participant = Roster().join("John A.")
+    participant.set_read_up_to(1000.0)
+
+    assert participant.read_up_to == 1000.0
