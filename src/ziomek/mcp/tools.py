@@ -247,7 +247,11 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "name": {"type": "string", "description": "Name for this participant."},
-                "entries": {"type": "array", "description": "The entries a caller says it read.", "items": {"type": "object"}},
+                "entries": {
+                    "type": "array",
+                    "description": "The entries a caller says it read.",
+                    "items": {"type": "object"},
+                },
             },
             "required": ["name", "entries"],
         },
