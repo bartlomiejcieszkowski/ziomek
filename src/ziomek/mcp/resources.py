@@ -39,6 +39,11 @@ RESOURCES = [
         name="Server Configuration",
         description="Server configuration (read-only by default, sensitive fields redacted).",
     ),
+    Resource(
+        uri="message://",
+        name="The Record",
+        description="The entries that carry text, read as a whole in the order they were noted.",
+    ),
 ]
 
 
@@ -136,6 +141,25 @@ async def _get_config() -> ReadResourceResult:
     )
 
 
+def _get_record() -> ReadResourceResult:
+    """The record as one thing: only the entries that carry text, in the order they were noted.
+
+    What counts as a message is decided by one definition, so this asks it rather than deciding on
+    its own, and the record is reached through the place that holds it.
+    """
+    from ziomek import messages, roster
+
+    entries = [entry for entry in roster.get_roster().events if messages.is_message(entry)]
+    return ReadResourceResult(
+        contents=[
+            TextResourceContents(
+                uri="message://",
+                text=json.dumps({"messages": entries}),
+            )
+        ]
+    )
+
+
 async def _on_list_resources(_ctx: ServerRequestContext, params: Any) -> ListResourcesResult:
     return ListResourcesResult(resources=RESOURCES)
 
@@ -151,6 +175,8 @@ async def _on_read_resource(_ctx: ServerRequestContext, params: Any) -> ReadReso
         return await _get_expressions()
     elif uri == "config://":
         return await _get_config()
+    elif uri == "message://":
+        return _get_record()
     else:
         return ReadResourceResult(
             contents=[
