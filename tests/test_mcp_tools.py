@@ -48,7 +48,10 @@ class TestMcpListTools:
     """Test the list_tools MCP endpoint."""
 
     def test_tools_list_has_all_tools(self):
-        """TOOLS list answers the tools for reading what a call holds, not only for acting in it."""
+        """The list answers the tools for reading what a call holds, and the tools for acting in it.
+
+        The count belongs to this test because it is the only place that states how many tools the
+        app offers; it is not a value another test can reach without repeating every name."""
         tool_names = [t.name for t in mcp_tools_module.TOOLS]
         assert "say" in tool_names
         assert "play" in tool_names
@@ -68,7 +71,8 @@ class TestMcpListTools:
         assert "read_participant" in tool_names
         assert "read_available_skins" in tool_names
         assert "read_messages" in tool_names
-        assert len(tool_names) == 18
+        assert "mark_as_read" in tool_names
+        assert len(tool_names) == 19
 
     def test_tools_have_correct_schema(self):
         """Each tool has name, description, and inputSchema."""
@@ -406,6 +410,7 @@ class TestANameThatIsNotInTheCallIsAnsweredTheSameWayByEveryToolThatTakesOne:
             "resume": {"name": "not-in-the-call"},
             "leave": {"name": "not-in-the-call"},
             "read_participant": {"name": "not-in-the-call"},
+            "mark_as_read": {"name": "not-in-the-call", "entries": []},
         }
         for tool, arguments in asked_for.items():
             result = _answer(tool, arguments, Roster())
