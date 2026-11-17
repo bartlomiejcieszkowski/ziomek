@@ -41,8 +41,9 @@ page keeps its own rendering path.
   answering. With no marker set, everything is answered — that is what a join starts at, so a new
   reader gets the whole record as it agreed.
 - The marker is an attribute of the participant. An attribute is a name without a verb, so the
-  field holds the time and a tool sets it: `set_read_position(participant, time)` — or named for
-  the time, which is the open question below.
+  field is `read_up_to` and holds the time this participant read up to. The act that sets it is
+  `set_read_up_to(participant, time)`. The word position is not used: it states a place in a
+  list, and this marker is not a place in a list.
 - `message://` is registered with the other resources in `src/ziomek/mcp/resources.py` and answers
   the entries that carry text. A resource is read as a whole, so it cannot answer what one
   participant has not read; that stays the tool.
@@ -66,12 +67,8 @@ Run as value tests reading the definitions through their exports, per `internal/
 Nothing here is a test that reads a string in a file, except the registration of the resource,
 which is what a client is shown as available.
 
-## Open questions
+## Open question
 
-1. The name of the act that records what was read: `set_read_position` states a place in a list,
-   which no longer matches a time. I would name it `set_read_up_to(participant, time)` with the
-   field `read_up_to`. You approved `set_read_position` before the marker became a time, so this
-   is the one name I should not decide on my own.
-2. Whether "the last five minutes" is an argument of the reading tool, or only what a marker can
+Whether "the last five minutes" is an argument of the reading tool, or only what a marker can
    be set to. If it is an argument, it is a second way of answering the same thing, and I would
    keep it out until there is a caller that needs it.
