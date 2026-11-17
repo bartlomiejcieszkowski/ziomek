@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ziomek.roster import Participant
 
+
 def decide_time(previous: float | None, now: float) -> float:
     """The moment an entry is given, kept later than the one before it.
 
