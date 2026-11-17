@@ -30,14 +30,12 @@ def is_message(entry: dict) -> bool:
 def answer_new_messages_for(participant: Participant, entries: list[dict]) -> list[dict]:
     """Answer the messages this participant has not been answered with yet.
 
-    Answering does not move the marker; only the act that says what was read does. A line this
-    participant wrote itself is not a message for it, and a reader that has read nothing is
-    answered with the whole record, which is where a join starts."""
-    read_up_to = participant.read_up_to
+    Answering does not move what was recorded as read; only the act that says what was read does.
+    A line this participant wrote itself is not a message for it, and a reader that has read nothing
+    is answered with the whole record, which is where a join starts."""
+    read_times = participant.read_times
     return [
         entry
         for entry in entries
-        if is_message(entry)
-        and entry.get("author") != participant.name
-        and (read_up_to is None or entry["time"] > read_up_to)
+        if is_message(entry) and entry.get("author") != participant.name and entry["time"] not in read_times
     ]

@@ -57,7 +57,7 @@ class Participant:
         self.usage = 1
         # Which moment this participant has read up to. Nothing is read for a name that is not
         # in the call, so this stays empty until someone is told otherwise.
-        self.read_up_to: float | None = None
+        self.read_times: set[float] = set()
 
     def add_text(self, text: str, author: str) -> TextEntry:
         """Record a line of text and who wrote it."""
@@ -101,9 +101,13 @@ class Participant:
             return 0
         return int(time.monotonic() - self.held_at)
 
-    def set_read_up_to(self, time: float) -> None:
-        """Say which moment this participant has read up to, so the next answer starts there."""
-        self.read_up_to = time
+    def mark_as_read(self, entries: list[dict]) -> None:
+        """Say which entries this participant read.
+
+        Only the entries it is given are recorded. A caller that read part of the record is not
+        assumed to have read the rest, so an entry nobody said was read stays open."""
+        for entry in entries:
+            self.read_times.add(entry["time"])
 
     @property
     def status_text(self) -> str | None:
