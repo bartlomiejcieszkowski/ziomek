@@ -32,3 +32,21 @@ def test_the_caller_is_answered_through_the_one_definition_of_which_messages_are
     result = _call_tool("read_messages", {"name": speaker.name})
     data = json.loads(result.content[0].text)
     assert [entry.get("text") for entry in data["messages"]] == ["a word the speaker wrote for themselves"]
+
+
+def test_the_tool_records_what_a_caller_said_it_read_on_the_participant_it_names(monkeypatch):
+    """Saying what was read changes what the next reading answers, so the tool has to reach the participant."""
+
+    roster = Roster()
+    speaker = roster.join("John A.")
+    listener = roster.join("Ada")
+    speaker.add_text("the line the caller read", author=speaker.name)
+    speaker.add_text("the line the caller did not read", author=speaker.name)
+    monkeypatch.setattr("ziomek.mcp.tools.get_roster", lambda: roster)
+
+    # A caller can only say what it was answered with, so the entries it names are the ones the reading gave it.
+    answered = json.loads(_call_tool("read_messages", {"name": listener.name}).content[0].text)["messages"]
+    _call_tool("mark_as_read", {"name": listener.name, "entries": [answered[0]]})
+
+    data = json.loads(_call_tool("read_messages", {"name": listener.name}).content[0].text)
+    assert [entry.get("text") for entry in data["messages"]] == ["the line the caller did not read"]
