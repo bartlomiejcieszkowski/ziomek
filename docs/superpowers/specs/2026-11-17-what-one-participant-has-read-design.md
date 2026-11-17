@@ -18,10 +18,12 @@ page keeps its own rendering path.
    ends with the participant, which is when a call ends (`src/ziomek/roster.py:358-361`), so
    nothing is kept for a reader that is not in the call, and nothing is written to disk.
 
-3. The marker is a **time**, not a place in a list. A list position cannot say which lines are
-   new after a reconnect, and it changes when an entry is added before it. A time also answers a
-   span a caller names, which is what "the last five minutes" meant (see Settled). An entry needs the time it was noted —
-   no entry has one today (`src/ziomek/roster.py:336-342`), so this is the one field that has to
+3. What was read is a **set of times**, not a place in a list. A list position cannot say which
+   lines are new after a reconnect, and it changes when an entry is added before it. An entry keeps
+   the time it was noted as its identity (`src/ziomek/roster.py:336-342`, decided by `decide_time`
+   in `src/ziomek/messages.py`), which is why an entry stays open when another one after it was
+   said to be read. A time also answers a span a caller names, which is what "the last five minutes"
+   meant (see Settled).
    be added.
 
 4. Answering does not mark anything as read ✓. The act that records what was read is a separate
@@ -40,12 +42,15 @@ page keeps its own rendering path.
 
 - `read_messages(name)` answers the entries this participant has not read, in the order they were
   noted: the time, the name it is about, the text, and who wrote it. Nothing is changed by
-  answering. With no marker set, everything is answered — that is what a join starts at, so a new
-  reader gets the whole record as it agreed.
-- The marker is an attribute of the participant. An attribute is a name without a verb, so the
-  field is `read_up_to` and holds the time this participant read up to. The act that sets it is
-  `set_read_up_to(participant, time)`. The word position is not used: it states a place in a
-  list, and this marker is not a place in a list.
+  answering. With nothing recorded as read, everything is answered — that is what a join starts at,
+  so a new reader gets the whole record as it agreed.
+- What was read is stored as **the entries a caller said it read**, not as a moment read up to. A
+  moment can only state an end, so it says the entries before that end were read — but a caller can
+  be answered with part of the record and read only part of it, which is a case the caller can
+  reach. An entry keeps its own time as its identity, since `decide_time` keeps each time later
+  than the one before, so an entry that was not said to be read stays open instead of being closed
+  by an entry that comes after it. The field is `Participant.read_times`, an attribute because it
+  holds what is stored; the act that records entries is `mark_as_read(participant, entries)`.
 - `message://` is registered with the other resources in `src/ziomek/mcp/resources.py` and answers
   the entries that carry text. A resource is read as a whole, so it cannot answer what one
   participant has not read; that stays the tool.
@@ -59,8 +64,9 @@ Run as value tests reading the definitions through their exports, per `internal/
    answered for it.
 3. Which messages are new for one participant is answered from what was set for it, not from what
    the last call asked for.
-4. Answering does not mark anything as read; setting the marker moves what is answered next.
-5. A reader that has not set anything is answered with the whole record as it was at its join.
+4. Answering does not record anything as read; saying which entries a caller read takes them out of
+   what is answered next.
+5. A reader that has recorded nothing is answered with the whole record as it was at its join.
 6. A name in a call belongs to one participant, so a reading tool answers that one. Already tested
    at `tests/test_roster.py:104`, so nothing new is written for it.
 7. What counts as a message is decided by one definition, read through its export
@@ -73,6 +79,7 @@ which is what a client is shown as available.
 
 ## Settled
 
-"The last five minutes" was a figure of speech, so there is no window argument: the marker is only
-what a caller can be set to, and the reading tool takes nothing besides the name. A reader that has
-set nothing is answered with the whole record as it was at its join, which is what the tests ask for.
+"The last five minutes" was a figure of speech, so there is no window argument: what was read is
+only what a caller can be told, and the reading tool takes nothing besides the name. A reader that has
+recorded nothing is answered with the whole record as it was at its join, which is what the tests ask
+for.
