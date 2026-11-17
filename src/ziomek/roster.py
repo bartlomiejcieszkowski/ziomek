@@ -7,6 +7,7 @@ import random
 import time
 from dataclasses import dataclass
 
+from ziomek.messages import decide_time
 from ziomek.names import load_name_lists
 from ziomek.tts.voices import VOICES
 
@@ -341,8 +342,9 @@ class Roster:
         event, so an entry for a plain join, hold or leave stays comparable. The voice and the
         face are recorded only for a join, because that is where they are decided."""
         # The moment is kept because a place in the record cannot say what a reader has seen:
-        # a place moves when something is added before it.
-        entry = {"name": name, "action": action, "time": time.monotonic()}
+        # a place moves when something is added before it. Which moment to write is decided by one rule.
+        previous_time = self.events[-1]["time"] if self.events else None
+        entry = {"name": name, "action": action, "time": decide_time(previous_time, time.monotonic())}
         if text is not None:
             entry["text"] = text
         if author is not None:
