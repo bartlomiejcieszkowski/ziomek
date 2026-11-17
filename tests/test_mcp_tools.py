@@ -67,7 +67,8 @@ class TestMcpListTools:
         assert "read_participants" in tool_names
         assert "read_participant" in tool_names
         assert "read_available_skins" in tool_names
-        assert len(tool_names) == 17
+        assert "read_messages" in tool_names
+        assert len(tool_names) == 18
 
     def test_tools_have_correct_schema(self):
         """Each tool has name, description, and inputSchema."""
