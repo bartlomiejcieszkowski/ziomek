@@ -238,6 +238,21 @@ TOOLS = [
         },
     ),
     Tool(
+        name="mark_as_read",
+        description=(
+            "Say which messages a participant read. The entries given are the ones a caller was answered "
+            "with; what is said here changes what the next reading answers for that participant."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Name for this participant."},
+                "entries": {"type": "array", "description": "The entries a caller says it read.", "items": {"type": "object"}},
+            },
+            "required": ["name", "entries"],
+        },
+    ),
+    Tool(
         name="read_available_skins",
         description="Read the skin names the server built, from the package resources before the skins directory.",
         input_schema={"type": "object", "properties": {}},
@@ -568,6 +583,18 @@ async def _handle_read_participant(arguments: dict) -> CallToolResult:
     return _text_payload(_participant_view(participant))
 
 
+async def _handle_mark_as_read(arguments: dict | None = None) -> CallToolResult:
+    name = (arguments or {}).get("name")
+    roster = get_roster()
+    participant = _find_participant(roster, name) if name else None
+    if participant is None:
+        return _unknown_name(name)
+    entries = (arguments or {}).get("entries") or []
+    participant.mark_as_read(entries)
+    # What was read is stored as the entries a caller said it read, so this states them back.
+    return _text_payload({"name": participant.name, "recorded": [entry.get("time") for entry in entries]})
+
+
 async def _handle_read_available_skins(arguments: dict) -> CallToolResult:
     registry = get_registry()
     if registry is None:
@@ -697,6 +724,7 @@ async def _on_call_tool(ctx: ServerRequestContext, params: CallToolRequestParams
         "read_participants": _handle_read_participants,
         "read_participant": _handle_read_participant,
         "read_messages": _handle_read_messages,
+        "mark_as_read": _handle_mark_as_read,
         "read_available_skins": _handle_read_available_skins,
         "debug_get_render_state": _handle_debug_get_render_state,
     }
