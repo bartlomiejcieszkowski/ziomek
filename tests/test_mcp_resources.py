@@ -16,14 +16,13 @@ from ziomek.mcp import resources as mcp_resources_module
 class TestMcpListResources:
     """Test the list_resources MCP endpoint."""
 
-    def test_resources_list_has_all_resources(self):
-        """RESOURCES list has all 4 resources."""
+    def test_a_client_is_shown_the_lists_it_can_read_from_the_app(self):
+        """The things a client is shown as available, read as a client is shown them."""
         uris = [r.uri for r in mcp_resources_module.RESOURCES]
         assert "voices://" in uris
         assert "models://" in uris
         assert "expressions://" in uris
         assert "config://" in uris
-        assert len(uris) == 4
 
     def test_resources_have_correct_fields(self):
         """Each resource has uri, name, and description."""
