@@ -54,6 +54,9 @@ class Participant:
         self.held_at: float | None = None
         self.last_seen = time.monotonic()
         self.usage = 1
+        # Which moment this participant has read up to. Nothing is read for a name that is not
+        # in the call, so this stays empty until someone is told otherwise.
+        self.read_up_to: float | None = None
 
     def add_text(self, text: str, author: str) -> TextEntry:
         """Record a line of text and who wrote it."""
@@ -96,6 +99,10 @@ class Participant:
         if self.held_at is None:
             return 0
         return int(time.monotonic() - self.held_at)
+
+    def set_read_up_to(self, time: float) -> None:
+        """Say which moment this participant has read up to, so the next answer starts there."""
+        self.read_up_to = time
 
     @property
     def status_text(self) -> str | None:
