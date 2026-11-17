@@ -26,8 +26,10 @@ page keeps its own rendering path.
    meant (see Settled).
    be added.
 
-4. Answering does not mark anything as read ✓. The act that records what was read is a separate
-   call, and it sets something on an object that can be read back through `read_participant`.
+4. Answering does not record anything as read ✓. Saying what was read is a separate call, and it is
+   not answered back through `read_participant` — that tool answers a participant as the app knows
+   it (expression, mood, voice, whether it is held), not what it has read. Reading what was read
+   stays the reading tool.
 
 5. Lines whose author is the participant itself are not answered for it ✓, so reading what was
    said gives what others said.
