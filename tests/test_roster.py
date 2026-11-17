@@ -186,14 +186,7 @@ def test_the_record_keeps_the_moment_a_part_of_it_happened():
     assert entry["time"] == 1000.0
 
 
-def test_a_participant_has_no_moment_read_up_to_before_one_is_set():
+def test_nothing_is_recorded_as_read_before_a_caller_says_what_it_read():
     participant = Roster().join("John A.")
 
-    assert participant.read_up_to is None
-
-
-def test_the_moment_a_participant_is_told_it_read_up_to_is_answered_back():
-    participant = Roster().join("John A.")
-    participant.set_read_up_to(1000.0)
-
-    assert participant.read_up_to == 1000.0
+    assert participant.read_times == set()
