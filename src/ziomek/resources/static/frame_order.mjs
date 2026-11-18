@@ -1,10 +1,16 @@
 // The rules that decide what a moment draws are kept apart from the page, so they can be read as values.
+const INFINITE = "INFINITE";  // what a definition states for a period that never ends
 
 export function frame_to_show(entry, step, answer) {
   const names = entry?.frames ?? [];
-  // Nothing is stated for what a participant shows, so the rule answers with the frame it
-  // was answered for them.
-  if (names.length === 0) return answer ?? null;
+  if (names.length === 0) {
+    // A period that never ends is what an expression states for itself, so it is answered by its own
+    // period. The caller decides what to draw for it, because a period is not a frame.
+    if (entry.period === INFINITE) return INFINITE;
+    // Nothing is stated for what a participant shows, so the rule answers with the frame it was
+    // answered for them.
+    return answer ?? null;
+  }
   if (names.length === 1) return names[0];
   if (entry.loop) return names[step % names.length];
   // A list that does not loop stays where it reached.
