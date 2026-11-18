@@ -223,14 +223,31 @@ class Roster:
             self.participants.remove(participant)
             self.report_change("room")
 
-    def report_change(self, kind: str) -> None:
-        """Report which part changed, so a page can ask for that part alone.
+    def report_change(self, kind: str, name: str | None = None, expression: str | None = None) -> None:
+        """Report which part changed, and what the change carries when it can be drawn as it is.
+
+        A change that states a participant and what they show is enough for a page to draw one tile, so it
+        is sent with those values. A change that names only a part carries nothing, and the page asks for
+        that part.
 
         A call that was built without anything to report to does nothing here.
         """
         if self.changed is None:
             return
-        self.changed(kind)
+        entry = {"kind": kind}
+        if name is not None:
+            entry["name"] = name
+        if expression is not None:
+            entry["expression"] = expression
+        self.changed(entry)
+
+    def _report_expression(self, record: Participant, expression: str, cycle_index: int) -> None:
+        """A change of what a participant shows is not a change to the room or the record, so it is
+        reported on its own, with the participant and what they show now. The view push still runs.
+        """
+        self.report_change("expression", record.name, expression)
+        if self.push_hook is not None:
+            self.push_hook(record, expression, cycle_index)
 
     def _count(self, name: str) -> int:
         count = self.usage_counts.get(name, 0) + 1
@@ -245,7 +262,8 @@ class Roster:
 
             factory = AvatarStateMachine
         machine = factory(participant)
-        machine.on_change = self.push_hook
+        # What the machine announces is reported as its own change, then passed to the view push.
+        machine.on_change = self._report_expression
         return machine
 
     def _candidates(self, key: int) -> list[tuple[str, str]]:

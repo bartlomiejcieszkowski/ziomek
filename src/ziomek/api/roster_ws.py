@@ -33,8 +33,10 @@ async def _broadcast(message: dict[str, Any]) -> None:
             _connected_clients.remove(client)
 
 
-def tell_page(kind: str) -> None:
-    """Tell every listening page that this part changed.
+def tell_page(change: dict[str, Any]) -> None:
+    """Tell every listening page that this part changed, with what the change carries.
+
+    A change that states values is sent as it is, so a page can draw from it without asking again.
 
     The app can report a change from a worker thread (the gamepad polling thread, an MCP tool
     call), so the send is scheduled on the server's event loop instead of running on the thread
@@ -45,7 +47,7 @@ def tell_page(kind: str) -> None:
         return
 
     async def _push() -> None:
-        await _broadcast({"kind": kind})
+        await _broadcast(change)
 
     call_on_event_loop(_push)
 

@@ -2,7 +2,7 @@ import { blocks_in_frames, whole_frame_grid } from "./roster_grid.mjs";
 import { read_number } from "./numbers.mjs";
 import { room_for, state_sizes } from "./state_sizes.mjs";
 import { fit_scale } from "./fit.mjs";
-import { read_signal, what_to_ask_for, what_to_ask_on_connection } from "./signal.mjs";
+import { read_signal, what_to_ask_for, what_to_ask_on_connection, what_a_change_states } from "./signal.mjs";
 import { moving } from "./clock.mjs";
 import { frame_for_view, interval_to_wait, moment_to_use } from "./frame_order.mjs";
 let lastPayload = {};
@@ -21,6 +21,7 @@ let shown_block = null;
 let shown_lines = 0;
 // A tile shows the line written for its participant, so the element on each tile is kept by name.
 let line_on_tile = {};
+let block_for_tile = {};  // the block each participant is drawn in, so one tile can be drawn again
 
 const EXT = { markdown: "md", json: "json" };
 
@@ -181,6 +182,7 @@ function render(tiles) {
   root.innerHTML = "";
   line_on_tile = {};  // the tiles on screen are gone, so the lines they showed are forgotten
   held_shown = {};  // the numbers shown are forgotten as well
+  block_for_tile = {};  // the blocks they were drawn in are forgotten as well
   const count = document.getElementById("count");
   count.textContent = tiles.length + " participants";
   const room = room_for(read_number, { width: root.clientWidth, height: root.clientHeight }, getComputedStyle(root));
@@ -204,6 +206,7 @@ function render(tiles) {
     el.style.height = place.tile.height + "px";
     const block = el_class("avatar");
     el.appendChild(block);
+    block_for_tile[tile.name] = block;
 
     const top = el_class("top");
     renderText(top, "name", tile.name);
@@ -241,6 +244,15 @@ function show_written_lines() {
     element.textContent = line;
     element.title = line;  // the whole line is here, only three lines of it can be shown
   }
+}
+
+// A change that states what a participant shows is answered for that participant alone, from the tile
+// the page already has, so nothing is asked for again.
+function draw_one_tile(name, expression) {
+  if (!block_for_tile[name]) return;  // the page has not shown this participant
+  const tile = lastTiles.find((entry) => entry.name === name);
+  tile.expression = expression;
+  draw_avatar(tile, block_for_tile[name]);
 }
 
 const skins = {};  // one mapping per skin, so participants that share a skin share one copy
@@ -554,7 +566,12 @@ export function ask_for(names) {
 function connect_to_signal() {
   const signal = new WebSocket(SIGNAL_PATH);
   signal.onopen = () => ask_for(what_to_ask_on_connection());
-  signal.onmessage = (event) => ask_for(what_to_ask_for(read_signal(event.data)));
+  signal.onmessage = (event) => {
+    const message = read_signal(event.data);
+    const change = what_a_change_states(message);
+    draw_one_tile(change.name, change.expression);  // a change that names a part carries nothing to draw
+    ask_for(what_to_ask_for(message));
+  };
   signal.onclose = () => setTimeout(connect_to_signal, AGAIN_AFTER);
 }
 
