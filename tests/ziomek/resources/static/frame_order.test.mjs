@@ -46,6 +46,12 @@ test("an expression that states nothing is answered for the moment it names", ()
 
 const stated = { "happy": { frames: ["first", "second"], loop: false } };
 
+test("an expression that states nothing and is held for a period is answered by its period", () => {
+  // A period that never ends is what an expression states, so the rule answers with it and the caller
+  // decides what to draw for it; the rule does not turn a period into a frame.
+  assert.equal(frame_to_show({ frames: [], period: "INFINITE" }, 2, "answered"), "INFINITE");
+});
+
 test("a participant whose expression states a list is drawn with the frame that moment names", () => {
   assert.equal(frame_for_view(stated, "happy", "answered", 1), "second");
 });
