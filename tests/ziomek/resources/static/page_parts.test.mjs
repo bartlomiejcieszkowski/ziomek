@@ -178,6 +178,19 @@ test("a window change before anything has been shown is not acted on", () => {
   assert.ok(body_of("lay_out_again()").includes("if (!lastTiles.length) return;"));
 });
 
+
+test("showing or hiding the panel lays the tiles out again", () => {
+  // Nothing can be clicked without a browser, so this is read as text like the tests that read how a
+  // window change is answered. A size comes from the room measured when the drawing runs, so the
+  // change has to be answered after the state of the panel is known, not before it.
+  const change = body_of("setShown(shown)");
+  assert.ok(change.includes("lay_out_again()"), "the tiles keep the sizes from the last render");
+  assert.ok(
+    change.indexOf("lay_out_again()") > change.indexOf('classList.toggle("hide", !shown)'),
+    "the room is measured before the state of the panel changes",
+  );
+});
+
 test("the debug page loads its own part before the page is started", () => {
   const html = page("roster_debug.html");
   // What the page asks for is checked by the test that says a page can only be given what a part provides.
