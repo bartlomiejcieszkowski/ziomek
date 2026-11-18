@@ -18,3 +18,9 @@ export function what_to_ask_for(signal) {
 export function what_to_ask_on_connection() {
   return [...PARTS];
 }
+
+// What a change carries, in the form a part needs to draw it. A change that names a part has
+// nothing to draw from, so that part is asked for; a change that states values is enough on its own.
+export function what_a_change_states(signal) {
+  return { name: signal?.name, expression: signal?.expression };
+}
