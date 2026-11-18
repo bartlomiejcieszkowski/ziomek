@@ -224,3 +224,17 @@ def test_a_period_of_zero_answers_as_no_period_was_stated():
     assert sm.setExpression("surprised", duration_ms=0) is True
     assert sm.tick(100).expressionName == "surprised"
     assert sm.tick(60_000).expressionName == "surprised"
+
+
+def test_an_expression_held_for_a_period_is_announced_when_the_period_ends():
+    """A period running out changes what is showing, so the change is announced at that moment."""
+    announced = []
+    sm = AvatarStateMachine()
+    sm.on_change = lambda record, expression, cycle_index: announced.append((record, expression, cycle_index))
+
+    sm.setExpression("dying", duration_ms=500)
+    assert len(announced) == 1  # what was asked for is announced when it is set
+    sm.tick(400)
+    assert len(announced) == 1  # nothing changed while the period still held
+    sm.tick(150)
+    assert len(announced) == 2  # the period running out changed what is showing
