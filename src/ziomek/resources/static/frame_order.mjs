@@ -6,7 +6,7 @@ export function frame_to_show(entry, step, answer) {
   if (names.length === 0) {
     // A period that never ends is what an expression states for itself, so it is answered by its own
     // period. The caller decides what to draw for it, because a period is not a frame.
-    if (entry.period === INFINITE) return INFINITE;
+    if (entry?.period === INFINITE) return INFINITE;
     // Nothing is stated for what a participant shows, so the rule answers with the frame it was
     // answered for them.
     return answer ?? null;
