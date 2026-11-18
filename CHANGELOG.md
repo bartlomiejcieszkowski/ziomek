@@ -2,6 +2,28 @@
 
 All notable changes to this project are documented here.
 
+## [0.10.0] - 2026-11-19
+
+### Added
+
+- Read state is the entries a caller said it read, kept per participant, so a caller answered with part of the record is not assumed to have read the rest. One tool names the entries it read and another answers what has not been answered with; being answered records nothing as read. (`src/ziomek/roster.py:60`, `:104`; `src/ziomek/mcp/tools.py:241`, `:590`, `:193`, `:627`; `01776b60`, `cf09fe72`, `34638081`, `b20711d2`)
+- What counts as a message is decided by one definition, so the record read as a whole and the tool answering one participant cannot disagree. (`src/ziomek/messages.py:25`; `src/ziomek/mcp/resources.py:152`, `:635` of `src/ziomek/mcp/tools.py`; `406362de`, `99b43deb`)
+- A part of the record keeps the moment it happened, so a marker for what was read is a time and not a place in a list. (`src/ziomek/messages.py:11`; `src/ziomek/roster.py:369`; `46159544`, `34e32798`)
+- A change that states what it is for and what it shows is drawn without asking again, from what the page already has. The block each participant is drawn in is kept so one tile can be answered on its own; a signal that names a part still asks for that part, which is what a page that connects needs. (`src/ziomek/resources/static/signal.mjs:24`; `src/ziomek/resources/static/roster.mjs:24`, `:185`, `:209`, `:251`, `:571`; `858d7254`, `587c29b3`)
+- An expression held for a period that never ends is answered by that period, through the same rule as a list that does not loop. (`src/ziomek/resources/static/frame_order.mjs:2`, `:9`; `9a0d891b`, `8b9427c4`)
+
+### Changed
+
+- The moment an entry is given is kept later than the one before it, so two messages noted in the same step can be told apart. The clock on this machine shows the same value for calls made close together, so a tie is given a moment a millisecond later — a moment that did not happen, accepted over losing lines a reader has already been shown. (`src/ziomek/messages.py:11`, `:19-22`; `1dbbd3ea`, `5a19b47b`)
+- The held marker takes the width of the block it is drawn in, at 80% of the inner area. The share is written in CSS because nothing here computes it, so the string test stays for the shape of the page, one rule per selector — which is why the test for the color was narrowed to read only the color, as its name states. (`src/ziomek/resources/static/roster.css:56`; `c36eaa2a`, `8467699e`)
+- The floor for `mcp` is raised to 2.3.0, because the project already resolves and runs on that line and a floor of 1.0.0 lets a fresh install pick something nothing was tested against. (`pyproject.toml:24`; `28c3c21e`)
+
+### Fixed
+
+- Showing or hiding the panel lays the tiles out again after the state of the panel is known, so the sizes on screen are not left from the last render. (`src/ziomek/resources/static/roster.mjs:430`, `:434`; `98ef0bbf`, `7228215b`)
+- A rule given no entry answers with the frame that was answered for a participant instead of throwing, so an expression not in the mapping no longer stops the page. (`src/ziomek/resources/static/frame_order.mjs:9`; `tests/ziomek/resources/static/frame_order.test.mjs:55`, `:59`, `:63`; `f6827597`, `a280985c`, `e22cb47a`)
+- A test that asserted nothing is unwrapped, so the file can be read as one test per behavior. (`tests/ziomek/resources/static/frame_order.test.mjs:34`; `2313ea98`)
+
 ## [0.9.0] - 2026-11-16
 
 ### Added
