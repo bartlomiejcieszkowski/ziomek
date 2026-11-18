@@ -417,6 +417,9 @@ function panelOpen(page_default) {
 
 function setShown(shown) {
   document.getElementById("layout").classList.toggle("hide", !shown);
+  // A size is taken from the room measured when the drawing runs, so the change is answered from what
+  // the page already showed, after the state of the panel is known.
+  lay_out_again();
   const label = document.getElementById("toggle");
   label.textContent = shown ? "hide" : "show";
 }
