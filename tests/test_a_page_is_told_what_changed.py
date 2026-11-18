@@ -199,3 +199,38 @@ def test_a_change_that_comes_through_the_tools_reaches_a_connected_page(app_runn
         result = asyncio.run(mcp_tools._handle_join({"name": "John"}))
         assert not result.is_error
         assert page.receive_json()["kind"] == "room"
+
+
+
+def test_a_change_of_what_a_participant_shows_is_reported_as_its_own_change():
+    """A change of what a participant shows is not a change to the room or to the record, so it has to be reported on its own."""
+    reports = []
+    quiet_roster = roster.Roster(changed=reports.append)
+    participant = quiet_roster.join("John")
+    # The join adds a participant and writes a line, so what this test reads is the report after it.
+    reports.clear()
+    participant.state_machine.setExpression("dying")
+    reported = [entry for entry in reports if entry.get("kind") == "expression"]
+    assert reported, "nothing was reported for a change of what a participant shows"
+
+
+def test_the_report_for_a_change_of_what_a_participant_shows_names_the_participant_it_is_for():
+    """A page draws one tile, so it has to be told which participant the change is for."""
+    reports = []
+    quiet_roster = roster.Roster(changed=reports.append)
+    participant = quiet_roster.join("John")
+    reports.clear()  # the join and the line it writes are not what this test reads
+    participant.state_machine.setExpression("dying")
+    entry = next(entry for entry in reports if entry.get("kind") == "expression")
+    assert entry["name"] == participant.name
+
+
+def test_the_report_for_a_change_of_what_a_participant_shows_states_what_the_participant_shows_now():
+    """The page cannot ask for what changed, so what it is told has to state what the participant shows now."""
+    reports = []
+    quiet_roster = roster.Roster(changed=reports.append)
+    participant = quiet_roster.join("John")
+    reports.clear()  # the join and the line it writes are not what this test reads
+    participant.state_machine.setExpression("dying")
+    entry = next(entry for entry in reports if entry.get("kind") == "expression")
+    assert entry["expression"] == "dying"
