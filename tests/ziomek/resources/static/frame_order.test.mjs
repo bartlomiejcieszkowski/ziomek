@@ -31,8 +31,14 @@ test("an expression that names one frame shows that frame at every moment", () =
   assert.equal(frame_to_show({ frames: ["only"], loop: true }, 9), "only");
 });
 
-test("an expression that names nothing shows nothing", () => {
-  assert.equal(frame_to_show({ frames: [], loop: true }, 0), null);
+test("an expression that states nothing is answered for the moment it names", () => {
+  // The rule is asked what a moment shows, and it answers for that moment. Where it states nothing, the
+  // answer is the frame it was answered for the participant, not a frame picked by the caller.
+test("an expression that states nothing is answered for the moment it names", () => {
+  // The rule is asked what a moment shows, and it answers for that moment. Where it states nothing, the
+  // answer is the frame it was answered for the participant, not a frame picked by the caller.
+  assert.equal(frame_to_show({ frames: [], period: 5000 }, 2, "answered"), "answered");
+});
 });
 
 // What a page draws for a participant is decided from the mapping it already has, so the choice between
