@@ -223,3 +223,37 @@ test("a tile is drawn again when its own time has come, without asking the app f
     assert.ok(!line.includes("fetch(") && !line.includes("ask_for("), "the page asks on its own on a timer: " + line);
   }
 });
+
+test("the page asks for the rule that states what a change carries, instead of reading a message itself", () => {
+  const code = part("roster.mjs");
+  assert.ok(code.includes("what_a_change_states("), "the page reads what a change carries on its own");
+  assert.ok(!code.includes("function what_a_change_states("), "the page defines the rule for what a change states");
+});
+
+test("the page keeps the block of a tile so one tile can be drawn again", () => {
+  assert.ok(
+    part("roster.mjs").includes("block_for_tile[tile.name] = block"),
+    "the block of a tile is not kept, so a change cannot be answered for one tile",
+  );
+});
+
+test("a change of what a participant shows draws that participant's tile from what the page already has", () => {
+  const draw = body_of("draw_one_tile(name, expression)");
+  assert.ok(draw.includes("lastTiles"), "the tile is drawn from what is asked for again, not from what the page has");
+  assert.ok(draw.includes("draw_avatar("), "the tile of the participant the change is for is not drawn");
+});
+
+test("answering a change of what a participant shows does not ask for anything again", () => {
+  assert.ok(!body_of("draw_one_tile(name, expression)").includes("fetch("), "the page asks again for what it already has");
+});
+
+test("nothing is drawn for a participant the page has not seen", () => {
+  assert.ok(
+    body_of("draw_one_tile(name, expression)").includes("if (!block_for_tile[name]) return;"),
+    "a tile the page has not shown is drawn anyway",
+  );
+});
+
+test("a tile that is not on screen anymore is not drawn into", () => {
+  assert.ok(part("roster.mjs").includes("block_for_tile = {}"), "the blocks from the last render are kept, so a change is drawn into a tile that is gone");
+});
